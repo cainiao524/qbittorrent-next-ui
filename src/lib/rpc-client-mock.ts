@@ -1,8 +1,75 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Session } from "./rpc-types";
+import type { ApplicationPreferences, Session } from "./rpc-types";
 import { MOCK_SESSION, MOCK_STATS, MOCK_TORRENTS } from "./mock-data";
 
+const MOCK_APPLICATION_PREFERENCES: ApplicationPreferences = {
+  locale: "zh_CN",
+  save_path: "/srv/downloads",
+  temp_path_enabled: true,
+  temp_path: "/srv/downloads/incomplete",
+  create_subfolder_enabled: false,
+  start_paused_enabled: false,
+  preallocate_all: false,
+  incomplete_files_ext: true,
+  auto_tmm_enabled: false,
+  export_dir: "",
+  export_dir_fin: "",
+  queueing_enabled: true,
+  max_active_downloads: 5,
+  max_active_uploads: 8,
+  max_active_torrents: 12,
+  dont_count_slow_torrents: true,
+  max_ratio_enabled: false,
+  max_ratio: -1,
+  max_seeding_time_enabled: false,
+  max_seeding_time: -1,
+  listen_port: 6881,
+  upnp: true,
+  random_port: false,
+  dl_limit: 0,
+  up_limit: 0,
+  alt_dl_limit: 10240,
+  alt_up_limit: 1024,
+  scheduler_enabled: false,
+  dht: true,
+  pex: true,
+  lsd: true,
+  encryption: 0,
+  anonymous_mode: false,
+  proxy_type: -1,
+  proxy_ip: "",
+  proxy_port: 8080,
+  proxy_auth_enabled: false,
+  proxy_username: "",
+  proxy_password: "",
+  ip_filter_enabled: false,
+  ip_filter_path: "",
+  web_ui_address: "*",
+  web_ui_port: 8080,
+  web_ui_username: "admin",
+  web_ui_password: "",
+  web_ui_csrf_protection_enabled: true,
+  web_ui_clickjacking_protection_enabled: true,
+  web_ui_session_timeout: 3600,
+  alternative_webui_enabled: true,
+  alternative_webui_path: "/webui",
+  use_https: false,
+  rss_processing_enabled: true,
+  rss_refresh_interval: 30,
+  rss_max_articles_per_feed: 50,
+  mail_notification_enabled: false,
+  autorun_enabled: false,
+  autorun_program: "",
+  add_trackers_enabled: false,
+  add_trackers: "",
+  scan_dirs: {},
+  banned_IPs: "",
+  async_io_threads: 10,
+};
+
 class QBittorrentRPCMock {
+  private applicationPreferences: ApplicationPreferences = { ...MOCK_APPLICATION_PREFERENCES };
+
   constructor() {
     console.log("qBittorrent API mock initialized");
   }
@@ -52,6 +119,18 @@ class QBittorrentRPCMock {
 
   async getSession() {
     return this.request("session-get");
+  }
+
+  async getApplicationPreferences(): Promise<ApplicationPreferences> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    return { ...this.applicationPreferences };
+  }
+
+  async setApplicationPreferences(preferences: Partial<ApplicationPreferences>): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    Object.entries(preferences).forEach(([key, value]) => {
+      if (value !== undefined) this.applicationPreferences[key] = value;
+    });
   }
 
   async setSession(args: Partial<Session>) {

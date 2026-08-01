@@ -179,7 +179,8 @@
       "network": "Network",
       "peers": "Peers & Shield",
       "remote": "Web API / Server",
-      "page": "Page Settings"
+      "page": "Page Settings",
+      "all": "All Preferences"
     },
     "page": {
       "title": "Page & Refresh Settings",
@@ -247,6 +248,41 @@
       "rpc_version": "Web API Version",
       "server_software": "Server Software",
       "host_whitelist": "Host Whitelist"
+    },
+    "all": {
+      "title": "All qBittorrent Preferences",
+      "desc": "Shows every setting returned by the server. Available fields vary by qBittorrent version and platform.",
+      "loading": "Loading all qBittorrent preferences…",
+      "reload": "Reload",
+      "warning": "Changing the WebUI address, port, authentication, HTTPS, proxy, or alternative UI path may immediately interrupt this connection. Keep another recovery path available before saving.",
+      "search": "Search keys, categories, or values…",
+      "changed_only": "Changed only",
+      "total": "{{count}} settings returned",
+      "visible": "{{count}} settings visible",
+      "changed": "Changed",
+      "sensitive": "Sensitive",
+      "invalid_json": "Invalid JSON",
+      "no_results": "No matching preferences.",
+      "fix_json": "Fix invalid JSON fields before saving.",
+      "critical_changes": "Includes WebUI or proxy settings that may interrupt the connection.",
+      "pending": "{{count}} changes pending.",
+      "save": "Save Preferences",
+      "load_failed": "Unable to load all preferences",
+      "save_success": "Preferences saved",
+      "save_success_desc": "The server accepted {{count}} changes.",
+      "save_failed": "Unable to save preferences",
+      "save_failed_desc": "A WebUI or network change may have interrupted the connection. Check qBittorrent.",
+      "categories": {
+        "downloads": "Downloads & Storage",
+        "speed": "Speed & Schedule",
+        "connection": "Connection & Proxy",
+        "queue": "Queue & Seeding Limits",
+        "bittorrent": "BitTorrent & Privacy",
+        "webui": "WebUI & Authentication",
+        "rss": "RSS",
+        "automation": "Notifications & Automation",
+        "advanced": "Advanced & Version-specific"
+      }
     },
     "actions": {
       "discard": "Discard",
