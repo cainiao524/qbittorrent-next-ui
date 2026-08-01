@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   RotateCcw,
   Search,
@@ -23,12 +25,31 @@ import {
   PREFERENCE_CATEGORY_ORDER,
   type PreferenceCategory,
 } from "@/lib/application-preferences"
+import { getPreferenceLabel } from "@/lib/application-preference-labels"
 import { useI18n } from "@/lib/i18n-context"
 import { rpc } from "@/lib/rpc-client"
 import type { ApplicationPreferences, ApplicationPreferenceValue } from "@/lib/rpc-types"
 import { cn } from "@/lib/utils"
 
 const MULTILINE_KEY = /(trackers|headers|whitelist|banned|program|filters|certificate|_path$)/i
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
+
+type PaginationItem = number | "start-ellipsis" | "end-ellipsis"
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1)
+
+  const items: PaginationItem[] = [1]
+  if (currentPage > 3) items.push("start-ellipsis")
+
+  const rangeStart = Math.max(2, currentPage - 1)
+  const rangeEnd = Math.min(totalPages - 1, currentPage + 1)
+  for (let page = rangeStart; page <= rangeEnd; page += 1) items.push(page)
+
+  if (currentPage < totalPages - 2) items.push("end-ellipsis")
+  items.push(totalPages)
+  return items
+}
 
 function formatStructuredValue(value: ApplicationPreferenceValue): string {
   return JSON.stringify(value, null, 2)
@@ -47,13 +68,15 @@ function categoryTranslationKey(category: PreferenceCategory): string {
 }
 
 export function AllPreferencesPanel() {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const [preferences, setPreferences] = useState<ApplicationPreferences | null>(null)
   const [draft, setDraft] = useState<ApplicationPreferences>({})
   const [structuredDrafts, setStructuredDrafts] = useState<Record<string, string>>({})
   const [parseErrors, setParseErrors] = useState<Record<string, string>>({})
   const [query, setQuery] = useState("")
   const [changedOnly, setChangedOnly] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -85,26 +108,52 @@ export function AllPreferencesPanel() {
   const hasParseErrors = Object.keys(parseErrors).length > 0
   const hasCriticalChanges = Object.keys(changes).some(isConnectionCriticalPreference)
 
-  const groupedPreferences = useMemo(() => {
+  const filteredEntries = useMemo(() => {
     if (!preferences) return []
     const normalizedQuery = query.trim().toLowerCase()
-    const entries = Object.entries(draft)
+    return Object.entries(draft)
       .filter(([key, value]) => {
         if (changedOnly && !changedKeys.has(key)) return false
         if (!normalizedQuery) return true
+        const category = getPreferenceCategory(key)
         return key.toLowerCase().includes(normalizedQuery)
-          || getPreferenceCategory(key).includes(normalizedQuery)
+          || getPreferenceLabel(key, locale).toLowerCase().includes(normalizedQuery)
+          || category.includes(normalizedQuery)
+          || t(categoryTranslationKey(category), category).toLowerCase().includes(normalizedQuery)
           || String(value).toLowerCase().includes(normalizedQuery)
       })
       .sort(([left], [right]) => left.localeCompare(right))
+  }, [changedKeys, changedOnly, draft, locale, preferences, query, t])
 
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / pageSize))
+  const pageEntries = useMemo(
+    () => filteredEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, filteredEntries, pageSize],
+  )
+
+  const groupedPreferences = useMemo(() => {
     return PREFERENCE_CATEGORY_ORDER
       .map((category) => ({
         category,
-        entries: entries.filter(([key]) => getPreferenceCategory(key) === category),
+        entries: pageEntries.filter(([key]) => getPreferenceCategory(key) === category),
       }))
       .filter((group) => group.entries.length > 0)
-  }, [changedKeys, changedOnly, draft, preferences, query])
+  }, [pageEntries])
+
+  const paginationItems = useMemo(
+    () => getPaginationItems(currentPage, totalPages),
+    [currentPage, totalPages],
+  )
+  const pageStart = filteredEntries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const pageEnd = Math.min(currentPage * pageSize, filteredEntries.length)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [changedOnly, pageSize, query])
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages))
+  }, [totalPages])
 
   const updatePreference = (key: string, value: ApplicationPreferenceValue) => {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -162,7 +211,7 @@ export function AllPreferencesPanel() {
   }
 
   const renderEditor = (key: string, value: ApplicationPreferenceValue) => {
-    const label = `${key} (${getPreferenceValueType(value)})`
+    const label = `${getPreferenceLabel(key, locale)} — ${key} (${getPreferenceValueType(value)})`
     if (typeof value === "boolean") {
       return (
         <button
@@ -337,10 +386,7 @@ export function AllPreferencesPanel() {
             </span>
             <span className="rounded-full bg-muted px-3 py-1">
               {t("settings.all.visible", "当前显示 {{count}} 项")
-                .replace(
-                  "{{count}}",
-                  String(groupedPreferences.reduce((total, group) => total + group.entries.length, 0)),
-                )}
+                .replace("{{count}}", String(filteredEntries.length))}
             </span>
           </div>
         </CardHeader>
@@ -367,13 +413,16 @@ export function AllPreferencesPanel() {
               >
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <code className="break-all text-xs font-semibold text-foreground">{key}</code>
+                    <span className="text-sm font-semibold text-foreground">
+                      {getPreferenceLabel(key, locale)}
+                    </span>
                     {changedKeys.has(key) && (
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary">
                         {t("settings.all.changed", "已更改")}
                       </span>
                     )}
                   </div>
+                  <code className="block break-all text-[10px] text-muted-foreground/80">{key}</code>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                     {getPreferenceValueType(value)}
                     {isSensitivePreference(key) && ` · ${t("settings.all.sensitive", "敏感字段")}`}
@@ -390,6 +439,84 @@ export function AllPreferencesPanel() {
         <Card className="border-dashed bg-muted/10">
           <CardContent className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
             {t("settings.all.no_results", "没有匹配的偏好设置。")}
+          </CardContent>
+        </Card>
+      )}
+
+      {filteredEntries.length > 0 && (
+        <Card className="border-none bg-card/60 shadow-lg">
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <label className="flex items-center gap-2">
+                <span>{t("settings.all.per_page", "每页")}</span>
+                <select
+                  aria-label={t("settings.all.per_page", "每页")}
+                  value={pageSize}
+                  onChange={(event) => setPageSize(Number(event.target.value))}
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-foreground outline-none focus:ring-2 focus:ring-emerald-500/60"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+                <span>{t("settings.all.items", "项")}</span>
+              </label>
+              <span>
+                {t("settings.all.page_summary", "第 {{from}}–{{to}} 项，共 {{count}} 项")
+                  .replace("{{from}}", String(pageStart))
+                  .replace("{{to}}", String(pageEnd))
+                  .replace("{{count}}", String(filteredEntries.length))}
+              </span>
+            </div>
+
+            <nav
+              aria-label={t("settings.all.pagination", "偏好设置分页")}
+              className="flex flex-wrap items-center justify-center gap-1"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                aria-label={t("settings.all.previous_page", "上一页")}
+                className="h-9 w-9 rounded-lg"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {paginationItems.map((item) => item === "start-ellipsis" || item === "end-ellipsis" ? (
+                <span key={item} className="w-7 text-center text-muted-foreground">…</span>
+              ) : (
+                <Button
+                  key={item}
+                  type="button"
+                  variant={item === currentPage ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => setCurrentPage(item)}
+                  aria-label={t("settings.all.page_number", "第 {{page}} 页").replace("{{page}}", String(item))}
+                  aria-current={item === currentPage ? "page" : undefined}
+                  className={cn(
+                    "h-9 w-9 rounded-lg",
+                    item === currentPage && "bg-emerald-500 text-white hover:bg-emerald-600",
+                  )}
+                >
+                  {item}
+                </Button>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                aria-label={t("settings.all.next_page", "下一页")}
+                className="h-9 w-9 rounded-lg"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </nav>
           </CardContent>
         </Card>
       )}

@@ -99,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="h-16 flex flex-row items-center px-4 justify-start group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center border-b font-sans">
         <div className="flex items-center gap-3 font-medium text-lg leading-none group-data-[collapsible=icon]:gap-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-sm font-medium">{APP_CONFIG.name.charAt(0)}</span>
+            <span className="text-sm font-medium">{APP_CONFIG.name.charAt(0).toUpperCase()}</span>
           </div>
           <span className="truncate group-data-[collapsible=icon]:hidden">{APP_CONFIG.name}</span>
         </div>
