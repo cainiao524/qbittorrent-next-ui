@@ -23,6 +23,7 @@ import {
   PREFERENCE_CATEGORY_ORDER,
   type PreferenceCategory,
 } from "@/lib/application-preferences"
+import { getPreferenceLabel, getPreferenceOptions } from "@/lib/application-preference-labels"
 import { useI18n } from "@/lib/i18n-context"
 import { rpc } from "@/lib/rpc-client"
 import type { ApplicationPreferences, ApplicationPreferenceValue } from "@/lib/rpc-types"
@@ -47,13 +48,14 @@ function categoryTranslationKey(category: PreferenceCategory): string {
 }
 
 export function AllPreferencesPanel() {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const [preferences, setPreferences] = useState<ApplicationPreferences | null>(null)
   const [draft, setDraft] = useState<ApplicationPreferences>({})
   const [structuredDrafts, setStructuredDrafts] = useState<Record<string, string>>({})
   const [parseErrors, setParseErrors] = useState<Record<string, string>>({})
   const [query, setQuery] = useState("")
   const [changedOnly, setChangedOnly] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<PreferenceCategory>("behavior")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -85,26 +87,43 @@ export function AllPreferencesPanel() {
   const hasParseErrors = Object.keys(parseErrors).length > 0
   const hasCriticalChanges = Object.keys(changes).some(isConnectionCriticalPreference)
 
-  const groupedPreferences = useMemo(() => {
+  const filteredEntries = useMemo(() => {
     if (!preferences) return []
     const normalizedQuery = query.trim().toLowerCase()
-    const entries = Object.entries(draft)
+    return Object.entries(draft)
       .filter(([key, value]) => {
         if (changedOnly && !changedKeys.has(key)) return false
         if (!normalizedQuery) return true
+        const category = getPreferenceCategory(key)
         return key.toLowerCase().includes(normalizedQuery)
-          || getPreferenceCategory(key).includes(normalizedQuery)
+          || getPreferenceLabel(key, locale).toLowerCase().includes(normalizedQuery)
+          || category.includes(normalizedQuery)
+          || t(categoryTranslationKey(category), category).toLowerCase().includes(normalizedQuery)
           || String(value).toLowerCase().includes(normalizedQuery)
       })
       .sort(([left], [right]) => left.localeCompare(right))
+  }, [changedKeys, changedOnly, draft, locale, preferences, query, t])
 
-    return PREFERENCE_CATEGORY_ORDER
-      .map((category) => ({
-        category,
-        entries: entries.filter(([key]) => getPreferenceCategory(key) === category),
-      }))
-      .filter((group) => group.entries.length > 0)
-  }, [changedKeys, changedOnly, draft, preferences, query])
+  const categoryPages = useMemo(() => PREFERENCE_CATEGORY_ORDER
+    .map((category) => {
+      const total = Object.keys(draft).filter((key) => getPreferenceCategory(key) === category).length
+      const entries = filteredEntries.filter(([key]) => getPreferenceCategory(key) === category)
+      return { category, entries, total }
+    })
+    .filter(({ total }) => total > 0), [draft, filteredEntries])
+
+  const activePage = categoryPages.find(({ category }) => category === activeCategory)
+  const activeEntries = activePage?.entries ?? []
+
+  useEffect(() => {
+    if (!categoryPages.length) return
+    const selected = categoryPages.find(({ category }) => category === activeCategory)
+    if (!selected || ((query || changedOnly) && selected.entries.length === 0)) {
+      setActiveCategory(
+        categoryPages.find(({ entries }) => entries.length > 0)?.category ?? categoryPages[0].category,
+      )
+    }
+  }, [activeCategory, categoryPages, changedOnly, query])
 
   const updatePreference = (key: string, value: ApplicationPreferenceValue) => {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -162,7 +181,11 @@ export function AllPreferencesPanel() {
   }
 
   const renderEditor = (key: string, value: ApplicationPreferenceValue) => {
-    const label = `${key} (${getPreferenceValueType(value)})`
+    const label = `${getPreferenceLabel(key, locale)} — ${key} (${getPreferenceValueType(value)})`
+    const options = typeof value === "number" || typeof value === "string"
+      ? getPreferenceOptions(key, locale, value)
+      : undefined
+
     if (typeof value === "boolean") {
       return (
         <button
@@ -185,6 +208,26 @@ export function AllPreferencesPanel() {
             )}
           />
         </button>
+      )
+    }
+
+    if (options) {
+      const hasCurrentValue = options.some((option) => String(option.value) === String(value))
+      return (
+        <select
+          aria-label={label}
+          value={String(value)}
+          onChange={(event) => {
+            const next = options.find((option) => String(option.value) === event.target.value)
+            if (next) updatePreference(key, next.value)
+          }}
+          className="h-10 w-full rounded-md border border-input bg-background/70 px-3 text-sm text-foreground shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          {!hasCurrentValue && <option value={String(value)}>{String(value)}</option>}
+          {options.map((option) => (
+            <option key={String(option.value)} value={String(option.value)}>{option.label}</option>
+          ))}
+        </select>
       )
     }
 
@@ -337,62 +380,101 @@ export function AllPreferencesPanel() {
             </span>
             <span className="rounded-full bg-muted px-3 py-1">
               {t("settings.all.visible", "当前显示 {{count}} 项")
-                .replace(
-                  "{{count}}",
-                  String(groupedPreferences.reduce((total, group) => total + group.entries.length, 0)),
-                )}
+                .replace("{{count}}", String(filteredEntries.length))}
             </span>
           </div>
         </CardHeader>
       </Card>
 
-      {groupedPreferences.map(({ category, entries }) => (
-        <Card key={category} className="overflow-hidden border-none bg-card/60 shadow-lg">
-          <CardHeader className="border-b border-muted/30 p-5">
-            <CardTitle className="flex items-center justify-between text-base">
-              <span>{t(categoryTranslationKey(category), category)}</span>
-              <span className="rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-                {entries.length}
-              </span>
+      <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <Card className="overflow-hidden border-none bg-card/60 shadow-lg lg:sticky lg:top-4">
+          <CardHeader className="border-b border-muted/30 p-4">
+            <CardTitle className="text-sm">
+              {t("settings.all.category_navigation", "功能类别")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="divide-y divide-muted/30 p-0">
-            {entries.map(([key, value]) => (
-              <div
-                key={key}
-                className={cn(
-                  "grid gap-4 p-4 transition-colors md:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] md:items-start md:p-5",
-                  changedKeys.has(key) && "bg-primary/[0.04]",
-                )}
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <code className="break-all text-xs font-semibold text-foreground">{key}</code>
-                    {changedKeys.has(key) && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary">
-                        {t("settings.all.changed", "已更改")}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {getPreferenceValueType(value)}
-                    {isSensitivePreference(key) && ` · ${t("settings.all.sensitive", "敏感字段")}`}
-                  </p>
-                </div>
-                {renderEditor(key, value)}
-              </div>
-            ))}
+          <CardContent className="flex gap-2 overflow-x-auto p-3 lg:flex-col lg:overflow-visible">
+            {categoryPages.map(({ category, entries, total }) => {
+              const isActive = category === activeCategory
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveCategory(category)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "flex min-w-max items-center justify-between gap-4 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors lg:w-full",
+                    isActive
+                      ? "bg-emerald-500 text-white shadow-sm hover:bg-emerald-600"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  )}
+                >
+                  <span>{t(categoryTranslationKey(category), category)}</span>
+                  <span className={cn(
+                    "rounded-full px-2 py-0.5 font-mono text-[10px]",
+                    isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground",
+                  )}>
+                    {(query || changedOnly) ? `${entries.length}/${total}` : total}
+                  </span>
+                </button>
+              )
+            })}
           </CardContent>
         </Card>
-      ))}
 
-      {groupedPreferences.length === 0 && (
-        <Card className="border-dashed bg-muted/10">
-          <CardContent className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
-            {t("settings.all.no_results", "没有匹配的偏好设置。")}
-          </CardContent>
+        <Card className="overflow-hidden border-none bg-card/60 shadow-lg">
+          <CardHeader className="border-b border-muted/30 p-5">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
+              <span>{t(categoryTranslationKey(activeCategory), activeCategory)}</span>
+              <span className="rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
+                {t("settings.all.category_summary", "显示 {{visible}} 项，共 {{total}} 项")
+                  .replace("{{visible}}", String(activeEntries.length))
+                  .replace("{{total}}", String(activePage?.total ?? 0))}
+              </span>
+            </CardTitle>
+            <CardDescription className="text-xs">
+              {t(`settings.all.category_descriptions.${activeCategory}`, "")}
+            </CardDescription>
+          </CardHeader>
+
+          {activeEntries.length > 0 ? (
+            <CardContent className="divide-y divide-muted/30 p-0">
+              {activeEntries.map(([key, value]) => (
+                <div
+                  key={key}
+                  className={cn(
+                    "grid gap-4 p-4 transition-colors md:grid-cols-[minmax(220px,0.8fr)_minmax(280px,1.2fr)] md:items-start md:p-5",
+                    changedKeys.has(key) && "bg-primary/[0.04]",
+                  )}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        {getPreferenceLabel(key, locale)}
+                      </span>
+                      {changedKeys.has(key) && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary">
+                          {t("settings.all.changed", "已更改")}
+                        </span>
+                      )}
+                    </div>
+                    <code className="block break-all text-[10px] text-muted-foreground/80">{key}</code>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {getPreferenceValueType(value)}
+                      {isSensitivePreference(key) && ` · ${t("settings.all.sensitive", "敏感字段")}`}
+                    </p>
+                  </div>
+                  {renderEditor(key, value)}
+                </div>
+              ))}
+            </CardContent>
+          ) : (
+            <CardContent className="flex min-h-36 items-center justify-center text-sm text-muted-foreground">
+              {t("settings.all.no_results_in_category", "此功能类别中没有匹配的偏好设置。")}
+            </CardContent>
+          )}
         </Card>
-      )}
+      </div>
 
       <div className="sticky bottom-4 z-40 flex flex-col gap-3 rounded-2xl border border-muted/30 bg-background/90 p-3 shadow-2xl backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
         <div className="text-xs text-muted-foreground">

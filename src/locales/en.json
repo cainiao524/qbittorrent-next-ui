@@ -251,7 +251,7 @@
     },
     "all": {
       "title": "All qBittorrent Preferences",
-      "desc": "Shows every setting returned by the server. Available fields vary by qBittorrent version and platform.",
+      "desc": "Shows every server setting on a dedicated functional category page. Names and choices follow qBittorrent's official localization.",
       "loading": "Loading all qBittorrent preferences…",
       "reload": "Reload",
       "warning": "Changing the WebUI address, port, authentication, HTTPS, proxy, or alternative UI path may immediately interrupt this connection. Keep another recovery path available before saving.",
@@ -259,10 +259,13 @@
       "changed_only": "Changed only",
       "total": "{{count}} settings returned",
       "visible": "{{count}} settings visible",
+      "category_navigation": "Functional categories",
+      "category_summary": "Showing {{visible}} of {{total}}",
       "changed": "Changed",
       "sensitive": "Sensitive",
       "invalid_json": "Invalid JSON",
       "no_results": "No matching preferences.",
+      "no_results_in_category": "No matching preferences in this category.",
       "fix_json": "Fix invalid JSON fields before saving.",
       "critical_changes": "Includes WebUI or proxy settings that may interrupt the connection.",
       "pending": "{{count}} changes pending.",
@@ -273,6 +276,7 @@
       "save_failed": "Unable to save preferences",
       "save_failed_desc": "A WebUI or network change may have interrupted the connection. Check qBittorrent.",
       "categories": {
+        "behavior": "Behavior & Interface",
         "downloads": "Downloads & Storage",
         "speed": "Speed & Schedule",
         "connection": "Connection & Proxy",
@@ -281,7 +285,21 @@
         "webui": "WebUI & Authentication",
         "rss": "RSS",
         "automation": "Notifications & Automation",
+        "logging": "Logging",
         "advanced": "Advanced & Version-specific"
+      },
+      "category_descriptions": {
+        "behavior": "Language, confirmations, status display, and general behavior.",
+        "downloads": "Save paths, adding torrents, file handling, and automatic torrent management.",
+        "connection": "Listening ports, connection limits, proxies, network interfaces, and anonymous networking.",
+        "speed": "Global and alternative rate limits, schedules, and transport protocols.",
+        "bittorrent": "Peer discovery, encryption, trackers, IP filtering, and protocol privacy.",
+        "queue": "Active task limits, slow torrent detection, and share limits.",
+        "webui": "Addresses, authentication, HTTPS, reverse proxies, and security protections.",
+        "rss": "RSS refresh, article retention, and automatic download processing.",
+        "automation": "Email notifications and programs run after adding or finishing torrents.",
+        "logging": "Log file paths, rotation, retention, and size limits.",
+        "advanced": "Disk I/O, cache, memory, sockets, and version-specific settings."
       }
     },
     "actions": {
