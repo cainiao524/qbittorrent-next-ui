@@ -10,9 +10,11 @@ import {
   Activity,
   CheckCircle2,
   XCircle,
-  Monitor
+  Monitor,
+  SlidersHorizontal
 } from "lucide-react"
 
+import { AllPreferencesPanel } from "@/components/settings/all-preferences-panel"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -137,6 +139,7 @@ export default function SettingsPage() {
     { id: "peers", label: t('settings.tabs.peers'), icon: Shield },
     { id: "page", label: t('settings.tabs.page'), icon: Monitor },
     { id: "remote", label: t('settings.tabs.remote'), icon: Terminal },
+    { id: "all", label: t('settings.tabs.all'), icon: SlidersHorizontal },
   ]
 
   const Toggle = ({ field, localValue, setLocalValue }: { field?: keyof Session, localValue?: boolean, setLocalValue?: (v: boolean) => void }) => {
@@ -149,7 +152,9 @@ export default function SettingsPage() {
         }}
         className={cn(
           "h-6 w-11 rounded-full transition-all duration-300 relative cursor-pointer",
-          active ? "bg-primary shadow-[0_0_12px_rgba(var(--primary),0.4)]" : "bg-muted"
+          active
+            ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.45)]"
+            : "bg-muted ring-1 ring-border"
         )}
       >
         <div className={cn(
@@ -606,12 +611,14 @@ export default function SettingsPage() {
                 </Card>
               </div>
             )}
+
+            {activeTab === "all" && <AllPreferencesPanel />}
           </div>
         </div>
       </div>
       
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-8 right-6 md:right-12 z-50 p-1.5 md:p-2 bg-background/80 backdrop-blur-2xl border border-muted/30 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-8 ring-1 ring-black/5 dark:ring-white/10 w-[calc(100%-3rem)] md:w-auto">
+      {activeTab !== "all" && <div className="fixed bottom-8 right-6 md:right-12 z-50 p-1.5 md:p-2 bg-background/80 backdrop-blur-2xl border border-muted/30 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-8 ring-1 ring-black/5 dark:ring-white/10 w-[calc(100%-3rem)] md:w-auto">
          <div className="flex items-center gap-2">
             <Button 
               disabled={saving || (Object.keys(pendingChanges).length === 0 && pendingRefreshInterval === null && pendingAutoRefresh === null)}
@@ -629,7 +636,7 @@ export default function SettingsPage() {
               {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : t('settings.actions.apply')}
             </Button>
          </div>
-      </div>
+      </div>}
     </>
   )
 }

@@ -1,5 +1,6 @@
 /** qBittorrent Web API v2 client with a UI-friendly compatibility layer. */
 import type {
+  ApplicationPreferences,
   FreeSpaceResponse,
   Session,
   SessionStats,
@@ -237,12 +238,21 @@ class QBittorrentRPC {
 
   async getSession() {
     const [prefs, version, apiVersion, speedMode] = await Promise.all([
-      this.get<Record<string, unknown>>("/app/preferences"),
+      this.getApplicationPreferences(),
       this.fetch("/app/version").then((response) => response.text()),
       this.fetch("/app/webapiVersion").then((response) => response.text()),
       this.fetch("/transfer/speedLimitsMode").then((response) => response.text()),
     ])
     return this.mapSession(prefs, version, apiVersion, speedMode.trim() === "1")
+  }
+
+  async getApplicationPreferences(): Promise<ApplicationPreferences> {
+    return this.get<ApplicationPreferences>("/app/preferences")
+  }
+
+  async setApplicationPreferences(preferences: Partial<ApplicationPreferences>): Promise<void> {
+    if (!Object.keys(preferences).length) return
+    await this.post("/app/setPreferences", { json: JSON.stringify(preferences) })
   }
 
   async setSession(args: Partial<Session>) {
@@ -273,7 +283,7 @@ class QBittorrentRPC {
     put("start-added-torrents", "start_paused_enabled", (value) => !value)
     if ("encryption" in args) mapped.encryption = args.encryption === "required" ? 1 : args.encryption === "tolerated" ? 2 : 0
     const jobs: Promise<unknown>[] = []
-    if (Object.keys(mapped).length) jobs.push(this.post("/app/setPreferences", { json: JSON.stringify(mapped) }))
+    if (Object.keys(mapped).length) jobs.push(this.setApplicationPreferences(mapped as Partial<ApplicationPreferences>))
     if ("alt-speed-enabled" in args) {
       jobs.push(this.fetch("/transfer/speedLimitsMode").then((response) => response.text()).then((mode) => {
         const enabled = mode.trim() === "1"

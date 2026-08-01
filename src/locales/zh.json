@@ -186,7 +186,8 @@
       "network": "网络连接",
       "peers": "隐私与安全",
       "remote": "Web API / 服务器",
-      "page": "页面设置"
+      "page": "页面设置",
+      "all": "全部偏好"
     },
     "page": {
       "title": "界面呈现与刷新",
@@ -254,6 +255,41 @@
       "rpc_version": "Web API 版本",
       "server_software": "服务器软件",
       "host_whitelist": "主机白名单"
+    },
+    "all": {
+      "title": "全部 qBittorrent 偏好设置",
+      "desc": "按服务器实际返回值展示所有配置项；字段数量会随 qBittorrent 版本和平台变化。",
+      "loading": "正在读取 qBittorrent 全部偏好设置…",
+      "reload": "重新读取",
+      "warning": "修改 WebUI 地址、端口、认证、HTTPS、代理或备用界面路径可能立即中断当前连接。保存前请确认仍有其他方式访问 qBittorrent。",
+      "search": "搜索配置键、分类或值…",
+      "changed_only": "仅显示已更改",
+      "total": "服务器返回 {{count}} 项",
+      "visible": "当前显示 {{count}} 项",
+      "changed": "已更改",
+      "sensitive": "敏感字段",
+      "invalid_json": "JSON 格式无效",
+      "no_results": "没有匹配的偏好设置。",
+      "fix_json": "请先修复无效的 JSON 字段。",
+      "critical_changes": "包含可能中断连接的 WebUI 或代理设置。",
+      "pending": "待保存 {{count}} 项更改。",
+      "save": "保存全部偏好",
+      "load_failed": "无法读取全部偏好设置",
+      "save_success": "偏好设置已保存",
+      "save_success_desc": "服务器已接收 {{count}} 项更改。",
+      "save_failed": "保存偏好设置失败",
+      "save_failed_desc": "连接可能已被 WebUI 或网络设置更改中断，请检查 qBittorrent。",
+      "categories": {
+        "downloads": "下载与存储",
+        "speed": "速度与计划",
+        "connection": "连接与代理",
+        "queue": "队列与做种限制",
+        "bittorrent": "BitTorrent 与隐私",
+        "webui": "WebUI 与认证",
+        "rss": "RSS",
+        "automation": "通知与自动化",
+        "advanced": "高级与版本专属"
+      }
     },
     "actions": {
       "discard": "放弃更改",

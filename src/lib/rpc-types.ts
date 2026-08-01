@@ -136,6 +136,16 @@ export interface TorrentFile {
   bytesCompleted: number
 }
 
+export type ApplicationPreferenceValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ApplicationPreferenceValue[]
+  | { [key: string]: ApplicationPreferenceValue }
+
+export type ApplicationPreferences = Record<string, ApplicationPreferenceValue>
+
 export interface Session {
   "alt-speed-down": number
   "alt-speed-enabled": boolean

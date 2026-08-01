@@ -87,4 +87,38 @@ describe("qBittorrent Web API adapter", () => {
     ])
     expect(String(fetchMock.mock.calls[1][1].body)).toBe("hashes=abc123")
   })
+
+  test("reads and writes all application preferences without dropping unknown fields", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse({
+      dht: true,
+      web_ui_port: 8080,
+      scan_dirs: { "/watch": 0 },
+      future_version_setting: "preserved",
+    }))
+
+    const preferences = await rpc.getApplicationPreferences()
+
+    expect(preferences).toEqual({
+      dht: true,
+      web_ui_port: 8080,
+      scan_dirs: { "/watch": 0 },
+      future_version_setting: "preserved",
+    })
+
+    fetchMock.mockResolvedValueOnce(createResponse(""))
+    await rpc.setApplicationPreferences({
+      dht: false,
+      web_ui_port: 9090,
+      scan_dirs: { "/watch": "/downloads" },
+    })
+
+    const [url, options] = fetchMock.mock.calls[1]
+    const body = new URLSearchParams(String(options.body))
+    expect(url).toBe("/api/v2/app/setPreferences")
+    expect(JSON.parse(body.get("json") ?? "{}")).toEqual({
+      dht: false,
+      web_ui_port: 9090,
+      scan_dirs: { "/watch": "/downloads" },
+    })
+  })
 })
