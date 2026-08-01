@@ -1,120 +1,84 @@
-<h1 align="center" style="border-bottom: none;"><img src="public/favicon.svg" width="24" style="vertical-align: middle; margin-right: 8px;" /> Transmission Next UI</h1>
-<h3 align="center"> 一个Transmission的第三方Web UI，使用shadcn/ui和Vite构建。</h3>
+# qBittorrent Next UI
 
-<p align="center">
-  <img alt="GitHub License" src="https://img.shields.io/github/license/hisproc/transmission-next-ui">
-  <img alt="GitHub Release" src="https://img.shields.io/github/release/hisproc/transmission-next-ui">
-  <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/hisproc/transmission-next-ui/build.yml">
-</p>
+一个面向 qBittorrent 的现代化第三方网页界面，基于 React、Vite、Tailwind CSS 与 shadcn/ui 构建。
 
----
+本项目由 [Transmission Next UI](https://github.com/hisproc/transmission-next-ui) 改造而来，保留其响应式界面与组件结构，后端已经替换为 qBittorrent Web API v2。
 
-## 技术栈
+> 当前版本为 `0.1.0`。核心功能已经可用，但仍建议先在测试环境验证，再替换正在使用的网页界面。
 
-- **前端框架**: [React 19](https://react.dev/) + [Vite 7](https://vite.dev/)
-- **CSS 框架**: [Tailwind CSS 4.0](https://tailwindcss.com/)
-- **组件库**: [shadcn/ui](https://ui.shadcn.com/)
-- **图标库**: [Lucide React](https://lucide.dev/)
-- **路由管理**: [React Router 7](https://reactrouter.com/)
+## 已实现功能
 
----
+- qBittorrent 会话登录与自动验证
+- 种子列表和网格视图
+- 搜索、状态筛选、Tracker 筛选、目录筛选和标签筛选
+- 启动、停止、删除、重新校验和重新汇报
+- 磁力链接及多个 `.torrent` 文件添加
+- 种子重命名、移动目录、速度限制和分享率限制
+- 批量移动目录、批量修改标签、批量替换 Tracker
+- 种子详情、文件、Peer 与 Tracker 信息
+- qBittorrent 全局速度、队列、网络与下载目录设置
+- 自动刷新、深色模式和中英文界面
+- qBittorrent 5 的 `start`、`stop` 端点，并兼容 qBittorrent 4 的 `resume`、`pause` 端点
 
-简体中文 | [English](README_EN.md)
+## 开发运行
 
-
-## 预览
-
-[**在线演示 (Live Demo)**](https://transmission-next-ui-demo.pages.dev)
-
-| Light Mode | Dark Mode |
-| :---: | :---: |
-| ![dashboard_light.png](pic/dashboard_light.png) | ![dashboard_dark.png](pic/dashboard_dark.png) |
-
-| Torrent Details | Settings |
-| :---: | :---: |
-| ![torrent_details.png](pic/torrent_details.png) | ![settings.png](pic/settings.png) |
-
-## 功能
-
-- 现代化 UI 设计
-- 响应式布局，适配所有设备
-- 适配 Transmission 4.0+ 版本
-- [x] 种子管理，信息查看
-- [x] 配置设置
-- [x] 拖拽/粘贴添加种子
-- [x] 深色模式支持
-- [x] Tracker 过滤
-- [x] 支持种子标签
-- [x] 批量替换 Tracker
-- [x] 批量移动下载目录
-- [x] 批量设置种子标签
-
-⚠️本项目为早期版本，尚未经过完整测试，正式使用前请自行验证其功能是否符合预期。
-
-## 快速开始
-
-可以通过三种方式部署 Transmission Next UI，另外提供对于[群辉](doc/NasInstall.md#群辉)和[飞牛OS](doc/NasInstall.md#飞牛OS)的安装指引:
-
-### 1. 一键安装
-
-> 依赖环境：`docker`、`docker-compose` 和 `curl`
-
-> [!TIP]
-> 建议先创建一个专用目录来存放相关文件，例如：
-> ```bash
-> mkdir -p ~/transmission && cd ~/transmission
-> ```
-
-初次安装或升级到最新版本，运行以下命令：
+要求 Node.js 22 或更高版本，以及 pnpm 10 或更高版本。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hisproc/transmission-next-ui/main/download.sh | bash
-```
-
-执行后将在当前目录生成一个 `docker-compose.yml` 文件。
-
-编辑该文件来自定义 Transmission 的用户名、密码和时区：
-
-```yaml
-environment:
-  - USER=your-username
-  - PASS=your-password
-  - TZ=Asia/Shanghai
-```
-
-然后通过以下命令启动或停止服务：
-
-```bash
-docker-compose up -d   # 后台启动
-docker-compose down    # 停止并移除容器
-```
-
-默认使用端口映射方式，映射了以下两个端口：
-
-| 端口 | 协议 | 用途 |
-| --- | --- | --- |
-| `9091` | TCP | Web UI 及 RPC 接口，启动后通此端口访问 Web UI（如 `http://localhost:9091`） |
-| `51413` | TCP/UDP | BT 数据传输端口，用于与其他节点交换数据 |
-
-如果修改了 Transmission 在 config 目录下的配置文件中的端口设置，请确保在 `docker-compose.yml` 中也做相应修改。
-
-### 2. 手动安装
-
-1. 打开 [Releases](https://github.com/hisproc/transmission-next-ui/releases) 页面
-2. 下载最新或稳定版本（如 `transmission-next-ui-v1.0.0.zip`）
-3. 解压并将其中的内容复制到 Transmission 的 Web 目录（如 `transmission/web/src`）
-
-### 3. 源代码打包
-
-```bash
-git clone git@github.com:hisproc/transmission-next-ui.git
-cd transmission-next-ui
 pnpm install
+pnpm dev
+```
+
+开发服务器默认把 `/api` 代理到 `http://127.0.0.1:8080`。如 qBittorrent 位于其他地址，可在启动前设置：
+
+```bash
+VITE_QBITTORRENT_PROXY_TARGET=http://192.168.1.10:8080 pnpm dev
+```
+
+也可以通过 `VITE_QBITTORRENT_API_URL` 修改前端使用的 API 前缀；作为 qBittorrent 替代网页界面部署时应保留默认值 `/api/v2`。
+
+## 构建与验证
+
+```bash
+pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-构建完成后，将 `dist/` 目录下的所有内容复制到 Transmission 的 Web 目录下即可。
+构建结果位于 `dist/`。
 
-## 许可证
+## 安装为 qBittorrent 替代网页界面
 
-本项目采用 [MIT 许可证](LICENSE) 进行授权。
+1. 执行 `pnpm build`。
+2. 将 `dist/` 中的全部文件复制到 qBittorrent 可以读取的目录，例如 `/webui`。
+3. 在 qBittorrent 原生网页界面中打开“设置 → 网页用户界面”。
+4. 启用“使用替代网页用户界面”，并将文件路径设置为 `/webui`。
+5. 保存后刷新页面。
+
+建议在启用前保留一个已登录的原生界面页面，以便路径配置错误时能够快速恢复。
+
+## 容器示例
+
+仓库内的 `docker-compose.yml` 使用 LinuxServer.io 的 qBittorrent 镜像，并把本地 `dist/` 只读挂载到容器内的 `/webui`：
+
+```bash
+pnpm build
+docker compose up -d
+```
+
+首次启动后访问 `http://服务器地址:8080`。初始管理员临时密码会出现在容器日志中。登录原生界面后，将替代网页界面路径设置为 `/webui`。
+
+## 接口映射
+
+界面层使用统一的种子模型，`src/lib/rpc-client.ts` 负责完成 qBittorrent 字段和端点转换，包括：
+
+- Cookie 会话认证
+- 状态字符串到界面状态的转换
+- 哈希标识与批量操作
+- 应用偏好设置映射
+- 文件、Peer、Tracker 和种子属性聚合
+- qBittorrent 4 与 5 的操作端点兼容
+
+## 许可证与来源
+
+本项目延续原项目的 MIT 许可证。二次分发时请保留 `LICENSE` 及本节中的来源说明。

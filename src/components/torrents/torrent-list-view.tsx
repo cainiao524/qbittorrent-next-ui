@@ -20,7 +20,7 @@ import { EditTorrentDialog } from "@/components/torrents/edit-torrent-dialog"
 import { cn } from "@/lib/utils"
 import { formatSpeed, formatDuration, formatSize, getStatusLabel, formatDate } from "@/lib/formatters"
 import type { ColumnConfig } from "@/lib/columns"
-import type { Torrent } from "@/lib/rpc-types"
+import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 
 type SortKey =
@@ -40,15 +40,15 @@ interface TorrentListViewProps {
   paginatedTorrents: Torrent[]
   visibleColumns: string[]
   allColumns: Array<ColumnConfig & { label: string }>
-  selectedIds: number[]
+  selectedIds: TorrentId[]
   filteredCount: number
   sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null
   tableMinWidth: number
   locale: string
-  onToggleSelect: (id: number) => void
+  onToggleSelect: (id: TorrentId) => void
   onToggleSelectAll: () => void
   onSort: (key: SortKey) => void
-  onSingleAction: (id: number, action: "start" | "stop" | "remove") => void
+  onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
 }
 
 function SortIcon({ column, sortConfig }: { column: SortKey; sortConfig: TorrentListViewProps['sortConfig'] }) {

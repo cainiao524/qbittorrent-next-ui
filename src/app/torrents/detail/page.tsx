@@ -49,7 +49,7 @@ function TorrentDetailsContent() {
   const fetchData = useCallback(async () => {
     if (!idValue) return
     try {
-      const id = isNaN(Number(idValue)) ? idValue : Number(idValue)
+      const id = idValue
 
       const torrentsData = await rpc.getTorrents([
         "id", "name", "status", "totalSize", "percentDone",

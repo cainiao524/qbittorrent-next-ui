@@ -44,26 +44,6 @@ export function Navbar() {
     }
     window.addEventListener("keydown", handleKeyDown)
 
-    // Version check from GitHub
-    fetch("https://api.github.com/repos/hisproc/transmission-next-ui/releases/latest")
-      .then((res) => res.json())
-      .then((data) => {
-        const latest = data.tag_name;
-        // Match the version from APP_CONFIG
-        const current = `v${APP_CONFIG.version}`;
-        
-        // Only show if it's a new version AND hasn't been dismissed
-        if (latest && current && latest !== current && latest !== dismissedVersion) {
-          setNewVersion(true);
-          setLatestTag(latest);
-          console.log("New version available:", latest);
-          console.log("Current version:", current);
-        } else {
-          setNewVersion(false);
-        }
-      })
-      .catch((err) => console.error("Version check failed:", err));
-
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [dismissedVersion])
 

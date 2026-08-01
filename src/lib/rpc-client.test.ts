@@ -1,89 +1,90 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import { rpc } from "./rpc-client"
 
-function createResponse({
-  status = 200,
-  statusText = "OK",
-  headers = {},
-  body,
-}: {
-  status?: number
-  statusText?: string
-  headers?: Record<string, string>
-  body?: unknown
-}) {
+function createResponse(body: unknown, status = 200) {
   return {
     status,
-    statusText,
+    statusText: status === 200 ? "OK" : "Not Found",
     ok: status >= 200 && status < 300,
-    headers: {
-      get: (name: string) => headers[name] ?? null,
-    },
     json: vi.fn().mockResolvedValue(body),
+    text: vi.fn().mockResolvedValue(typeof body === "string" ? body : JSON.stringify(body)),
   } as unknown as Response
 }
 
-describe("TransmissionRPC", () => {
+describe("qBittorrent Web API adapter", () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
     fetchMock.mockReset()
     vi.stubGlobal("fetch", fetchMock)
-    ;((rpc as unknown) as { sessionId: string | null }).sessionId = null
   })
 
-  test("retries once after acquiring a transmission session id", async () => {
+  test("logs in with cookie credentials", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse("Ok."))
+
+    await rpc.login("admin", "secret")
+
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v2/auth/login")
+    expect(options.credentials).toBe("include")
+    expect(String(options.body)).toContain("username=admin")
+    expect(String(options.body)).toContain("password=secret")
+  })
+
+  test("maps qBittorrent torrent summaries to the UI model", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse([{
+      hash: "abc123",
+      name: "Ubuntu.iso",
+      state: "downloading",
+      size: 1024,
+      total_size: 2048,
+      progress: 0.5,
+      dlspeed: 100,
+      upspeed: 20,
+      eta: 60,
+      added_on: 1000,
+      completion_on: 0,
+      last_activity: 1001,
+      save_path: "/downloads",
+      amount_left: 1024,
+      uploaded: 50,
+      downloaded: 1024,
+      ratio: 0.05,
+      tags: "linux, iso",
+      category: "images",
+      priority: 1,
+      tracker: "https://tracker.example/announce",
+      num_complete: 8,
+      num_incomplete: 3,
+      num_leechs: 2,
+      num_seeds: 4,
+    }]))
+
+    const result = await rpc.getTorrents(["name", "status"])
+
+    expect(result.torrents[0]).toMatchObject({
+      id: "abc123",
+      hashString: "abc123",
+      name: "Ubuntu.iso",
+      status: 4,
+      totalSize: 2048,
+      percentDone: 0.5,
+      labels: ["linux", "iso"],
+      category: "images",
+    })
+  })
+
+  test("falls back to the qBittorrent 4 pause endpoint", async () => {
     fetchMock
-      .mockResolvedValueOnce(createResponse({
-        status: 409,
-        statusText: "Conflict",
-        headers: { "X-Transmission-Session-Id": "session-123" },
-      }))
-      .mockResolvedValueOnce(createResponse({
-        body: {
-          result: "success",
-          arguments: { "port-is-open": true },
-        },
-      }))
+      .mockResolvedValueOnce(createResponse("Not Found", 404))
+      .mockResolvedValueOnce(createResponse(""))
 
-    await expect(rpc.portTest()).resolves.toEqual({ "port-is-open": true })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await rpc.stopTorrents(["abc123"])
 
-    const firstHeaders = fetchMock.mock.calls[0][1]?.headers as Record<string, string>
-    const secondHeaders = fetchMock.mock.calls[1][1]?.headers as Record<string, string>
-
-    expect(firstHeaders["X-Transmission-Session-Id"]).toBeUndefined()
-    expect(secondHeaders["X-Transmission-Session-Id"]).toBe("session-123")
-  })
-
-  test("throws when the RPC result is not success", async () => {
-    fetchMock.mockResolvedValueOnce(createResponse({
-      body: {
-        result: "duplicate torrent",
-        arguments: {},
-      },
-    }))
-
-    await expect(rpc.getSession()).rejects.toThrow("RPC Error: duplicate torrent")
-  })
-
-  test("omits ids when starting all torrents", async () => {
-    fetchMock.mockResolvedValueOnce(createResponse({
-      body: {
-        result: "success",
-        arguments: {},
-      },
-    }))
-
-    await rpc.startTorrents([])
-
-    const [, options] = fetchMock.mock.calls[0]
-    const requestBody = JSON.parse(options.body as string) as {
-      method: string
-      arguments: Record<string, unknown>
-    }
-
-    expect(requestBody.method).toBe("torrent-start")
-    expect(requestBody.arguments).toEqual({})
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/v2/torrents/stop",
+      "/api/v2/torrents/pause",
+    ])
+    expect(String(fetchMock.mock.calls[1][1].body)).toBe("hashes=abc123")
   })
 })

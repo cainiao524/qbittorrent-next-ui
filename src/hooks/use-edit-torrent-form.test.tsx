@@ -24,13 +24,13 @@ vi.mock("sonner", () => ({
 }))
 
 const torrent = {
-  id: 1,
+  id: "1",
   name: "Ubuntu.iso",
   downloadDir: "/downloads/iso",
 }
 
 const details: Torrent = {
-  id: 1,
+  id: "1",
   name: "Ubuntu.iso",
   status: 6,
   hashString: "hash",
@@ -129,9 +129,9 @@ describe("useEditTorrentForm", () => {
       await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent)
     })
 
-    expect(rpcMock.renameTorrentPath).toHaveBeenCalledWith(1, "Ubuntu.iso", "Ubuntu-1.iso")
-    expect(rpcMock.setTorrentLocation).toHaveBeenCalledWith([1], "/downloads/linux", true)
-    expect(rpcMock.setTorrent).toHaveBeenCalledWith([1], expect.objectContaining({
+    expect(rpcMock.renameTorrentPath).toHaveBeenCalledWith("1", "Ubuntu.iso", "Ubuntu-1.iso")
+    expect(rpcMock.setTorrentLocation).toHaveBeenCalledWith(["1"], "/downloads/linux", true)
+    expect(rpcMock.setTorrent).toHaveBeenCalledWith(["1"], expect.objectContaining({
       labels: ['{"text":"Linux"}', '{"text":"ISO"}'],
     }))
     expect(toastMock.success).toHaveBeenCalledWith("Torrent updated successfully")

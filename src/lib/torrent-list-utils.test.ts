@@ -11,7 +11,7 @@ import type { Torrent } from "./rpc-types.ts"
 
 const torrents: Torrent[] = [
   {
-    id: 1,
+    id: "1",
     name: "Ubuntu ISO",
     status: 6,
     hashString: "a",
@@ -40,7 +40,7 @@ const torrents: Torrent[] = [
     trackerStats: [{ announce: "a", host: "ubuntu.example", seederCount: 1, leecherCount: 1, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: false }],
   },
   {
-    id: 2,
+    id: "2",
     name: "Movie Remux",
     status: 4,
     hashString: "b",
@@ -69,7 +69,7 @@ const torrents: Torrent[] = [
     trackerStats: [{ announce: "b", host: "movies.example", seederCount: 1, leecherCount: 1, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: false }],
   },
   {
-    id: 3,
+    id: "3",
     name: "Paused Archive",
     status: 0,
     hashString: "c",
@@ -116,15 +116,15 @@ test("collection helpers expose trackers, dirs, and labels", () => {
 })
 
 test("filterTorrents supports semantic status filters and label/tracker/search filters", () => {
-  expect(filterTorrents(torrents, { statusFilter: "active", translateStatus }).map(({ id }) => id)).toEqual([1, 2])
-  expect(filterTorrents(torrents, { statusFilter: "seeding", translateStatus }).map(({ id }) => id)).toEqual([1])
-  expect(filterTorrents(torrents, { labelFilter: ["Movie"], translateStatus }).map(({ id }) => id)).toEqual([2])
-  expect(filterTorrents(torrents, { trackerFilter: ["archive.example"], translateStatus }).map(({ id }) => id)).toEqual([3])
-  expect(filterTorrents(torrents, { searchQuery: "ubuntu", translateStatus }).map(({ id }) => id)).toEqual([1])
+  expect(filterTorrents(torrents, { statusFilter: "active", translateStatus }).map(({ id }) => id)).toEqual(["1", "2"])
+  expect(filterTorrents(torrents, { statusFilter: "seeding", translateStatus }).map(({ id }) => id)).toEqual(["1"])
+  expect(filterTorrents(torrents, { labelFilter: ["Movie"], translateStatus }).map(({ id }) => id)).toEqual(["2"])
+  expect(filterTorrents(torrents, { trackerFilter: ["archive.example"], translateStatus }).map(({ id }) => id)).toEqual(["3"])
+  expect(filterTorrents(torrents, { searchQuery: "ubuntu", translateStatus }).map(({ id }) => id)).toEqual(["1"])
 })
 
 test("sortTorrents sorts by regular and derived fields", () => {
-  expect(sortTorrents(torrents, { key: "addedDate", direction: "asc" }).map(({ id }) => id)).toEqual([1, 3, 2])
-  expect(sortTorrents(torrents, { key: "labels", direction: "asc" }).map(({ id }) => id)).toEqual([3, 1, 2])
+  expect(sortTorrents(torrents, { key: "addedDate", direction: "asc" }).map(({ id }) => id)).toEqual(["1", "3", "2"])
+  expect(sortTorrents(torrents, { key: "labels", direction: "asc" }).map(({ id }) => id)).toEqual(["3", "1", "2"])
   expect(getTorrentSortValue(torrents[0], "labels")).toBe("Linux\u0000ISO")
 })

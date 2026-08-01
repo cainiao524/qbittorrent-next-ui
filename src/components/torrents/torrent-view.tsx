@@ -50,6 +50,7 @@ import {
   type SingleTorrentAction,
 } from "@/lib/torrent-actions"
 import { sortTorrents, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import type { TorrentId } from "@/lib/rpc-types"
 
 type CardColor = "green" | "blue" | "orange" | "purple"
 
@@ -122,7 +123,7 @@ interface TorrentViewProps {
 export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps) {
   const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [selectedIds, setSelectedIds] = useState<TorrentId[]>([])
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: "addedDate", direction: "desc" })
   const { t, locale } = useI18n()
   const { searchQuery } = useSearch()
@@ -130,7 +131,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   const [isBatchReplaceOpen, setIsBatchReplaceOpen] = useState(false)
   const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false)
   const [isBatchSetLabelsOpen, setIsBatchSetLabelsOpen] = useState(false)
-  const [idsToDelete, setIdsToDelete] = useState<number[]>([])
+  const [idsToDelete, setIdsToDelete] = useState<TorrentId[]>([])
   const [clickedCard, setClickedCard] = useState<string | null>(null)
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = localStorage.getItem('torrent-page-size')
@@ -179,7 +180,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     , [torrents])
 
   const executeTorrentAction = useCallback(async (
-    ids: number[],
+    ids: TorrentId[],
     action: BatchTorrentAction,
     mode: "single" | "batch"
   ) => {
@@ -244,7 +245,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     }
   }
 
-  const handleSingleAction = (id: number, action: SingleTorrentAction) =>
+  const handleSingleAction = (id: TorrentId, action: SingleTorrentAction) =>
     executeTorrentAction([id], action, "single")
 
   const handleSort = (key: SortKey) => {
@@ -283,7 +284,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     }
   }
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: TorrentId) => {
     setSelectedIds(prev =>
       prev.includes(id)
         ? prev.filter(i => i !== id)
@@ -346,8 +347,8 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
               icon={<Database className="h-5 w-5" />}
               title={t('stats.free_space')}
               value={freeSpace ? formatSize(freeSpace["size-bytes"]) : "---"}
-              secondary1={freeSpace ? <>{((freeSpace["size-bytes"] / freeSpace.total_size) * 100).toFixed(0)}% {t('stats.free_unit')}</> : null}
-              secondary2={freeSpace ? <>{t('stats.total_label')}: {formatSize(freeSpace.total_size)}</> : null}
+              secondary1={freeSpace ? (freeSpace.total_size > 0 ? <>{((freeSpace["size-bytes"] / freeSpace.total_size) * 100).toFixed(0)}% {t('stats.free_unit')}</> : <span className="truncate">{freeSpace.path}</span>) : null}
+              secondary2={freeSpace?.total_size ? <>{t('stats.total_label')}: {formatSize(freeSpace.total_size)}</> : null}
               isClicked={clickedCard === "space"}
               onClick={() => setClickedCard(clickedCard === "space" ? null : "space")}
             />

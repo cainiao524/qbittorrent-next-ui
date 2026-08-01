@@ -179,13 +179,13 @@
   },
   "settings": {
     "title": "服务器设置",
-    "desc": "精控您的 Transmission 服务端会话及全局参数。",
+    "desc": "管理 qBittorrent 服务端会话及全局参数。",
     "tabs": {
       "speed": "传输速度",
       "transfers": "下载与队列",
       "network": "网络连接",
       "peers": "隐私与安全",
-      "remote": "RPC / 服务器",
+      "remote": "Web API / 服务器",
       "page": "页面设置"
     },
     "page": {
@@ -249,11 +249,11 @@
       "blocklist_desc": "保护您的会话不受已知恶意 IP 范围的侵害。"
     },
     "remote": {
-      "title": "RPC 接口",
+      "title": "Web API 接口",
       "client_version": "客户端版本",
-      "rpc_version": "RPC 版本",
+      "rpc_version": "Web API 版本",
       "server_software": "服务器软件",
-      "host_whitelist": "RPC 主机白名单"
+      "host_whitelist": "主机白名单"
     },
     "actions": {
       "discard": "放弃更改",

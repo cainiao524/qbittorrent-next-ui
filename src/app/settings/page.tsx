@@ -24,6 +24,7 @@ import { useI18n } from "@/lib/i18n-context"
 import { rpc } from "@/lib/rpc-client"
 import { type Session } from "@/lib/rpc-types"
 import { useAppSettings } from "@/lib/app-settings-context"
+import { APP_CONFIG } from "@/lib/config"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("general")
@@ -590,15 +591,15 @@ export default function SettingsPage() {
                       <div className="space-y-4 p-5 md:p-6 bg-primary/5 rounded-3xl border border-primary/10">
                          <div className="flex justify-between items-center text-xs md:text-sm">
                             <span className="font-semibold text-muted-foreground tracking-tight">{t('settings.remote.client_version')}</span>
-                            <span className="text-numeric font-bold">v0.1.8</span>
+                            <span className="text-numeric font-bold">v{APP_CONFIG.version}</span>
                          </div>
                          <div className="flex justify-between items-center text-xs md:text-sm">
-                            <span className="font-semibold text-muted-foreground tracking-tight">{t('settings.remote.rpc_version')}</span>
+                            <span className="font-semibold text-muted-foreground tracking-tight">Web API 版本</span>
                             <span className="text-numeric font-bold">{session?.["rpc-version"]} ({session?.["rpc-version-semver"]})</span>
                          </div>
                          <div className="flex justify-between items-center text-xs md:text-sm">
                             <span className="font-semibold text-muted-foreground tracking-tight">{t('settings.remote.server_software')}</span>
-                            <span className="font-bold tracking-tight">Transmission {session?.version}</span>
+                            <span className="font-bold tracking-tight">qBittorrent {session?.version}</span>
                          </div>
                       </div>
                   </CardContent>

@@ -8,13 +8,13 @@ import {
 import type { Torrent } from "./rpc-types.ts"
 
 const dialogTorrent: EditTorrentDialogTorrent = {
-  id: 1,
+  id: "1",
   name: "Ubuntu.iso",
   downloadDir: "/downloads/iso",
 }
 
 const detailedTorrent: Torrent = {
-  id: 1,
+  id: "1",
   name: "Ubuntu.iso",
   status: 6,
   hashString: "hash",

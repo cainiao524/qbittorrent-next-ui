@@ -9,7 +9,7 @@ afterEach(() => {
 
 beforeEach(() => {
   localStorage.clear()
-  localStorage.setItem("transmission-locale", "en")
+  localStorage.setItem("qbittorrent-next-locale", "en")
 })
 
 Object.defineProperty(window, "matchMedia", {

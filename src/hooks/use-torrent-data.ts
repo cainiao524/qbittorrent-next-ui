@@ -38,7 +38,7 @@ export function useTorrentData(
         }
       }
     } catch (err) {
-      console.error("Failed to fetch Transmission data:", err)
+      console.error("Failed to fetch qBittorrent data:", err)
     }
   }, [showStats, viewMode, visibleColumns])
 
