@@ -1,25 +1,20 @@
-# support older version docker-compose
-version: '3.3'
 services:
-  transmission:
-    image: linuxserver/transmission:4.0.0
-    container_name: transmission
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
     environment:
-      - PUID=0
-      - PGID=0
-      - UMASK_SET=002
+      - PUID=1000
+      - PGID=1000
       - TZ=Asia/Shanghai
-      - TRANSMISSION_WEB_HOME=/src
-      - USER=transmission
-      - PASS=transmission
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
     volumes:
-      - ./web/src:/src
       - ./config:/config
       - ./downloads:/downloads
-      - ./watch:/watch
+      - ./dist:/webui:ro
     ports:
-      - "9091:9091"
-      - "51413:51413"
-      - "51413:51413/udp"
-
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    stop_grace_period: 10s
     restart: unless-stopped

@@ -1,7 +1,4 @@
-/**
- * Transmission RPC Client
- * Based on RPC Specification v17 (Transmission 4.0.0)
- */
+/** qBittorrent Web API v2 client with a UI-friendly compatibility layer. */
 import type {
   FreeSpaceResponse,
   Session,
@@ -12,192 +9,420 @@ import type {
   TorrentId,
   TorrentSetArgs,
 } from "./rpc-types"
+import { parseTorrentLabels } from "./torrent-labels"
+import { TorrentStatus, type Peer, type Torrent, type TorrentFile, type Tracker, type TrackerStat } from "./rpc-types"
 
-export interface RPCRequest<TArguments = undefined> {
-  method: keyof RPCMethodArguments
-  arguments?: TArguments
-  tag?: number
+type JsonRecord = Record<string, unknown>
+
+interface QbtTorrentInfo {
+  hash: string
+  name: string
+  state: string
+  size: number
+  total_size?: number
+  progress: number
+  dlspeed: number
+  upspeed: number
+  eta: number
+  added_on: number
+  completion_on: number
+  last_activity: number
+  save_path: string
+  amount_left: number
+  uploaded: number
+  downloaded: number
+  ratio: number
+  tags: string
+  category: string
+  priority: number
+  tracker: string
+  num_complete: number
+  num_incomplete: number
+  num_leechs: number
+  num_seeds: number
+  force_start?: boolean
+  seq_dl?: boolean
+  f_l_piece_prio?: boolean
 }
 
-export interface RPCResponse<TArguments> {
-  result: string
-  arguments: TArguments
-  tag?: number
+interface QbtTransferInfo {
+  dl_info_speed: number
+  dl_info_data: number
+  up_info_speed: number
+  up_info_data: number
+  connection_status: string
 }
 
-interface RPCMethodArguments {
-  "torrent-get": { fields: string[]; ids?: TorrentId[] }
-  "session-get": undefined
-  "session-set": Partial<Session>
-  "session-stats": undefined
-  "torrent-start": { ids?: TorrentId[] }
-  "torrent-stop": { ids?: TorrentId[] }
-  "torrent-remove": { ids: TorrentId[]; "delete-local-data": boolean }
-  "torrent-add": TorrentAddArgs
-  "torrent-set": { ids: TorrentId[] } & TorrentSetArgs
-  "torrent-set-location": { ids: number[]; location: string; move: boolean }
-  "torrent-rename-path": { ids: number[]; path: string; name: string }
-  "free-space": { path: string }
-  "port-test": undefined
-  "torrent-verify": { ids?: TorrentId[] }
-  "torrent-reannounce": { ids?: TorrentId[] }
+interface QbtProperties extends JsonRecord {
+  save_path?: string
+  creation_date?: number
+  piece_size?: number
+  comment?: string
+  total_uploaded?: number
+  total_downloaded?: number
+  dl_limit?: number
+  up_limit?: number
+  share_ratio?: number
+  share_ratio_limit?: number
+  seeding_time_limit?: number
+  created_by?: string
+  nb_connections?: number
 }
 
-interface RPCMethodResponses {
-  "torrent-get": TorrentGetResponse
-  "session-get": Session
-  "session-set": Record<string, never>
-  "session-stats": SessionStats
-  "torrent-start": Record<string, never>
-  "torrent-stop": Record<string, never>
-  "torrent-remove": Record<string, never>
-  "torrent-add": TorrentAddResponse
-  "torrent-set": Record<string, never>
-  "torrent-set-location": Record<string, never>
-  "torrent-rename-path": Record<string, never>
-  "free-space": FreeSpaceResponse
-  "port-test": { "port-is-open": boolean }
-  "torrent-verify": Record<string, never>
-  "torrent-reannounce": Record<string, never>
+const STOPPED_STATES = new Set(["pausedUP", "pausedDL", "stoppedUP", "stoppedDL"])
+const DOWNLOADING_STATES = new Set(["downloading", "forcedDL", "metaDL"])
+const DOWNLOAD_WAIT_STATES = new Set(["queuedDL", "stalledDL", "allocating", "moving"])
+const SEEDING_STATES = new Set(["uploading", "forcedUP"])
+const SEED_WAIT_STATES = new Set(["queuedUP", "stalledUP"])
+const CHECKING_STATES = new Set(["checkingUP", "checkingDL", "checkingResumeData"])
+
+function mapStatus(state: string): TorrentStatus {
+  if (STOPPED_STATES.has(state)) return TorrentStatus.STOPPED
+  if (DOWNLOADING_STATES.has(state)) return TorrentStatus.DOWNLOAD
+  if (DOWNLOAD_WAIT_STATES.has(state)) return TorrentStatus.DOWNLOAD_WAIT
+  if (SEEDING_STATES.has(state)) return TorrentStatus.SEED
+  if (SEED_WAIT_STATES.has(state)) return TorrentStatus.SEED_WAIT
+  if (CHECKING_STATES.has(state)) return TorrentStatus.CHECK
+  return TorrentStatus.STOPPED
 }
 
-class TransmissionRPC {
-  private baseUrl: string = "/transmission/rpc"
-  private sessionId: string | null = null
-  private authHeader: string | null = null
+function trackerHost(url: string): string {
+  if (!url) return ""
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url.split("/")[0]
+  }
+}
 
-  constructor(config?: { baseUrl?: string; username?: string; password?: string }) {
-    if (config?.baseUrl) this.baseUrl = config.baseUrl
-    if (config?.username && config?.password) {
-      this.authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`
+function mapSummary(raw: QbtTorrentInfo): Torrent {
+  const status = mapStatus(raw.state)
+  const tracker = raw.tracker || ""
+  return {
+    id: raw.hash,
+    hashString: raw.hash,
+    name: raw.name,
+    status,
+    totalSize: raw.total_size ?? raw.size ?? 0,
+    percentDone: raw.progress ?? 0,
+    rateDownload: raw.dlspeed ?? 0,
+    rateUpload: raw.upspeed ?? 0,
+    eta: raw.eta >= 8640000 ? -1 : raw.eta,
+    addedDate: raw.added_on ?? 0,
+    doneDate: raw.completion_on ?? 0,
+    editDate: raw.last_activity ?? 0,
+    downloadDir: raw.save_path ?? "",
+    error: raw.state === "error" || raw.state === "missingFiles" ? 1 : 0,
+    errorString: raw.state === "missingFiles" ? "Missing files" : raw.state === "error" ? "qBittorrent reported an error" : "",
+    uploadedEver: raw.uploaded ?? 0,
+    downloadedEver: raw.downloaded ?? 0,
+    uploadRatio: raw.ratio ?? 0,
+    labels: raw.tags ? raw.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
+    category: raw.category || "",
+    queuePosition: raw.priority ?? 0,
+    isFinished: (raw.progress ?? 0) >= 1,
+    isPrivate: false,
+    isStalled: raw.state.startsWith("stalled"),
+    peersConnected: (raw.num_leechs ?? 0) + (raw.num_seeds ?? 0),
+    peersSendingToUs: raw.num_seeds ?? 0,
+    peersGettingFromUs: raw.num_leechs ?? 0,
+    trackers: tracker ? [{ id: 0, tier: 0, announce: tracker, scrape: "", sitename: trackerHost(tracker) }] : [],
+    trackerStats: tracker ? [{ announce: tracker, host: trackerHost(tracker), seederCount: raw.num_complete ?? 0, leecherCount: raw.num_incomplete ?? 0, lastAnnounceSucceeded: true, lastAnnounceResult: "", isBackup: false }] : [],
+  }
+}
+
+class QBittorrentRPC {
+  private baseUrl = (import.meta.env.VITE_QBITTORRENT_API_URL || "/api/v2").replace(/\/$/, "")
+
+  private async fetch(path: string, init?: RequestInit): Promise<Response> {
+    const response = await window.fetch(`${this.baseUrl}${path}`, {
+      credentials: "include",
+      ...init,
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "")
+      throw new Error(`qBittorrent API ${response.status}: ${detail || response.statusText}`)
+    }
+    return response
+  }
+
+  private async get<T>(path: string): Promise<T> {
+    return (await this.fetch(path)).json() as Promise<T>
+  }
+
+  private async post(path: string, values?: Record<string, string | number | boolean>): Promise<Response> {
+    const body = new URLSearchParams()
+    Object.entries(values ?? {}).forEach(([key, value]) => body.set(key, String(value)))
+    return this.fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+      body,
+    })
+  }
+
+  private hashes(ids?: TorrentId[]): string {
+    return ids?.length ? ids.join("|") : "all"
+  }
+
+  async checkAuthentication(): Promise<boolean> {
+    try {
+      await this.fetch("/app/version")
+      return true
+    } catch {
+      return false
     }
   }
 
-  /**
-   * Execute an RPC call with automatic CSRF token handling
-   */
-  async request<M extends keyof RPCMethodArguments>(
-    method: M,
-    args?: RPCMethodArguments[M]
-  ): Promise<RPCMethodResponses[M]> {
-    const body: RPCRequest<RPCMethodArguments[M]> = {
-      method,
-      arguments: args,
-      tag: Math.floor(Math.random() * 100000),
-    }
-
-    const execute = async (isRetry = false): Promise<RPCMethodResponses[M]> => {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      }
-
-      if (this.sessionId) {
-        headers["X-Transmission-Session-Id"] = this.sessionId
-      }
-
-      if (this.authHeader) {
-        headers["Authorization"] = this.authHeader
-      }
-
-      const response = await fetch(this.baseUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      })
-
-      // Handle CSRF Protection (409 Conflict)
-      if (response.status === 409) {
-        const newSessionId = response.headers.get("X-Transmission-Session-Id")
-        if (newSessionId) {
-          this.sessionId = newSessionId
-          if (!isRetry) {
-            return execute(true) // Retry once with the new token
-          }
-        }
-        throw new Error("Failed to acquire Transmission Session ID")
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`)
-      }
-
-      const data: RPCResponse<RPCMethodResponses[M]> = await response.json()
-
-      if (data.result !== "success") {
-        throw new Error(`RPC Error: ${data.result}`)
-      }
-
-      return data.arguments
-    }
-
-    return execute()
+  async login(username: string, password: string): Promise<void> {
+    const response = await this.post("/auth/login", { username, password })
+    if ((await response.text()).trim() !== "Ok.") throw new Error("Invalid username or password")
   }
 
-  // Helper methods for common actions
+  async logout(): Promise<void> {
+    await this.post("/auth/logout")
+  }
 
-  async getTorrents(fields: string[], ids?: TorrentId[]) {
-    return this.request("torrent-get", { fields, ids })
+  async getTorrents(fields: string[], ids?: TorrentId[]): Promise<TorrentGetResponse> {
+    const query = ids?.length ? `?hashes=${encodeURIComponent(ids.join("|"))}` : ""
+    const raw = await this.get<QbtTorrentInfo[]>(`/torrents/info${query}`)
+    const torrents = raw.map(mapSummary)
+    const wantsDetails = fields.some((field) => ["files", "peers", "trackers", "trackerStats", "comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "trackerList"].includes(field))
+
+    if (wantsDetails && ids?.length) {
+      await Promise.all(torrents.map(async (torrent) => this.enrichTorrent(torrent, fields)))
+    } else if (fields.includes("trackers")) {
+      await Promise.all(torrents.map(async (torrent) => this.enrichTrackers(torrent)))
+    }
+    return { torrents }
+  }
+
+  private async enrichTorrent(torrent: Torrent, fields: string[]): Promise<void> {
+    const hash = encodeURIComponent(torrent.hashString)
+    const jobs: Promise<void>[] = []
+    if (fields.some((field) => ["comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "seedRatioLimit"].includes(field))) {
+      jobs.push(this.get<QbtProperties>(`/torrents/properties?hash=${hash}`).then((props) => {
+        torrent.comment = String(props.comment ?? "")
+        torrent.creator = String(props.created_by ?? "")
+        torrent.dateCreated = Number(props.creation_date ?? 0)
+        torrent.uploadedEver = Number(props.total_uploaded ?? torrent.uploadedEver)
+        torrent.downloadedEver = Number(props.total_downloaded ?? torrent.downloadedEver)
+        torrent.downloadLimit = Math.max(0, Math.round(Number(props.dl_limit ?? 0) / 1024))
+        torrent.downloadLimited = Number(props.dl_limit ?? 0) > 0
+        torrent.uploadLimit = Math.max(0, Math.round(Number(props.up_limit ?? 0) / 1024))
+        torrent.uploadLimited = Number(props.up_limit ?? 0) > 0
+        torrent.seedRatioLimit = Number(props.share_ratio_limit ?? 0)
+      }))
+    }
+    if (fields.includes("trackers") || fields.includes("trackerStats") || fields.includes("trackerList")) jobs.push(this.enrichTrackers(torrent))
+    if (fields.includes("files")) {
+      jobs.push(this.get<Array<{ name: string; size: number; progress: number }>>(`/torrents/files?hash=${hash}`).then((files) => {
+        torrent.files = files.map((file): TorrentFile => ({ name: file.name, length: file.size, bytesCompleted: Math.round(file.size * file.progress) }))
+      }))
+    }
+    if (fields.includes("peers")) {
+      jobs.push(this.get<{ peers?: Record<string, { ip: string; client: string; dl_speed: number; up_speed: number; progress: number; flags: string }> }>(`/sync/torrentPeers?hash=${hash}&rid=0`).then((data) => {
+        torrent.peers = Object.values(data.peers ?? {}).map((peer): Peer => ({ address: peer.ip, clientName: peer.client, rateToClient: peer.dl_speed, rateToPeer: peer.up_speed, progress: peer.progress, isEncrypted: peer.flags?.includes("E") ?? false }))
+      }))
+    }
+    await Promise.all(jobs)
+  }
+
+  private async enrichTrackers(torrent: Torrent): Promise<void> {
+    const data = await this.get<Array<{ url: string; status: number; tier: number; num_seeds: number; num_leeches: number; msg: string }>>(`/torrents/trackers?hash=${encodeURIComponent(torrent.hashString)}`)
+    const real = data.filter((item) => /^\w+:\/\//.test(item.url))
+    torrent.trackers = real.map((item, index): Tracker => ({ id: index, tier: item.tier, announce: item.url, scrape: "", sitename: trackerHost(item.url) }))
+    torrent.trackerStats = real.map((item): TrackerStat => ({ announce: item.url, host: trackerHost(item.url), seederCount: item.num_seeds, leecherCount: item.num_leeches, lastAnnounceSucceeded: item.status === 2, lastAnnounceResult: item.msg || "", isBackup: item.tier > 0 }))
+    torrent.trackerList = real.map((item) => item.url).join("\n")
   }
 
   async getSession() {
-    return this.request("session-get")
+    const [prefs, version, apiVersion, speedMode] = await Promise.all([
+      this.get<Record<string, unknown>>("/app/preferences"),
+      this.fetch("/app/version").then((response) => response.text()),
+      this.fetch("/app/webapiVersion").then((response) => response.text()),
+      this.fetch("/transfer/speedLimitsMode").then((response) => response.text()),
+    ])
+    return this.mapSession(prefs, version, apiVersion, speedMode.trim() === "1")
   }
 
   async setSession(args: Partial<Session>) {
-    return this.request("session-set", args)
+    const mapped: Record<string, unknown> = {}
+    const put = (uiKey: keyof Session, qbtKey: string, transform: (value: unknown) => unknown = (value) => value) => {
+      if (uiKey in args) mapped[qbtKey] = transform(args[uiKey])
+    }
+    put("download-dir", "save_path")
+    put("speed-limit-down", "dl_limit", (value) => Number(value) * 1024)
+    put("speed-limit-up", "up_limit", (value) => Number(value) * 1024)
+    put("alt-speed-down", "alt_dl_limit", (value) => Number(value) * 1024)
+    put("alt-speed-up", "alt_up_limit", (value) => Number(value) * 1024)
+    put("alt-speed-time-enabled", "scheduler_enabled")
+    put("download-queue-enabled", "queueing_enabled")
+    put("download-queue-size", "max_active_downloads")
+    put("seed-queue-size", "max_active_uploads")
+    put("peer-limit-global", "max_connec")
+    put("peer-limit-per-torrent", "max_connec_per_torrent")
+    put("peer-port", "listen_port")
+    put("peer-port-random-on-start", "random_port")
+    put("port-forwarding-enabled", "upnp")
+    put("incomplete-dir", "temp_path")
+    put("incomplete-dir-enabled", "temp_path_enabled")
+    put("dht-enabled", "dht")
+    put("pex-enabled", "pex")
+    put("lpd-enabled", "lsd")
+    put("rename-partial-files", "incomplete_files_ext")
+    put("start-added-torrents", "start_paused_enabled", (value) => !value)
+    if ("encryption" in args) mapped.encryption = args.encryption === "required" ? 1 : args.encryption === "tolerated" ? 2 : 0
+    const jobs: Promise<unknown>[] = []
+    if (Object.keys(mapped).length) jobs.push(this.post("/app/setPreferences", { json: JSON.stringify(mapped) }))
+    if ("alt-speed-enabled" in args) {
+      jobs.push(this.fetch("/transfer/speedLimitsMode").then((response) => response.text()).then((mode) => {
+        const enabled = mode.trim() === "1"
+        return enabled === args["alt-speed-enabled"] ? undefined : this.post("/transfer/toggleSpeedLimitsMode")
+      }))
+    }
+    await Promise.all(jobs)
+    return {}
   }
 
   async getStats() {
-    return this.request("session-stats")
+    const [transfer, torrents] = await Promise.all([
+      this.get<QbtTransferInfo>("/transfer/info"),
+      this.get<QbtTorrentInfo[]>("/torrents/info"),
+    ])
+    const current = { downloadedBytes: transfer.dl_info_data ?? 0, uploadedBytes: transfer.up_info_data ?? 0, filesAdded: torrents.length, sessionCount: 1, secondsActive: 0 }
+    return {
+      activeTorrentCount: torrents.filter((item) => item.dlspeed > 0 || item.upspeed > 0).length,
+      downloadSpeed: transfer.dl_info_speed ?? 0,
+      pausedTorrentCount: torrents.filter((item) => STOPPED_STATES.has(item.state)).length,
+      torrentCount: torrents.length,
+      uploadSpeed: transfer.up_info_speed ?? 0,
+      "current-stats": current,
+      "cumulative-stats": { ...current },
+    } satisfies SessionStats
   }
 
   async startTorrents(ids?: TorrentId[]) {
-    const args = ids && ids.length > 0 ? { ids } : {}
-    return this.request("torrent-start", args)
+    return this.postActionWithLegacy("/torrents/start", "/torrents/resume", ids)
   }
 
   async stopTorrents(ids?: TorrentId[]) {
-    const args = ids && ids.length > 0 ? { ids } : {}
-    return this.request("torrent-stop", args)
+    return this.postActionWithLegacy("/torrents/stop", "/torrents/pause", ids)
   }
 
   async removeTorrents(ids: TorrentId[], deleteData = false) {
-    return this.request("torrent-remove", { ids, "delete-local-data": deleteData })
+    await this.post("/torrents/delete", { hashes: this.hashes(ids), deleteFiles: deleteData })
+    return {}
   }
 
   async addTorrent(args: TorrentAddArgs) {
-    return this.request("torrent-add", args)
+    const form = new FormData()
+    if (args.filename) form.append("urls", args.filename)
+    if (args.metainfo) {
+      const bytes = Uint8Array.from(atob(args.metainfo), (char) => char.charCodeAt(0))
+      form.append("torrents", new Blob([bytes], { type: "application/x-bittorrent" }), "upload.torrent")
+    }
+    if (args["download-dir"]) form.append("savepath", args["download-dir"])
+    if (args.paused !== undefined) {
+      form.append("stopped", String(args.paused))
+      form.append("paused", String(args.paused))
+    }
+    await this.fetch("/torrents/add", { method: "POST", body: form })
+    return {} as TorrentAddResponse
   }
 
   async setTorrent(ids: TorrentId[], args: TorrentSetArgs) {
-    return this.request("torrent-set", { ids, ...args })
+    const hashes = this.hashes(ids)
+    const jobs: Promise<unknown>[] = []
+    if (args.downloadLimit !== undefined || args.downloadLimited !== undefined) jobs.push(this.post("/torrents/setDownloadLimit", { hashes, limit: args.downloadLimited === false ? 0 : Math.max(0, Number(args.downloadLimit ?? 0) * 1024) }))
+    if (args.uploadLimit !== undefined || args.uploadLimited !== undefined) jobs.push(this.post("/torrents/setUploadLimit", { hashes, limit: args.uploadLimited === false ? 0 : Math.max(0, Number(args.uploadLimit ?? 0) * 1024) }))
+    if (args.seedRatioLimit !== undefined) jobs.push(this.post("/torrents/setShareLimits", { hashes, ratioLimit: args.seedRatioMode === 2 ? -2 : args.seedRatioMode === 0 ? -1 : args.seedRatioLimit, seedingTimeLimit: -1, inactiveSeedingTimeLimit: -1 }))
+    if (args.labels) jobs.push(this.replaceTags(ids, parseTorrentLabels(args.labels)))
+    if (args.trackerList !== undefined) jobs.push(...ids.map((id) => this.replaceTrackers(id, args.trackerList ?? "")))
+    await Promise.all(jobs)
+    return {}
   }
 
-  async setTorrentLocation(ids: number[], location: string, move: boolean = true) {
-    return this.request("torrent-set-location", { ids, location, move })
+  async setTorrentLocation(ids: TorrentId[], location: string, _move: boolean = true) {
+    await this.post("/torrents/setLocation", { hashes: this.hashes(ids), location })
+    return {}
   }
 
-  async renameTorrentPath(id: number, path: string, name: string) {
-    return this.request("torrent-rename-path", { ids: [id], path, name })
+  async renameTorrentPath(id: TorrentId, _path: string, name: string) {
+    await this.post("/torrents/rename", { hash: id, name })
+    return {}
   }
 
   async freeSpace(path: string) {
-    return this.request("free-space", { path })
+    const data = await this.get<{ server_state?: { free_space_on_disk?: number } }>("/sync/maindata?rid=0")
+    const free = data.server_state?.free_space_on_disk ?? 0
+    return { path, "size-bytes": free, total_size: 0 } satisfies FreeSpaceResponse
   }
   
   async portTest() {
-    return this.request("port-test")
+    const data = await this.get<QbtTransferInfo>("/transfer/info")
+    return { "port-is-open": data.connection_status === "connected" }
   }
 
   async verifyTorrents(ids?: TorrentId[]) {
-    const args = ids && ids.length > 0 ? { ids } : {}
-    return this.request("torrent-verify", args)
+    await this.post("/torrents/recheck", { hashes: this.hashes(ids) })
+    return {}
   }
 
   async reannounceTorrents(ids?: TorrentId[]) {
-    const args = ids && ids.length > 0 ? { ids } : {}
-    return this.request("torrent-reannounce", args)
+    await this.post("/torrents/reannounce", { hashes: this.hashes(ids) })
+    return {}
+  }
+
+  private async postActionWithLegacy(primary: string, fallback: string, ids?: TorrentId[]): Promise<Record<string, never>> {
+    try {
+      await this.post(primary, { hashes: this.hashes(ids) })
+    } catch (error) {
+      if (!(error instanceof Error) || !/qBittorrent API (404|405)/.test(error.message)) throw error
+      await this.post(fallback, { hashes: this.hashes(ids) })
+    }
+    return {}
+  }
+
+  private async replaceTags(ids: TorrentId[], desiredTags: string[]): Promise<void> {
+    const summaries = await this.get<QbtTorrentInfo[]>(`/torrents/info?hashes=${encodeURIComponent(ids.join("|"))}`)
+    await Promise.all(summaries.map(async (torrent) => {
+      const current = torrent.tags ? torrent.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : []
+      if (current.length) await this.post("/torrents/removeTags", { hashes: torrent.hash, tags: current.join(",") })
+      if (desiredTags.length) await this.post("/torrents/addTags", { hashes: torrent.hash, tags: desiredTags.join(",") })
+    }))
+  }
+
+  private async replaceTrackers(hash: TorrentId, trackerList: string): Promise<void> {
+    const current = await this.get<Array<{ url: string }>>(`/torrents/trackers?hash=${encodeURIComponent(hash)}`)
+    const currentUrls = current.map((item) => item.url).filter((url) => /^\w+:\/\//.test(url))
+    const nextUrls = trackerList.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)
+    const shared = Math.min(currentUrls.length, nextUrls.length)
+    for (let index = 0; index < shared; index++) {
+      if (currentUrls[index] !== nextUrls[index]) await this.post("/torrents/editTracker", { hash, origUrl: currentUrls[index], newUrl: nextUrls[index] })
+    }
+    if (currentUrls.length > shared) await this.post("/torrents/removeTrackers", { hash, urls: currentUrls.slice(shared).join("|") })
+    if (nextUrls.length > shared) await this.post("/torrents/addTrackers", { hash, urls: nextUrls.slice(shared).join("\n") })
+  }
+
+  private mapSession(prefs: Record<string, unknown>, version: string, apiVersion: string, alternativeSpeedEnabled: boolean): Session {
+    const number = (key: string, fallback = 0) => Number(prefs[key] ?? fallback)
+    const bool = (key: string, fallback = false) => Boolean(prefs[key] ?? fallback)
+    const text = (key: string, fallback = "") => String(prefs[key] ?? fallback)
+    const encryption = number("encryption") === 1 ? "required" : number("encryption") === 2 ? "tolerated" : "preferred"
+    return {
+      "alt-speed-down": Math.round(number("alt_dl_limit") / 1024), "alt-speed-enabled": alternativeSpeedEnabled, "alt-speed-up": Math.round(number("alt_up_limit") / 1024),
+      "alt-speed-time-begin": 0, "alt-speed-time-enabled": bool("scheduler_enabled"), "alt-speed-time-end": 0, "alt-speed-time-day": 0,
+      "download-dir": text("save_path"), "download-queue-enabled": bool("queueing_enabled"), "download-queue-size": number("max_active_downloads"),
+      encryption, "peer-limit-global": number("max_connec"), "peer-limit-per-torrent": number("max_connec_per_torrent"), "peer-port": number("listen_port"),
+      "peer-port-random-on-start": bool("random_port"), "port-forwarding-enabled": bool("upnp"), "rename-partial-files": bool("incomplete_files_ext"),
+      "rpc-version": 2, "rpc-version-semver": apiVersion, "seed-queue-enabled": bool("queueing_enabled"), "seed-queue-size": number("max_active_uploads"),
+      "speed-limit-down": Math.round(number("dl_limit") / 1024), "speed-limit-down-enabled": number("dl_limit") > 0, "speed-limit-up": Math.round(number("up_limit") / 1024),
+      "speed-limit-up-enabled": number("up_limit") > 0, "start-added-torrents": !bool("start_paused_enabled"), "trash-original-torrent-files": false,
+      units: { "speed-units": ["B/s", "KiB/s", "MiB/s", "GiB/s"], "speed-bytes": 1024, "size-units": ["B", "KiB", "MiB", "GiB", "TiB"], "size-bytes": 1024 },
+      version, "dht-enabled": bool("dht"), "pex-enabled": bool("pex"), "lpd-enabled": bool("lsd"), "utp-enabled": true,
+      "blocklist-enabled": false, "blocklist-url": "", "blocklist-size": 0, "incomplete-dir": text("temp_path"), "incomplete-dir-enabled": bool("temp_path_enabled"),
+    }
   }
 }
 
-export const rpc = new TransmissionRPC()
+export const rpc = new QBittorrentRPC()

@@ -2,12 +2,14 @@
 import type { Session } from "./rpc-types";
 import { MOCK_SESSION, MOCK_STATS, MOCK_TORRENTS } from "./mock-data";
 
-class TransmissionRPCMock {
-  private baseUrl: string = "/transmission/rpc";
-
+class QBittorrentRPCMock {
   constructor() {
-    console.log("TransmissionRPC Mock initialized");
+    console.log("qBittorrent API mock initialized");
   }
+
+  async checkAuthentication() { return true; }
+  async login(_username: string, _password: string) { return; }
+  async logout() { return; }
 
   async request<T = any>(method: string, args?: any): Promise<T> {
     console.log(`[RPC Mock] Request: ${method}`, args);
@@ -44,7 +46,7 @@ class TransmissionRPCMock {
     }
   }
 
-  async getTorrents(_fields: string[], _ids?: (number | string)[]) {
+  async getTorrents(_fields: string[], _ids?: string[]) {
     return this.request("torrent-get", { ids: _ids });
   }
 
@@ -60,15 +62,15 @@ class TransmissionRPCMock {
     return this.request("session-stats");
   }
 
-  async startTorrents(ids?: (number | string)[]) {
+  async startTorrents(ids?: string[]) {
     return this.request("torrent-start", { ids });
   }
 
-  async stopTorrents(ids?: (number | string)[]) {
+  async stopTorrents(ids?: string[]) {
     return this.request("torrent-stop", { ids });
   }
 
-  async removeTorrents(ids: (number | string)[], deleteData = false) {
+  async removeTorrents(ids: string[], deleteData = false) {
     return this.request("torrent-remove", { ids, "delete-local-data": deleteData });
   }
 
@@ -81,15 +83,15 @@ class TransmissionRPCMock {
     return this.request("torrent-add", args);
   }
 
-  async setTorrent(ids: (number | string)[], args: any) {
+  async setTorrent(ids: string[], args: any) {
     return this.request("torrent-set", { ids, ...args });
   }
 
-  async setTorrentLocation(ids: number[], location: string, move: boolean = true) {
+  async setTorrentLocation(ids: string[], location: string, move: boolean = true) {
     return this.request("torrent-set-location", { ids, location, move });
   }
 
-  async renameTorrentPath(id: number, path: string, name: string) {
+  async renameTorrentPath(id: string, path: string, name: string) {
     return this.request("torrent-rename-path", { ids: [id], path, name });
   }
 
@@ -102,4 +104,4 @@ class TransmissionRPCMock {
   }
 }
 
-export const rpc = new TransmissionRPCMock();
+export const rpc = new QBittorrentRPCMock();

@@ -84,7 +84,7 @@ describe("EditTorrentDialog", () => {
 
     render(
       <I18nProvider>
-        <EditTorrentDialog torrent={{ id: 1, name: "Ubuntu.iso", downloadDir: "/downloads/iso" }}>
+        <EditTorrentDialog torrent={{ id: "1", name: "Ubuntu.iso", downloadDir: "/downloads/iso" }}>
           <button type="button">Open</button>
         </EditTorrentDialog>
       </I18nProvider>
@@ -134,7 +134,7 @@ describe("EditTorrentDialog", () => {
 
     render(
       <I18nProvider>
-        <EditTorrentDialog torrent={{ id: 1, name: "Ubuntu.iso", downloadDir: "/downloads/iso" }}>
+        <EditTorrentDialog torrent={{ id: "1", name: "Ubuntu.iso", downloadDir: "/downloads/iso" }}>
           <button type="button">Open</button>
         </EditTorrentDialog>
       </I18nProvider>

@@ -1,6 +1,8 @@
 /**
- * Transmission RPC Type Definitions
- * Based on Specification v17 (Transmission 4.0.0)
+ * UI domain types used by the qBittorrent Web API adapter.
+ *
+ * The property names intentionally stay stable so the view layer remains
+ * independent from qBittorrent's wire format.
  */
 
 export enum TorrentStatus {
@@ -14,7 +16,7 @@ export enum TorrentStatus {
 }
 
 export interface Torrent {
-  id: number
+  id: string
   name: string
   status: TorrentStatus
   hashString: string
@@ -58,9 +60,10 @@ export interface Torrent {
   seedIdleLimit?: number
   seedIdleMode?: number
   trackerList?: string
+  category?: string
 }
 
-export type TorrentId = number | string
+export type TorrentId = string
 export type TorrentField = keyof Torrent
 
 export interface TorrentGetResponse {

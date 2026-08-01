@@ -25,7 +25,7 @@ interface BatchMoveDirectoryDialogProps {
 }
 
 interface MatchingTorrent {
-  id: number
+  id: string
   name: string
   downloadDir: string
 }
@@ -70,8 +70,8 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
       const targetOldDir = oldDir.trim()
       
       const matches: MatchingTorrent[] = torrents
-        .filter((tor: { id: number; name: string; downloadDir: string }) => tor.downloadDir === targetOldDir)
-        .map((tor: { id: number; name: string; downloadDir: string }) => ({
+        .filter((tor: { id: string; name: string; downloadDir: string }) => tor.downloadDir === targetOldDir)
+        .map((tor: { id: string; name: string; downloadDir: string }) => ({
           id: tor.id,
           name: tor.name,
           downloadDir: tor.downloadDir
@@ -99,7 +99,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
       const ids = matchingTorrents.map(t => t.id)
       const targetNewDir = newDir.trim()
       
-      // Transmission RPC: torrent-set-location
+      // qBittorrent Web API: torrents/setLocation
       // { "ids": [...], "location": "...", "move": true }
       await rpc.setTorrentLocation(ids, targetNewDir, true)
 

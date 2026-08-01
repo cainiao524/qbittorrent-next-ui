@@ -16,11 +16,12 @@ import { toast } from "sonner"
 import { rpc } from "@/lib/rpc-client"
 import { parseTorrentLabels, serializeTorrentLabels } from "@/lib/torrent-labels"
 import { useI18n } from "@/lib/i18n-context"
+import type { TorrentId } from "@/lib/rpc-types"
 
 interface BatchSetLabelsSelectedDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  selectedIds: number[]
+  selectedIds: TorrentId[]
   onSuccess?: () => void
 }
 
@@ -75,8 +76,8 @@ export function BatchSetLabelsSelectedDialog({
         successCount = selectedIds.length
       } else {
         const { torrents } = await rpc.getTorrents(["id", "labels"])
-        const torrentMap = new Map<number, string[]>()
-        torrents.forEach((tor: { id: number; labels?: string[] }) => {
+        const torrentMap = new Map<TorrentId, string[]>()
+        torrents.forEach((tor: { id: TorrentId; labels?: string[] }) => {
           torrentMap.set(tor.id, tor.labels ?? [])
         })
 

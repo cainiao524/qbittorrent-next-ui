@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout"
 import { TorrentView } from "@/components/torrents/torrent-view"
 import TorrentDetailsPage from "@/app/torrents/detail/page"
 import SettingsPage from "@/app/settings/page"
+import { AuthGate } from "@/components/auth-gate"
 
 function AppRoutes() {
   return (
@@ -21,9 +22,11 @@ function AppRoutes() {
 function App() {
   return (
     <HashRouter>
-      <Layout>
-        <AppRoutes />
-      </Layout>
+      <AuthGate>
+        <Layout>
+          <AppRoutes />
+        </Layout>
+      </AuthGate>
     </HashRouter>
   )
 }

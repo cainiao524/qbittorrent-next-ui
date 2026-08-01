@@ -1,3 +1,5 @@
+import type { TorrentId } from "./rpc-types"
+
 export type SingleTorrentAction = "start" | "stop" | "remove"
 export type BatchTorrentAction = SingleTorrentAction | "verify" | "reannounce"
 export type TorrentActionMode = "single" | "batch"
@@ -12,18 +14,18 @@ export interface TorrentActionToast {
 
 export type TorrentActionPlan =
   | { type: "noop" }
-  | { type: "confirm-delete"; ids: number[] }
+  | { type: "confirm-delete"; ids: TorrentId[] }
   | {
       type: "rpc"
       action: TorrentRpcAction
-      ids: number[]
+      ids: TorrentId[]
       clearSelection: boolean
       toast: TorrentActionToast
     }
 
 export function createTorrentActionPlan(
   action: BatchTorrentAction,
-  ids: number[],
+  ids: TorrentId[],
   mode: TorrentActionMode,
   t: Translate
 ): TorrentActionPlan {

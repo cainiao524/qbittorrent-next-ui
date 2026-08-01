@@ -15,12 +15,12 @@ import {
 import { EditTorrentDialog } from "@/components/torrents/edit-torrent-dialog"
 import { cn } from "@/lib/utils"
 import { formatSpeed, formatDuration, getStatusLabel, formatSizeParts, splitSpeed } from "@/lib/formatters"
-import type { Torrent } from "@/lib/rpc-types"
+import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 
 interface TorrentGridViewProps {
   paginatedTorrents: Torrent[]
-  onSingleAction: (id: number, action: "start" | "stop" | "remove") => void
+  onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
 }
 
 export function TorrentGridView({

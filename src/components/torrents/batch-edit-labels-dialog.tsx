@@ -26,7 +26,7 @@ interface BatchEditLabelsDialogProps {
 }
 
 interface MatchingTorrent {
-  id: number
+  id: string
   name: string
   rawLabels: string[]
 }
@@ -67,7 +67,7 @@ export function BatchEditLabelsDialog({ open, onOpenChange, onSuccess }: BatchEd
       const { torrents } = await rpc.getTorrents(["id", "name", "labels"])
       const matches: MatchingTorrent[] = []
 
-      torrents.forEach((tor: { id: number; name: string; labels?: string[] }) => {
+      torrents.forEach((tor: { id: string; name: string; labels?: string[] }) => {
         const parsed = parseTorrentLabels(tor.labels)
         if (parsed.includes(oldLabel.trim())) {
           matches.push({ id: tor.id, name: tor.name, rawLabels: tor.labels ?? [] })

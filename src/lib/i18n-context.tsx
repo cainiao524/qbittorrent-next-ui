@@ -17,7 +17,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   // Load locale from storage on mount
   React.useEffect(() => {
-    const savedLocale = localStorage.getItem("transmission-locale") as Locale
+    const savedLocale = localStorage.getItem("qbittorrent-next-locale") as Locale
     if (savedLocale && (savedLocale === "en" || savedLocale === "zh")) {
       setLocaleState(savedLocale)
     }
@@ -25,7 +25,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = (l: Locale) => {
     setLocaleState(l)
-    localStorage.setItem("transmission-locale", l)
+    localStorage.setItem("qbittorrent-next-locale", l)
   }
 
   const t = (path: string, args?: Record<string, unknown> | string, defaultValue?: string): string => {

@@ -4,7 +4,7 @@ import * as React from "react"
 import { CheckCircle2 } from "lucide-react"
 
 interface BatchTorrentListProps {
-  torrents: { id: number; name: string }[]
+  torrents: { id: string; name: string }[]
   maxHeight?: string
 }
 

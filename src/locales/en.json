@@ -172,13 +172,13 @@
   },
   "settings": {
     "title": "Server Settings",
-    "desc": "Fine-tune your Transmission daemon session and global parameters.",
+    "desc": "Manage qBittorrent session and global parameters.",
     "tabs": {
       "speed": "Speed",
       "transfers": "Transfers",
       "network": "Network",
       "peers": "Peers & Shield",
-      "remote": "RPC / Server",
+      "remote": "Web API / Server",
       "page": "Page Settings"
     },
     "page": {
@@ -242,11 +242,11 @@
       "blocklist_desc": "Protect your session from known malicious IP ranges."
     },
     "remote": {
-      "title": "RPC Interface",
+      "title": "Web API Interface",
       "client_version": "Client Version",
-      "rpc_version": "RPC Version",
+      "rpc_version": "Web API Version",
       "server_software": "Server Software",
-      "host_whitelist": "RPC Host Whitelist"
+      "host_whitelist": "Host Whitelist"
     },
     "actions": {
       "discard": "Discard",

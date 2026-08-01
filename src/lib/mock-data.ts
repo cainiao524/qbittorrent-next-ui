@@ -88,7 +88,7 @@ const TRACKERS = {
 
 const BASE_TORRENTS: Torrent[] = [
   {
-    id: 1,
+    id: "1",
     name: "Big.Buck.Bunny.2008.REMASTERED.2160p.HEVC.DTS-HD.MA.5.1-GRP.mkv",
     status: TorrentStatus.DOWNLOAD,
     hashString: "8f56e9c9a0b1d3e1f5a4b3c2d1e0f9a8b1c2d3e4",
@@ -128,14 +128,14 @@ const BASE_TORRENTS: Torrent[] = [
       { announce: TRACKERS.backup, host: "open.stealth.si", seederCount: 1543, leecherCount: 903, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: true },
     ],
     peers: [
-      { address: "192.168.1.50", clientName: "Transmission 4.0.6", rateToClient: 2250000, rateToPeer: 35000, progress: 1.0, isEncrypted: true },
+      { address: "192.168.1.50", clientName: "qBittorrent 5.0.4", rateToClient: 2250000, rateToPeer: 35000, progress: 1.0, isEncrypted: true },
       { address: "85.24.11.22", clientName: "qBittorrent 5.1.0", rateToClient: 1640000, rateToPeer: 12000, progress: 0.86, isEncrypted: true },
       { address: "42.156.4.8", clientName: "Deluge 2.1.1", rateToClient: 710000, rateToPeer: 0, progress: 0.55, isEncrypted: false },
       { address: "103.22.45.1", clientName: "uTorrent 3.6.0", rateToClient: 0, rateToPeer: 28000, progress: 0.14, isEncrypted: true },
     ],
   },
   {
-    id: 2,
+    id: "2",
     name: "ubuntu-24.04.2-desktop-amd64.iso",
     status: TorrentStatus.SEED,
     hashString: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
@@ -169,7 +169,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 3,
+    id: "3",
     name: "ArchLinux-2026.04.01-x86_64.iso",
     status: TorrentStatus.SEED_WAIT,
     hashString: "f1e2d3c4b5a697887766554433221100aabbccdd",
@@ -203,7 +203,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 4,
+    id: "4",
     name: "Sintel.2010.1080p.BluRay.x264.DTS-WiKi.mkv",
     status: TorrentStatus.STOPPED,
     hashString: "ccddeeff00112233445566778899aabbccddeeff",
@@ -234,7 +234,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 5,
+    id: "5",
     name: "Lossless.Discography.Collection.1998-2025.FLAC",
     status: TorrentStatus.DOWNLOAD_WAIT,
     hashString: "11bb33dd55ff77aa99cc00ee22dd44ff66aa88cc",
@@ -268,7 +268,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 6,
+    id: "6",
     name: "Debian-Bookworm-Install-DVD-1.iso",
     status: TorrentStatus.CHECK,
     hashString: "44aabb66ccdd88ee00ff11aa22bb33cc44dd55ee",
@@ -299,7 +299,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 7,
+    id: "7",
     name: "PrivateHD.Show.S02E05.2160p.WEB-DL.DV.HDR10+.mkv",
     status: TorrentStatus.DOWNLOAD,
     hashString: "99887766554433221100ffeeddccbbaa99887766",
@@ -333,7 +333,7 @@ const BASE_TORRENTS: Torrent[] = [
     ],
   },
   {
-    id: 8,
+    id: "8",
     name: "Old.Course.Bundle.2017.REPACK.torrent-data",
     status: TorrentStatus.STOPPED,
     hashString: "554433221100ffeeddccbbaa9988776655443322",
@@ -401,7 +401,7 @@ const GENERATED_TORRENTS: Torrent[] = Array.from({ length: 48 }, (_, index) => {
   ]
 
   return {
-    id,
+    id: String(id),
     name:
       index === 0
         ? "A.Very.Long.Release.Name.Used.To.Test.Truncation.And.Table.Layout.2026.2160p.UHD.BluRay.REMUX.HEVC.TrueHD.Atmos.7.1-ExampleGroup.mkv"

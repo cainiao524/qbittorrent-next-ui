@@ -25,7 +25,7 @@ interface BatchReplaceTrackerDialogProps {
 }
 
 interface MatchingTorrent {
-  id: number
+  id: string
   name: string
   trackers: Array<{ announce: string; tier: number }>
   matchFullUrl: string // The full original URL of the matching tracker
@@ -74,7 +74,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
       const { torrents } = await rpc.getTorrents(["id", "name", "trackers"])
       const matches: MatchingTorrent[] = []
 
-      torrents.forEach((tor: { id: number; name: string; trackers?: Array<{ announce: string; tier?: number }> }) => {
+      torrents.forEach((tor: { id: string; name: string; trackers?: Array<{ announce: string; tier?: number }> }) => {
         const matchesInTorrent = tor.trackers?.filter((tr: { announce: string }) =>
           tr.announce && tr.announce.startsWith(oldTracker.trim())
         )

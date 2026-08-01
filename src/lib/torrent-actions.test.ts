@@ -8,17 +8,17 @@ test("createTorrentActionPlan returns noop for empty ids", () => {
 })
 
 test("createTorrentActionPlan returns confirm-delete for remove", () => {
-  expect(createTorrentActionPlan("remove", [1, 2], "batch", t)).toEqual({
+  expect(createTorrentActionPlan("remove", ["1", "2"], "batch", t)).toEqual({
     type: "confirm-delete",
-    ids: [1, 2],
+    ids: ["1", "2"],
   })
 })
 
 test("createTorrentActionPlan keeps single action feedback concise", () => {
-  expect(createTorrentActionPlan("stop", [5], "single", t)).toEqual({
+  expect(createTorrentActionPlan("stop", ["5"], "single", t)).toEqual({
     type: "rpc",
     action: "stop",
-    ids: [5],
+    ids: ["5"],
     clearSelection: false,
     toast: {
       level: "info",
@@ -28,10 +28,10 @@ test("createTorrentActionPlan keeps single action feedback concise", () => {
 })
 
 test("createTorrentActionPlan includes batch feedback and clears selection", () => {
-  expect(createTorrentActionPlan("verify", [3, 4], "batch", t)).toEqual({
+  expect(createTorrentActionPlan("verify", ["3", "4"], "batch", t)).toEqual({
     type: "rpc",
     action: "verify",
-    ids: [3, 4],
+    ids: ["3", "4"],
     clearSelection: true,
     toast: {
       level: "success",
