@@ -9,6 +9,7 @@ import {
 
 describe("application preference helpers", () => {
   test("groups version-dependent preferences into useful sections", () => {
+    expect(getPreferenceCategory("locale")).toBe("behavior")
     expect(getPreferenceCategory("save_path")).toBe("downloads")
     expect(getPreferenceCategory("alt_dl_limit")).toBe("speed")
     expect(getPreferenceCategory("proxy_ip")).toBe("connection")
@@ -17,6 +18,9 @@ describe("application preference helpers", () => {
     expect(getPreferenceCategory("web_ui_port")).toBe("webui")
     expect(getPreferenceCategory("rss_refresh_interval")).toBe("rss")
     expect(getPreferenceCategory("mail_notification_enabled")).toBe("automation")
+    expect(getPreferenceCategory("file_log_enabled")).toBe("logging")
+    expect(getPreferenceCategory("current_network_interface")).toBe("connection")
+    expect(getPreferenceCategory("torrent_content_layout")).toBe("downloads")
     expect(getPreferenceCategory("future_setting")).toBe("advanced")
   })
 
