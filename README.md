@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cainiao524/qbittorrent-next-ui/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/cainiao524/qbittorrent-next-ui/build.yml?branch=main&label=%E6%9E%84%E5%BB%BA" alt="构建状态" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/cainiao524/qbittorrent-next-ui" alt="许可证" /></a>
+  <a href="https://github.com/cainiao524/qbittorrent-next-ui-test/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/cainiao524/qbittorrent-next-ui-test/build.yml?branch=main&label=%E6%9E%84%E5%BB%BA" alt="构建状态" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/cainiao524/qbittorrent-next-ui-test" alt="许可证" /></a>
   <img src="https://img.shields.io/badge/qBittorrent-4.x%20%7C%205.x-2f67ba" alt="qBittorrent 兼容版本" />
   <img src="https://img.shields.io/badge/React-19-149eca" alt="React 版本" />
 </p>
@@ -61,86 +61,35 @@ qBittorrent Next UI 使用 React、Vite、Tailwind CSS 与 shadcn/ui 构建，�
 
 ## 安装
 
-qBittorrent Next UI 是纯静态网页，既可以作为 qBittorrent 的备用网页界面使用，也可以由 nginx 等独立网页服务器托管。
+qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务器上持续运行 Node.js。推荐按下面的顺序选择安装方式：
 
-| 安装方式 | 是否需要 Node.js | 适合场景 |
-| --- | --- | --- |
-| [发行版安装](#方式一发行版安装推荐) | 否 | NAS、Docker、普通服务器，推荐大多数用户使用 |
-| [从源码构建](#方式二从源码构建) | 是 | 开发、二次修改或需要构建最新 `main` 分支 |
+| 推荐顺序 | 安装方式 | 独立访问端口 | 是否修改 qBittorrent 备用界面 | 适合场景 |
+| --- | --- | --- | --- | --- |
+| 1 | Docker + Nginx 独立部署 | 是 | 否 | NAS、Docker、希望新版与原生界面并存，推荐大多数用户使用 |
+| 2 | 直接导入 qBittorrent WebUI | 否 | 是 | 希望直接替换 qBittorrent 原生界面，部署步骤最少 |
+| 3 | 从源码构建 | 取决于部署方式 | 取决于部署方式 | 开发、二次修改或需要构建最新 `main` 分支 |
 
-### 方式一：发行版安装（推荐）
+> 推荐先使用方式一。即使新版界面配置错误，仍可通过 qBittorrent 原生端口进入原生界面，排查和回滚更方便。
 
-#### 1. 下载并解压
+### 推荐安装方式一：Docker + Nginx 独立部署（推荐）
 
-打开 [Releases 页面](https://github.com/cainiao524/qbittorrent-next-ui/releases/latest)，下载 `qbittorrent-next-ui.zip`。也可以在 Linux 或 NAS 终端执行：
+这种方式由 Nginx 容器提供 WebUI 静态文件，并把同源 `/api/v2/` 请求转发给 qBittorrent。新版界面和 qBittorrent 原生界面使用不同端口，可以同时保留。
 
-```bash
-mkdir -p qbittorrent-next-ui-release
-cd qbittorrent-next-ui-release
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
-unzip qbittorrent-next-ui.zip -d webui
+```text
+浏览器
+  └─ Nginx WebUI 端口
+       ├─ /          → WebUI 静态文件
+       └─ /api/v2/   → qBittorrent Web API
 ```
 
-Windows PowerShell：
-
-```powershell
-New-Item -ItemType Directory -Force qbittorrent-next-ui-release
-Set-Location qbittorrent-next-ui-release
-Invoke-WebRequest -Uri "https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip" -OutFile "qbittorrent-next-ui.zip"
-Expand-Archive -Path "qbittorrent-next-ui.zip" -DestinationPath "webui"
-```
-
-解压后的 `webui/` 应直接包含 `index.html`、`assets/` 和字体等静态文件。
-
-#### 2A. 安装到 Docker 版 qBittorrent
-
-把解压目录只读挂载到 qBittorrent 容器内的 `/webui`。以下为 LinuxServer.io 镜像示例：
-
-```yaml
-services:
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    volumes:
-      - ./config:/config
-      - ./downloads:/downloads
-      - ./qbittorrent-next-ui-release/webui:/webui:ro
-```
-
-重新创建容器使挂载生效：
-
-```bash
-docker compose up -d
-```
-
-然后在 qBittorrent 原生界面中完成启用：
-
-1. 打开“工具 → 选项 → 网页用户界面”。
-2. 启用“使用备用网页用户界面”。
-3. 备用网页界面文件路径填写 `/webui`。
-4. 保存设置并刷新浏览器。
-
-> 第一次切换时建议保留一个已登录的原生界面页面。如果路径填写错误，可以关闭备用界面选项，或在停止 qBittorrent 后把配置文件中的 `WebUI\AlternativeUIEnabled` 改为 `false`。
-
-#### 2B. 安装到非 Docker qBittorrent
-
-把 `webui/` 放到 qBittorrent 运行用户有权读取的固定目录，例如 `/opt/qbittorrent-next-ui`，然后在“网页用户界面”设置中启用备用界面并填写该绝对路径：
-
-```bash
-sudo mkdir -p /opt/qbittorrent-next-ui
-sudo cp -a webui/. /opt/qbittorrent-next-ui/
-sudo chmod -R a+rX /opt/qbittorrent-next-ui
-```
-
-#### 2C. 通过 Docker 和 nginx 代理使用 WebUI
-
-这种方式不会修改 qBittorrent 的备用界面设置。nginx 容器负责提供静态页面，并把浏览器发往同源 `/api/` 的请求转发给 qBittorrent，因此不需要关闭浏览器跨域保护。
+这种方式不会修改 qBittorrent 的备用界面设置，也不需要关闭浏览器跨域保护。
 
 ##### 第一步：准备目录和发行版
 
 ```bash
 mkdir -p qbittorrent-next-ui-nginx/webui
 cd qbittorrent-next-ui-nginx
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
 unzip qbittorrent-next-ui.zip -d webui
 ```
 
@@ -237,10 +186,10 @@ proxy_pass http://host.docker.internal:8080;
 qBittorrent 位于另一台设备时，直接使用它的局域网地址，例如：
 
 ```nginx
-proxy_pass http://192.168.1.20:8080;
+proxy_pass http://192.0.2.20:8080;
 ```
 
-请确保 qBittorrent WebUI 监听地址允许 nginx 所在设备访问，并且防火墙已放行对应端口。
+`192.0.2.20` 是保留的文档示例地址，请替换成 qBittorrent 设备的真实局域网地址。请确保 qBittorrent WebUI 监听地址允许 nginx 所在设备访问，并且防火墙已放行对应端口。
 
 ##### 第五步：启动并验证
 
@@ -269,7 +218,7 @@ http://服务器地址:8098
 先解压到新目录并保留旧版，确认文件完整后再切换：
 
 ```bash
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
 mkdir webui-new
 unzip qbittorrent-next-ui.zip -d webui-new
 mv webui "webui.backup.$(date +%Y%m%d-%H%M%S)"
@@ -290,7 +239,72 @@ docker restart qbittorrent-next-ui
 
 不要在没有 HTTPS 和强密码保护的情况下把此端口直接暴露到公网。公网访问建议在外层增加可信反向代理、TLS 证书和访问控制。
 
-### 方式二：从源码构建
+### 推荐安装方式二：直接导入 qBittorrent WebUI
+
+这种方式把发行版文件设置为 qBittorrent 的备用网页用户界面。访问地址和端口保持不变，但启用后会直接替换原生界面，不需要额外运行 Nginx 容器。
+
+#### 第一步：下载并解压发行版
+
+打开 [Releases 页面](https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest)，下载 `qbittorrent-next-ui.zip`。也可以在 Linux 或 NAS 终端执行：
+
+```bash
+mkdir -p qbittorrent-next-ui-release
+cd qbittorrent-next-ui-release
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+unzip qbittorrent-next-ui.zip -d webui
+```
+
+Windows PowerShell：
+
+```powershell
+New-Item -ItemType Directory -Force qbittorrent-next-ui-release
+Set-Location qbittorrent-next-ui-release
+Invoke-WebRequest -Uri "https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip" -OutFile "qbittorrent-next-ui.zip"
+Expand-Archive -Path "qbittorrent-next-ui.zip" -DestinationPath "webui"
+```
+
+解压后的 `webui/` 应直接包含 `index.html`、`assets/` 和字体等静态文件。
+
+#### 第二步 A：Docker 版 qBittorrent
+
+把解压目录只读挂载到 qBittorrent 容器内的 `/webui`。以下为 LinuxServer.io 镜像示例：
+
+```yaml
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+      - ./qbittorrent-next-ui-release/webui:/webui:ro
+```
+
+重新创建容器使挂载生效：
+
+```bash
+docker compose up -d
+```
+
+然后在 qBittorrent 原生界面中完成启用：
+
+1. 打开“工具 → 选项 → 网页用户界面”。
+2. 启用“使用备用网页用户界面”。
+3. 备用网页界面文件路径填写 `/webui`。
+4. 保存设置并刷新浏览器。
+
+> 第一次切换时建议保留一个已登录的原生界面页面。如果路径填写错误，可以关闭备用界面选项，或在停止 qBittorrent 后把配置文件中的 `WebUI\AlternativeUIEnabled` 改为 `false`。
+
+#### 第二步 B：非 Docker 版 qBittorrent
+
+把 `webui/` 放到 qBittorrent 运行用户有权读取的固定目录，例如 `/opt/qbittorrent-next-ui`，然后在“网页用户界面”设置中启用备用界面并填写该绝对路径：
+
+```bash
+sudo mkdir -p /opt/qbittorrent-next-ui
+sudo cp -a webui/. /opt/qbittorrent-next-ui/
+sudo chmod -R a+rX /opt/qbittorrent-next-ui
+```
+
+### 从源码构建（开发者）
 
 #### 环境要求
 
@@ -302,8 +316,8 @@ docker restart qbittorrent-next-ui
 #### 1. 获取源码并安装依赖
 
 ```bash
-git clone https://github.com/cainiao524/qbittorrent-next-ui.git
-cd qbittorrent-next-ui
+git clone https://github.com/cainiao524/qbittorrent-next-ui-test.git
+cd qbittorrent-next-ui-test
 pnpm install --frozen-lockfile
 ```
 
@@ -371,13 +385,13 @@ pnpm dev
 开发服务器默认将 `/api` 代理至 `http://127.0.0.1:8080`。qBittorrent 位于其他地址时，可在启动前设置：
 
 ```bash
-VITE_QBITTORRENT_PROXY_TARGET=http://192.168.1.10:8080 pnpm dev
+VITE_QBITTORRENT_PROXY_TARGET=http://192.0.2.10:8080 pnpm dev
 ```
 
 Windows PowerShell：
 
 ```powershell
-$env:VITE_QBITTORRENT_PROXY_TARGET = "http://192.168.1.10:8080"
+$env:VITE_QBITTORRENT_PROXY_TARGET = "http://192.0.2.10:8080"
 pnpm dev
 ```
 
