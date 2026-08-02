@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cainiao524/qbittorrent-next-ui/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/cainiao524/qbittorrent-next-ui/build.yml?branch=main&label=%E6%9E%84%E5%BB%BA" alt="构建状态" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/cainiao524/qbittorrent-next-ui" alt="许可证" /></a>
+  <a href="https://github.com/cainiao524/qbittorrent-next-ui-test/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/cainiao524/qbittorrent-next-ui-test/build.yml?branch=main&label=%E6%9E%84%E5%BB%BA" alt="构建状态" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/cainiao524/qbittorrent-next-ui-test" alt="许可证" /></a>
   <img src="https://img.shields.io/badge/qBittorrent-4.x%20%7C%205.x-2f67ba" alt="qBittorrent 兼容版本" />
   <img src="https://img.shields.io/badge/React-19-149eca" alt="React 版本" />
 </p>
@@ -89,7 +89,7 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 ```bash
 mkdir -p qbittorrent-next-ui-nginx/webui
 cd qbittorrent-next-ui-nginx
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
 unzip qbittorrent-next-ui.zip -d webui
 ```
 
@@ -218,7 +218,7 @@ http://服务器地址:8098
 先解压到新目录并保留旧版，确认文件完整后再切换：
 
 ```bash
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
 mkdir webui-new
 unzip qbittorrent-next-ui.zip -d webui-new
 mv webui "webui.backup.$(date +%Y%m%d-%H%M%S)"
@@ -245,12 +245,12 @@ docker restart qbittorrent-next-ui
 
 #### 第一步：下载并解压发行版
 
-打开 [Releases 页面](https://github.com/cainiao524/qbittorrent-next-ui/releases/latest)，下载 `qbittorrent-next-ui.zip`。也可以在 Linux 或 NAS 终端执行：
+打开 [Releases 页面](https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest)，下载 `qbittorrent-next-ui.zip`。也可以在 Linux 或 NAS 终端执行：
 
 ```bash
 mkdir -p qbittorrent-next-ui-release
 cd qbittorrent-next-ui-release
-curl -L https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
+curl -L https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip -o qbittorrent-next-ui.zip
 unzip qbittorrent-next-ui.zip -d webui
 ```
 
@@ -259,7 +259,7 @@ Windows PowerShell：
 ```powershell
 New-Item -ItemType Directory -Force qbittorrent-next-ui-release
 Set-Location qbittorrent-next-ui-release
-Invoke-WebRequest -Uri "https://github.com/cainiao524/qbittorrent-next-ui/releases/latest/download/qbittorrent-next-ui.zip" -OutFile "qbittorrent-next-ui.zip"
+Invoke-WebRequest -Uri "https://github.com/cainiao524/qbittorrent-next-ui-test/releases/latest/download/qbittorrent-next-ui.zip" -OutFile "qbittorrent-next-ui.zip"
 Expand-Archive -Path "qbittorrent-next-ui.zip" -DestinationPath "webui"
 ```
 
@@ -316,8 +316,8 @@ sudo chmod -R a+rX /opt/qbittorrent-next-ui
 #### 1. 获取源码并安装依赖
 
 ```bash
-git clone https://github.com/cainiao524/qbittorrent-next-ui.git
-cd qbittorrent-next-ui
+git clone https://github.com/cainiao524/qbittorrent-next-ui-test.git
+cd qbittorrent-next-ui-test
 pnpm install --frozen-lockfile
 ```
 
