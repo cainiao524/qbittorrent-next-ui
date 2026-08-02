@@ -112,28 +112,30 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
 
   return (
     <div className="min-w-[850px] md:min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/30 bg-muted/15 px-5 py-3 md:px-6">
-        <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
-          <span className="flex items-center gap-2"><Folder className="size-4 text-emerald-500" />{files.length} {t("details.file_count")}</span>
-          {searchKeys && <span className="rounded-full bg-green-500/10 px-2 py-1 text-green-600 dark:text-green-400">找到 {matchingFileCount} 个文件</span>}
-          {files.length >= 5000 && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">大型种子优化已启用</span>}
-        </div>
-        <div className="flex flex-1 items-center justify-end gap-2">
-          <div className="relative w-full max-w-64">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="搜索文件或路径" className="h-9 rounded-xl bg-background/70 pl-9 pr-9 text-sm" />
-            {query && <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2" onClick={() => updateQuery("")}><X className="size-3.5" /></Button>}
+      <div className="sticky top-[var(--detail-tabs-offset)] z-20 bg-background/95 shadow-md shadow-black/5 backdrop-blur-xl dark:shadow-black/25">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/30 bg-muted/15 px-5 py-3 md:px-6">
+          <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
+            <span className="flex items-center gap-2"><Folder className="size-4 text-emerald-500" />{files.length} {t("details.file_count")}</span>
+            {searchKeys && <span className="rounded-full bg-green-500/10 px-2 py-1 text-green-600 dark:text-green-400">找到 {matchingFileCount} 个文件</span>}
+            {files.length >= 5000 && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">大型种子优化已启用</span>}
           </div>
-          <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set(folderKeys))}><ChevronsUpDown />全部展开</Button>
-          <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set())}><ChevronsDownUp />全部折叠</Button>
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <div className="relative w-full max-w-64">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="搜索文件或路径" className="h-9 rounded-xl bg-background/70 pl-9 pr-9 text-sm" />
+              {query && <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2" onClick={() => updateQuery("")}><X className="size-3.5" /></Button>}
+            </div>
+            <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set(folderKeys))}><ChevronsUpDown />全部展开</Button>
+            <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set())}><ChevronsDownUp />全部折叠</Button>
+          </div>
         </div>
-      </div>
 
-      <div className="grid h-12 grid-cols-[minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
-        <div className="pl-6"><SortHeader label={t("details.file_name")} sortKey="name" sort={sort} onSort={updateSort} /></div>
-        <div className="pr-5"><SortHeader label={t("common.size", "大小")} sortKey="size" sort={sort} onSort={updateSort} align="right" /></div>
-        <div><SortHeader label={t("common.progress")} sortKey="progress" sort={sort} onSort={updateSort} /></div>
-        <div><SortHeader label={t("details.priority")} sortKey="priority" sort={sort} onSort={updateSort} /></div>
+        <div className="grid h-12 grid-cols-[minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center border-b border-muted/30 bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
+          <div className="pl-6"><SortHeader label={t("details.file_name")} sortKey="name" sort={sort} onSort={updateSort} /></div>
+          <div className="pr-5"><SortHeader label={t("common.size", "大小")} sortKey="size" sort={sort} onSort={updateSort} align="right" /></div>
+          <div><SortHeader label={t("common.progress")} sortKey="progress" sort={sort} onSort={updateSort} /></div>
+          <div><SortHeader label={t("details.priority")} sortKey="priority" sort={sort} onSort={updateSort} /></div>
+        </div>
       </div>
 
       <div>
