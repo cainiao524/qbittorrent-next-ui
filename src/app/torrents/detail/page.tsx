@@ -317,7 +317,7 @@ function TorrentDetailsContent() {
         </div>
 
         {/* Tab Content */}
-        <Card className="shadow-2xl border-none overflow-hidden bg-card/60 backdrop-blur-lg min-h-[400px] border border-muted/10 py-0">
+        <Card className={activeTab === "files" ? "gap-0 overflow-visible rounded-none border-none bg-transparent py-0 shadow-none ring-0" : "min-h-[400px] overflow-hidden border-none border border-muted/10 bg-card/60 py-0 shadow-2xl backdrop-blur-lg"}>
           <CardContent className="p-0 overflow-x-auto no-scrollbar">
             {activeTab === "general" && (
               <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
