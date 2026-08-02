@@ -273,7 +273,7 @@ function TorrentDetailsContent() {
 
       {/* Details Sections with Tabs-like Header */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-2xl w-full border border-muted/20 backdrop-blur-sm sm:self-start overflow-x-auto no-scrollbar">
+        <div className="sticky top-0 z-30 flex w-full items-center gap-1 overflow-x-auto rounded-2xl border border-muted/30 bg-background/90 p-1 shadow-lg shadow-black/5 backdrop-blur-xl no-scrollbar sm:self-start dark:shadow-black/30">
           <Button
             variant={activeTab === "general" ? "secondary" : "ghost"}
             className={`flex-1 min-w-[90px] rounded-xl px-2 py-4 md:py-6 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "general"

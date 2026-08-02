@@ -32,6 +32,23 @@ describe("种子文件树", () => {
     expect(flattenVisibleTorrentFileTree(tree, new Set(), keys).map(({ node }) => node.name)).toEqual(["视频", "花絮", "片段.mp4"])
   })
 
+  test("支持按名称、大小、进度和优先级排序", () => {
+    const tree = buildTorrentFileTree([
+      { index: 0, name: "b.mkv", length: 100, bytesCompleted: 50, priority: 1 },
+      { index: 1, name: "a.mp4", length: 20, bytesCompleted: 20, priority: 6 },
+      { index: 2, name: "c.txt", length: 10, bytesCompleted: 0, priority: 0 },
+    ])
+    const names = (key: "name" | "size" | "progress" | "priority", direction: "asc" | "desc") =>
+      flattenVisibleTorrentFileTree(tree, new Set(), null, { key, direction })
+        .filter(({ node }) => node.kind === "file")
+        .map(({ node }) => node.name)
+
+    expect(names("name", "asc")).toEqual(["a.mp4", "b.mkv", "c.txt"])
+    expect(names("size", "desc")).toEqual(["b.mkv", "a.mp4", "c.txt"])
+    expect(names("progress", "asc")).toEqual(["c.txt", "b.mkv", "a.mp4"])
+    expect(names("priority", "desc")).toEqual(["a.mp4", "b.mkv", "c.txt"])
+  })
+
   test("可处理二万五千个文件且折叠时只产生根节点", () => {
     const largeFiles: TorrentFile[] = Array.from({ length: 25_000 }, (_, index) => ({
       index,
