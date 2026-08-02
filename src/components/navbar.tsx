@@ -72,7 +72,7 @@ export function Navbar() {
   }, [newVersion, latestTag, t, locale])
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-background px-6">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-background px-6">
       <div className="flex items-center gap-4 flex-1">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mx-2 h-8 hidden md:block" />
