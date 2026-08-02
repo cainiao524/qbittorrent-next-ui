@@ -6,30 +6,41 @@ export interface TorrentFileTreeNode {
   name: string
   path: string
   children: TorrentFileTreeNode[]
-  files: TorrentFile[]
+  file?: TorrentFile
+  fileCount: number
   length: number
   bytesCompleted: number
   priority: TorrentFilePriority | null
 }
 
+export interface VisibleTorrentFileTreeNode {
+  node: TorrentFileTreeNode
+  depth: number
+}
+
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" })
+
 function sortNodes(nodes: TorrentFileTreeNode[]): void {
   nodes.sort((left, right) => {
     if (left.kind !== right.kind) return left.kind === "folder" ? -1 : 1
-    return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: "base" })
+    return collator.compare(left.name, right.name)
   })
-  nodes.forEach((node) => sortNodes(node.children))
+  nodes.forEach((node) => {
+    if (node.children.length) sortNodes(node.children)
+  })
 }
 
 function summarizeFolder(node: TorrentFileTreeNode): void {
-  node.children.forEach((child) => {
+  let commonPriority: TorrentFilePriority | null | undefined
+  for (const child of node.children) {
     if (child.kind === "folder") summarizeFolder(child)
-  })
-
-  node.files = node.children.flatMap((child) => child.files)
-  node.length = node.files.reduce((total, file) => total + file.length, 0)
-  node.bytesCompleted = node.files.reduce((total, file) => total + file.bytesCompleted, 0)
-  const priorities = new Set(node.files.map((file) => file.priority))
-  node.priority = priorities.size === 1 ? node.files[0]?.priority ?? 1 : null
+    node.fileCount += child.fileCount
+    node.length += child.length
+    node.bytesCompleted += child.bytesCompleted
+    if (commonPriority === undefined) commonPriority = child.priority
+    else if (commonPriority !== child.priority) commonPriority = null
+  }
+  node.priority = commonPriority ?? null
 }
 
 export function buildTorrentFileTree(files: TorrentFile[]): TorrentFileTreeNode[] {
@@ -47,19 +58,18 @@ export function buildTorrentFileTree(files: TorrentFile[]): TorrentFileTreeNode[
       name: segments.at(-1) ?? path,
       path,
       children: [],
-      files: [],
+      fileCount: 0,
       length: 0,
       bytesCompleted: 0,
       priority: null,
     }
     folders.set(path, folder)
-
     if (segments.length === 1) roots.push(folder)
     else ensureFolder(segments.slice(0, -1)).children.push(folder)
     return folder
   }
 
-  files.forEach((file) => {
+  for (const file of files) {
     const segments = file.name.replaceAll("\\", "/").split("/").filter(Boolean)
     const fileName = segments.pop() ?? file.name
     const normalizedPath = [...segments, fileName].join("/")
@@ -69,15 +79,15 @@ export function buildTorrentFileTree(files: TorrentFile[]): TorrentFileTreeNode[
       name: fileName,
       path: normalizedPath,
       children: [],
-      files: [file],
+      file,
+      fileCount: 1,
       length: file.length,
       bytesCompleted: file.bytesCompleted,
       priority: file.priority,
     }
-
     if (segments.length) ensureFolder(segments).children.push(node)
     else roots.push(node)
-  })
+  }
 
   sortNodes(roots)
   roots.forEach((node) => {
@@ -87,7 +97,65 @@ export function buildTorrentFileTree(files: TorrentFile[]): TorrentFileTreeNode[
 }
 
 export function getTorrentFolderKeys(nodes: TorrentFileTreeNode[]): string[] {
-  return nodes.flatMap((node) => node.kind === "folder"
-    ? [node.key, ...getTorrentFolderKeys(node.children)]
-    : [])
+  const result: string[] = []
+  const stack = [...nodes].reverse()
+  while (stack.length) {
+    const node = stack.pop()!
+    if (node.kind !== "folder") continue
+    result.push(node.key)
+    for (let index = node.children.length - 1; index >= 0; index--) stack.push(node.children[index])
+  }
+  return result
+}
+
+export function collectTorrentFileIds(node: TorrentFileTreeNode): number[] {
+  if (node.file) return [node.file.index]
+  const result: number[] = []
+  const stack = [...node.children]
+  while (stack.length) {
+    const child = stack.pop()!
+    if (child.file) result.push(child.file.index)
+    else stack.push(...child.children)
+  }
+  return result
+}
+
+export function getTorrentFileSearchKeys(nodes: TorrentFileTreeNode[], query: string): Set<string> | null {
+  const normalized = query.trim().toLocaleLowerCase()
+  if (!normalized) return null
+  const result = new Set<string>()
+  const stack = [...nodes]
+  while (stack.length) {
+    const node = stack.pop()!
+    if (node.kind === "folder") {
+      stack.push(...node.children)
+      continue
+    }
+    if (!node.path.toLocaleLowerCase().includes(normalized)) continue
+    result.add(node.key)
+    const segments = node.path.split("/")
+    segments.pop()
+    for (let index = 1; index <= segments.length; index++) result.add(`folder:${segments.slice(0, index).join("/")}`)
+  }
+  return result
+}
+
+export function flattenVisibleTorrentFileTree(
+  nodes: TorrentFileTreeNode[],
+  expanded: ReadonlySet<string>,
+  searchKeys: ReadonlySet<string> | null = null,
+): VisibleTorrentFileTreeNode[] {
+  const result: VisibleTorrentFileTreeNode[] = []
+  const stack = nodes.map((node) => ({ node, depth: 0 })).reverse()
+  while (stack.length) {
+    const current = stack.pop()!
+    if (searchKeys && !searchKeys.has(current.node.key)) continue
+    result.push(current)
+    const shouldExpand = current.node.kind === "folder" && (searchKeys !== null || expanded.has(current.node.key))
+    if (!shouldExpand) continue
+    for (let index = current.node.children.length - 1; index >= 0; index--) {
+      stack.push({ node: current.node.children[index], depth: current.depth + 1 })
+    }
+  }
+  return result
 }
