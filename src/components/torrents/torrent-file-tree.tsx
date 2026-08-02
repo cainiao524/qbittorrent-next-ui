@@ -112,7 +112,8 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
 
   return (
     <div className="min-w-[850px] rounded-2xl border border-muted/30 bg-card/35 shadow-sm md:min-w-0">
-      <div className="sticky top-[var(--detail-tabs-offset)] z-20 overflow-hidden rounded-t-2xl border-b border-muted/30 bg-background/95 shadow-md shadow-black/5 backdrop-blur-xl dark:shadow-black/25">
+      <div className="sticky top-[var(--detail-tabs-offset)] z-20 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-background before:content-['']">
+        <div className="overflow-hidden rounded-t-2xl border-b border-muted/30 bg-background/95 shadow-md shadow-black/5 backdrop-blur-xl dark:shadow-black/25">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/30 bg-muted/15 px-5 py-3 md:px-6">
           <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-2"><Folder className="size-4 text-emerald-500" />{files.length} {t("details.file_count")}</span>
@@ -135,6 +136,7 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
           <div className="pr-5"><SortHeader label={t("common.size", "大小")} sortKey="size" sort={sort} onSort={updateSort} align="right" /></div>
           <div><SortHeader label={t("common.progress")} sortKey="progress" sort={sort} onSort={updateSort} /></div>
           <div><SortHeader label={t("details.priority")} sortKey="priority" sort={sort} onSort={updateSort} /></div>
+        </div>
         </div>
       </div>
 
