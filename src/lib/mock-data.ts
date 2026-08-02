@@ -115,9 +115,10 @@ const BASE_TORRENTS: Torrent[] = [
     peersGettingFromUs: 4,
     labels: [jsonLabel("Movie"), jsonLabel("4K"), "HEVC"],
     files: [
-      { name: "Big.Buck.Bunny.2008.REMASTERED.2160p.mkv", length: 18400000000, bytesCompleted: 12350000000 },
-      { name: "Big.Buck.Bunny-poster.jpg", length: 6500000, bytesCompleted: 6500000 },
-      { name: "subs/en.srt", length: 160000, bytesCompleted: 160000 },
+      { index: 0, name: "Big.Buck.Bunny.2008.REMASTERED.2160p.mkv", length: 18400000000, bytesCompleted: 12350000000, priority: 1 },
+      { index: 1, name: "artwork/Big.Buck.Bunny-poster.jpg", length: 6500000, bytesCompleted: 6500000, priority: 6 },
+      { index: 2, name: "subs/en.srt", length: 160000, bytesCompleted: 160000, priority: 1 },
+      { index: 3, name: "subs/zh-CN.srt", length: 175000, bytesCompleted: 0, priority: 0 },
     ],
     trackers: [
       { id: 0, tier: 0, announce: TRACKERS.blender, scrape: "", sitename: "Blender Tracker" },
