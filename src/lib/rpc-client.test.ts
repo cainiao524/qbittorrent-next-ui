@@ -31,6 +31,18 @@ describe("qBittorrent Web API adapter", () => {
     expect(String(options.body)).toContain("password=secret")
   })
 
+  test("accepts qBittorrent login success with an empty 204 response", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse("", 204))
+
+    await expect(rpc.login("admin", "secret")).resolves.toBeUndefined()
+  })
+
+  test("rejects a non-empty login failure response", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse("Fails."))
+
+    await expect(rpc.login("admin", "wrong-password")).rejects.toThrow("Invalid username or password")
+  })
+
   test("maps qBittorrent torrent summaries to the UI model", async () => {
     fetchMock.mockResolvedValueOnce(createResponse([{
       hash: "abc123",
