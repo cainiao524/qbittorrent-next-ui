@@ -47,6 +47,8 @@ import { TorrentGridView } from "@/components/torrents/torrent-grid-view"
 import { TorrentToolbar } from "@/components/torrents/torrent-toolbar"
 import { KeyboardShortcutsDialog } from "@/components/torrents/keyboard-shortcuts-dialog"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
+import { SpeedHistoryChart } from "@/components/torrents/speed-history-chart"
+import { useAppSettings } from "@/lib/app-settings-context"
 import { exportTorrentFile } from "@/lib/torrent-export"
 import {
   createTorrentActionPlan,
@@ -127,6 +129,7 @@ interface TorrentViewProps {
 export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps) {
   const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const { showSpeedChart } = useAppSettings()
   const [selectedIds, setSelectedIds] = useState<TorrentId[]>([])
   const [selectionAnchorId, setSelectionAnchorId] = useState<TorrentId | null>(null)
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: "addedDate", direction: "desc" })
@@ -420,6 +423,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
           </div>
         </div>
       )}
+      {showStats && stats && showSpeedChart && <SpeedHistoryChart stats={stats} />}
 
       <div className="flex flex-col gap-4">
         <TorrentToolbar

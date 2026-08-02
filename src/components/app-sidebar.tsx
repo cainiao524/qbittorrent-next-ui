@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils"
 import { useLocation } from "react-router-dom"
 import { useI18n } from "@/lib/i18n-context"
 import { APP_CONFIG } from "@/lib/config"
+import { useAppSettings, type SidebarItemId } from "@/lib/app-settings-context"
 
 const data = {
   navMain: [
@@ -45,26 +46,31 @@ const data = {
       title: "All Torrents",
       url: "/",
       icon: LayoutDashboard,
+      id: "all" as SidebarItemId,
     },
     {
       title: "Active",
       url: "/active",
       icon: Activity,
+      id: "active" as SidebarItemId,
     },
     {
       title: "Downloading",
       url: "/downloading",
       icon: ArrowDownCircle,
+      id: "downloading" as SidebarItemId,
     },
     {
       title: "Seeding",
       url: "/seeding",
       icon: ArrowUpCircle,
+      id: "seeding" as SidebarItemId,
     },
     {
       title: "Paused",
       url: "/paused",
       icon: PauseCircle,
+      id: "paused" as SidebarItemId,
     },
   ],
   secondary: [
@@ -72,6 +78,7 @@ const data = {
       title: "Settings",
       url: "/settings",
       icon: Settings,
+      id: "settings" as SidebarItemId,
     },
   ],
 }
@@ -81,6 +88,7 @@ import { Link } from "react-router-dom"
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useLocation()
   const { t } = useI18n()
+  const { sidebarItems } = useAppSettings()
 
   const getTitle = (title: string) => {
     const keyMap: Record<string, string> = {
@@ -108,7 +116,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {data.navMain.map((item) => {
+              {data.navMain.filter((item) => sidebarItems.includes(item.id)).map((item) => {
                 const isActive = pathname === item.url
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -135,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup className="mt-auto border-t border-muted/30 pt-4">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {data.secondary.map((item) => {
+              {data.secondary.filter((item) => sidebarItems.includes(item.id)).map((item) => {
                 const isActive = pathname === item.url
                 return (
                   <SidebarMenuItem key={item.title}>

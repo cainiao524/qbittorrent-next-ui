@@ -49,6 +49,10 @@ interface QbtTorrentInfo {
   super_seeding?: boolean
   auto_tmm?: boolean
   download_path?: string
+  seeding_time_limit?: number
+  inactive_seeding_time_limit?: number
+  share_limit_action?: Torrent["shareLimitAction"]
+  ratio_limit?: number
 }
 
 interface QbtTransferInfo {
@@ -73,6 +77,23 @@ interface QbtProperties extends JsonRecord {
   seeding_time_limit?: number
   created_by?: string
   nb_connections?: number
+  nb_connections_limit?: number
+  time_elapsed?: number
+  seeding_time?: number
+  total_downloaded_session?: number
+  total_uploaded_session?: number
+  dl_speed_avg?: number
+  up_speed_avg?: number
+  total_wasted?: number
+  seeds_total?: number
+  peers_total?: number
+  popularity?: number
+  availability?: number
+  reannounce?: number
+  pieces_num?: number
+  pieces_have?: number
+  last_seen?: number
+  download_path?: string
 }
 
 const STOPPED_STATES = new Set(["pausedUP", "pausedDL", "stoppedUP", "stoppedDL"])
@@ -104,6 +125,7 @@ function trackerHost(url: string): string {
 function mapSummary(raw: QbtTorrentInfo): Torrent {
   const status = mapStatus(raw.state)
   const tracker = raw.tracker || ""
+  const limitMode = (value: number | undefined) => value === -1 ? 0 : value === -2 ? 2 : 1
   return {
     id: raw.hash,
     hashString: raw.hash,
@@ -131,6 +153,13 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
     superSeeding: raw.super_seeding ?? false,
     autoManagement: raw.auto_tmm ?? false,
     downloadPath: raw.download_path ?? "",
+    seedingTimeLimit: Math.max(0, raw.seeding_time_limit ?? 0),
+    seedingTimeMode: limitMode(raw.seeding_time_limit),
+    inactiveSeedingTimeLimit: Math.max(0, raw.inactive_seeding_time_limit ?? 0),
+    inactiveSeedingTimeMode: limitMode(raw.inactive_seeding_time_limit),
+    shareLimitAction: raw.share_limit_action ?? "Default",
+    seedRatioLimit: Math.max(0, raw.ratio_limit ?? 0),
+    seedRatioMode: limitMode(raw.ratio_limit),
     queuePosition: raw.priority ?? 0,
     isFinished: (raw.progress ?? 0) >= 1,
     isPrivate: false,
@@ -213,7 +242,7 @@ class QBittorrentRPC {
     const query = ids?.length ? `?hashes=${encodeURIComponent(ids.join("|"))}` : ""
     const raw = await this.get<QbtTorrentInfo[]>(`/torrents/info${query}`)
     const torrents = raw.map(mapSummary)
-    const wantsDetails = fields.some((field) => ["files", "peers", "trackers", "trackerStats", "comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "trackerList"].includes(field))
+    const wantsDetails = fields.some((field) => ["files", "peers", "trackers", "trackerStats", "comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "trackerList", "timeElapsed", "seedingTime", "connectionsLimit", "downloadedSession", "uploadedSession", "averageDownloadSpeed", "averageUploadSpeed", "wastedSize", "piecesCount", "pieceSize", "lastSeenComplete"].includes(field))
 
     if (wantsDetails && ids?.length) {
       await Promise.all(torrents.map(async (torrent) => this.enrichTorrent(torrent, fields)))
@@ -226,7 +255,7 @@ class QBittorrentRPC {
   private async enrichTorrent(torrent: Torrent, fields: string[]): Promise<void> {
     const hash = encodeURIComponent(torrent.hashString)
     const jobs: Promise<void>[] = []
-    if (fields.some((field) => ["comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "seedRatioLimit"].includes(field))) {
+    if (fields.some((field) => ["comment", "creator", "dateCreated", "downloadLimit", "uploadLimit", "seedRatioLimit", "timeElapsed", "seedingTime", "connectionsLimit", "downloadedSession", "uploadedSession", "averageDownloadSpeed", "averageUploadSpeed", "wastedSize", "piecesCount", "pieceSize", "lastSeenComplete"].includes(field))) {
       jobs.push(this.get<QbtProperties>(`/torrents/properties?hash=${hash}`).then((props) => {
         torrent.comment = String(props.comment ?? "")
         torrent.creator = String(props.created_by ?? "")
@@ -238,6 +267,25 @@ class QBittorrentRPC {
         torrent.uploadLimit = Math.max(0, Math.round(Number(props.up_limit ?? 0) / 1024))
         torrent.uploadLimited = Number(props.up_limit ?? 0) > 0
         torrent.seedRatioLimit = Number(props.share_ratio_limit ?? 0)
+        torrent.seedRatioMode = Number(props.share_ratio_limit) === -1 ? 0 : Number(props.share_ratio_limit) === -2 ? 2 : 1
+        torrent.timeElapsed = Number(props.time_elapsed ?? 0)
+        torrent.seedingTime = Number(props.seeding_time ?? 0)
+        torrent.connectionsLimit = Number(props.nb_connections_limit ?? 0)
+        torrent.downloadedSession = Number(props.total_downloaded_session ?? 0)
+        torrent.uploadedSession = Number(props.total_uploaded_session ?? 0)
+        torrent.averageDownloadSpeed = Number(props.dl_speed_avg ?? 0)
+        torrent.averageUploadSpeed = Number(props.up_speed_avg ?? 0)
+        torrent.wastedSize = Number(props.total_wasted ?? 0)
+        torrent.seedsTotal = Number(props.seeds_total ?? 0)
+        torrent.peersTotal = Number(props.peers_total ?? 0)
+        torrent.popularity = Number(props.popularity ?? 0)
+        torrent.availability = Number(props.availability ?? 0)
+        torrent.nextAnnounce = Number(props.reannounce ?? 0)
+        torrent.piecesCount = Number(props.pieces_num ?? 0)
+        torrent.piecesHave = Number(props.pieces_have ?? 0)
+        torrent.pieceSize = Number(props.piece_size ?? 0)
+        torrent.lastSeenComplete = Number(props.last_seen ?? 0)
+        torrent.downloadPath = String(props.download_path ?? torrent.downloadPath ?? "")
       }))
     }
     if (fields.includes("trackers") || fields.includes("trackerStats") || fields.includes("trackerList")) jobs.push(this.enrichTrackers(torrent))
@@ -493,7 +541,16 @@ class QBittorrentRPC {
     const jobs: Promise<unknown>[] = []
     if (args.downloadLimit !== undefined || args.downloadLimited !== undefined) jobs.push(this.post("/torrents/setDownloadLimit", { hashes, limit: args.downloadLimited === false ? 0 : Math.max(0, Number(args.downloadLimit ?? 0) * 1024) }))
     if (args.uploadLimit !== undefined || args.uploadLimited !== undefined) jobs.push(this.post("/torrents/setUploadLimit", { hashes, limit: args.uploadLimited === false ? 0 : Math.max(0, Number(args.uploadLimit ?? 0) * 1024) }))
-    if (args.seedRatioLimit !== undefined) jobs.push(this.post("/torrents/setShareLimits", { hashes, ratioLimit: args.seedRatioMode === 2 ? -2 : args.seedRatioMode === 0 ? -1 : args.seedRatioLimit, seedingTimeLimit: -1, inactiveSeedingTimeLimit: -1 }))
+    if (args.seedRatioLimit !== undefined || args.seedingTimeLimit !== undefined || args.inactiveSeedingTimeLimit !== undefined || args.shareLimitAction !== undefined) {
+      const limitValue = (value: number | undefined, mode: number | undefined) => mode === 2 ? -2 : mode === 0 ? -1 : Number(value ?? 0)
+      jobs.push(this.post("/torrents/setShareLimits", {
+        hashes,
+        ratioLimit: limitValue(args.seedRatioLimit, args.seedRatioMode),
+        seedingTimeLimit: limitValue(args.seedingTimeLimit, args.seedingTimeMode),
+        inactiveSeedingTimeLimit: limitValue(args.inactiveSeedingTimeLimit, args.inactiveSeedingTimeMode),
+        shareLimitAction: args.shareLimitAction ?? "Default",
+      }))
+    }
     if (args.labels) jobs.push(this.replaceTags(ids, parseTorrentLabels(args.labels)))
     if (args.trackerList !== undefined) jobs.push(...ids.map((id) => this.replaceTrackers(id, args.trackerList ?? "")))
     await Promise.all(jobs)

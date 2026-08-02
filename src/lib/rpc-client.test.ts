@@ -58,6 +58,13 @@ describe("qBittorrent Web API adapter", () => {
       num_incomplete: 3,
       num_leechs: 2,
       num_seeds: 4,
+      force_start: true,
+      super_seeding: false,
+      auto_tmm: true,
+      ratio_limit: -2,
+      seeding_time_limit: 120,
+      inactive_seeding_time_limit: -1,
+      share_limit_action: "Stop",
     }]))
 
     const result = await rpc.getTorrents(["name", "status"])
@@ -71,6 +78,13 @@ describe("qBittorrent Web API adapter", () => {
       percentDone: 0.5,
       labels: ["linux", "iso"],
       category: "images",
+      forceStart: true,
+      autoManagement: true,
+      seedRatioMode: 2,
+      seedingTimeLimit: 120,
+      seedingTimeMode: 1,
+      inactiveSeedingTimeMode: 0,
+      shareLimitAction: "Stop",
     })
   })
 
@@ -265,5 +279,27 @@ describe("qBittorrent Web API adapter", () => {
     ])
     expect(String(fetchMock.mock.calls[0][1].body)).toContain("hashes=a%7Cb")
     expect(String(fetchMock.mock.calls[6][1].body)).toBe("id=a&path=%2Fcomplete")
+  })
+
+  test("提交完整的分享限制三态和达到限制后的动作", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse(""))
+
+    await rpc.setTorrent(["abc123"], {
+      seedRatioLimit: 1.5,
+      seedRatioMode: 1,
+      seedingTimeLimit: 120,
+      seedingTimeMode: 0,
+      inactiveSeedingTimeLimit: 30,
+      inactiveSeedingTimeMode: 2,
+      shareLimitAction: "Remove",
+    })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    const body = new URLSearchParams(String(options.body))
+    expect(url).toBe("/api/v2/torrents/setShareLimits")
+    expect(body.get("ratioLimit")).toBe("1.5")
+    expect(body.get("seedingTimeLimit")).toBe("-1")
+    expect(body.get("inactiveSeedingTimeLimit")).toBe("-2")
+    expect(body.get("shareLimitAction")).toBe("Remove")
   })
 })

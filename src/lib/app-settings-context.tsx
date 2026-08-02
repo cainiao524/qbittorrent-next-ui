@@ -1,13 +1,22 @@
 import * as React from "react"
 
+export type SidebarItemId = "all" | "active" | "downloading" | "seeding" | "paused" | "settings"
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const DEFAULT_SIDEBAR_ITEMS: SidebarItemId[] = ["all", "active", "downloading", "seeding", "paused", "settings"]
+
 interface AppSettings {
   refreshInterval: number
   autoRefresh: boolean
+  sidebarItems: SidebarItemId[]
+  showSpeedChart: boolean
 }
 
 interface AppSettingsContextType extends AppSettings {
   setRefreshInterval: (interval: number) => void
   setAutoRefresh: (enabled: boolean) => void
+  setSidebarItems: (items: SidebarItemId[]) => void
+  setShowSpeedChart: (enabled: boolean) => void
 }
 
 const AppSettingsContext = React.createContext<AppSettingsContextType | undefined>(undefined)
@@ -15,6 +24,8 @@ const AppSettingsContext = React.createContext<AppSettingsContextType | undefine
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
   const [refreshInterval, setRefreshIntervalState] = React.useState<number>(3000)
   const [autoRefresh, setAutoRefreshState] = React.useState<boolean>(true)
+  const [sidebarItems, setSidebarItemsState] = React.useState<SidebarItemId[]>(DEFAULT_SIDEBAR_ITEMS)
+  const [showSpeedChart, setShowSpeedChartState] = React.useState(true)
 
   // Load from localStorage on mount
   React.useEffect(() => {
@@ -28,6 +39,15 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     if (savedAuto !== null) {
       setAutoRefreshState(savedAuto === "true")
     }
+    const savedSidebar = localStorage.getItem("app_sidebar_items")
+    if (savedSidebar) {
+      try {
+        const parsed = JSON.parse(savedSidebar) as SidebarItemId[]
+        if (Array.isArray(parsed)) setSidebarItemsState(parsed)
+      } catch { /* 保留默认配置 */ }
+    }
+    const savedChart = localStorage.getItem("app_show_speed_chart")
+    if (savedChart !== null) setShowSpeedChartState(savedChart === "true")
   }, [])
 
   const setRefreshInterval = (val: number) => {
@@ -40,8 +60,19 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     localStorage.setItem("app_auto_refresh", val.toString())
   }
 
+  const setSidebarItems = (items: SidebarItemId[]) => {
+    const unique = [...new Set(items)]
+    setSidebarItemsState(unique)
+    localStorage.setItem("app_sidebar_items", JSON.stringify(unique))
+  }
+
+  const setShowSpeedChart = (enabled: boolean) => {
+    setShowSpeedChartState(enabled)
+    localStorage.setItem("app_show_speed_chart", String(enabled))
+  }
+
   return (
-    <AppSettingsContext.Provider value={{ refreshInterval, setRefreshInterval, autoRefresh, setAutoRefresh }}>
+    <AppSettingsContext.Provider value={{ refreshInterval, setRefreshInterval, autoRefresh, setAutoRefresh, sidebarItems, setSidebarItems, showSpeedChart, setShowSpeedChart }}>
       {children}
     </AppSettingsContext.Provider>
   )

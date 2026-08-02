@@ -57,6 +57,11 @@ export interface Torrent {
   honorsSessionLimits?: boolean
   seedRatioLimit?: number
   seedRatioMode?: number
+  seedingTimeLimit?: number
+  seedingTimeMode?: number
+  inactiveSeedingTimeLimit?: number
+  inactiveSeedingTimeMode?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
   seedIdleLimit?: number
   seedIdleMode?: number
   trackerList?: string
@@ -67,6 +72,23 @@ export interface Torrent {
   superSeeding?: boolean
   autoManagement?: boolean
   downloadPath?: string
+  timeElapsed?: number
+  seedingTime?: number
+  connectionsLimit?: number
+  downloadedSession?: number
+  uploadedSession?: number
+  averageDownloadSpeed?: number
+  averageUploadSpeed?: number
+  wastedSize?: number
+  seedsTotal?: number
+  peersTotal?: number
+  popularity?: number
+  availability?: number
+  nextAnnounce?: number
+  piecesCount?: number
+  piecesHave?: number
+  pieceSize?: number
+  lastSeenComplete?: number
 }
 
 export type TorrentId = string
@@ -144,6 +166,11 @@ export interface TorrentSetArgs {
   honorsSessionLimits?: boolean
   seedRatioLimit?: number
   seedRatioMode?: number
+  seedingTimeLimit?: number
+  seedingTimeMode?: number
+  inactiveSeedingTimeLimit?: number
+  inactiveSeedingTimeMode?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
   seedIdleLimit?: number
   seedIdleMode?: number
   trackerList?: string

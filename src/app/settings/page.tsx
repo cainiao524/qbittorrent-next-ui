@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { AllPreferencesPanel } from "@/components/settings/all-preferences-panel"
+import { InterfaceSettingsPanel } from "@/components/settings/interface-settings-panel"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -583,6 +584,7 @@ export default function SettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                <InterfaceSettingsPanel />
               </div>
             )}
 

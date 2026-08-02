@@ -47,6 +47,11 @@ const detailedTorrent: Torrent = {
   honorsSessionLimits: false,
   seedRatioLimit: 1.5,
   seedRatioMode: 1,
+  seedingTimeLimit: 120,
+  seedingTimeMode: 1,
+  inactiveSeedingTimeLimit: 30,
+  inactiveSeedingTimeMode: 2,
+  shareLimitAction: "Stop",
   seedIdleLimit: 30,
   seedIdleMode: 2,
   trackerList: "https://tracker.example/announce",
@@ -65,8 +70,11 @@ test("createInitialEditTorrentFormState uses dialog torrent defaults", () => {
     honorsSessionLimits: true,
     seedRatioLimit: 0,
     seedRatioMode: 0,
+    seedingTimeLimit: 0,
+    seedingTimeMode: 0,
     seedIdleLimit: 0,
     seedIdleMode: 0,
+    shareLimitAction: "Default",
     trackerList: "",
     labels: [],
   })
@@ -79,6 +87,10 @@ test("mapTorrentToEditTorrentFormState normalizes fetched torrent details", () =
   expect(form.location).toBe("/downloads/iso")
   expect(form.bandwidthPriority).toBe(1)
   expect(form.honorsSessionLimits).toBe(false)
+  expect(form.seedingTimeLimit).toBe(120)
+  expect(form.seedingTimeMode).toBe(1)
+  expect(form.seedIdleMode).toBe(2)
+  expect(form.shareLimitAction).toBe("Stop")
   expect(form.labels).toEqual(["Linux", "ISO"])
 })
 
@@ -88,5 +100,8 @@ test("buildEditTorrentSetArgs serializes labels for RPC", () => {
 
   expect(args.labels).toEqual(['{"text":"Linux"}', '{"text":"ISO"}'])
   expect(args.seedRatioLimit).toBe(1.5)
+  expect(args.seedingTimeLimit).toBe(120)
+  expect(args.inactiveSeedingTimeLimit).toBe(30)
+  expect(args.shareLimitAction).toBe("Stop")
   expect(args.trackerList).toBe("https://tracker.example/announce")
 })
