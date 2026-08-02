@@ -176,4 +176,25 @@ describe("qBittorrent Web API adapter", () => {
       scan_dirs: { "/watch": "/downloads" },
     })
   })
+
+  test("creates a torrent with the qBittorrent 5.2 torrent creator API", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse({ taskID: "task-1" }))
+
+    await expect(rpc.createTorrent({
+      sourcePath: "/downloads/example",
+      format: "hybrid",
+      pieceSize: 0,
+      private: true,
+      startSeeding: false,
+      trackers: "https://tracker.example/announce\n\nudp://tracker.example:80",
+    })).resolves.toEqual({ taskID: "task-1" })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v2/torrentcreator/addTask")
+    expect(options.method).toBe("POST")
+    expect(options.body).toBeInstanceOf(FormData)
+    expect(options.body.get("sourcePath")).toBe("/downloads/example")
+    expect(options.body.get("private")).toBe("true")
+    expect(options.body.get("trackers")).toBe("https%3A%2F%2Ftracker.example%2Fannounce||udp%3A%2F%2Ftracker.example%3A80")
+  })
 })

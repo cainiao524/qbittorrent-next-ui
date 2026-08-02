@@ -8,6 +8,8 @@ import type {
   TorrentAddResponse,
   TorrentGetResponse,
   TorrentId,
+  TorrentCreatorArgs,
+  TorrentCreatorTask,
   TorrentSetArgs,
 } from "./rpc-types"
 import { parseTorrentLabels } from "./torrent-labels"
@@ -163,6 +165,21 @@ class QBittorrentRPC {
 
   private hashes(ids?: TorrentId[]): string {
     return ids?.length ? ids.join("|") : "all"
+  }
+
+  private torrentCreatorUrls(value = ""): string {
+    return value.split(/\r?\n/).map((url) => url.trim()).map(encodeURIComponent).join("|")
+  }
+
+  private responseFilename(response: Response, fallback: string): string {
+    const disposition = response.headers.get("Content-Disposition") ?? ""
+    const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+    const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+    try {
+      return decodeURIComponent(utf8 ?? plain ?? fallback)
+    } catch {
+      return plain ?? fallback
+    }
   }
 
   async checkAuthentication(): Promise<boolean> {
@@ -344,6 +361,47 @@ class QBittorrentRPC {
     }
     await this.fetch("/torrents/add", { method: "POST", body: form })
     return {} as TorrentAddResponse
+  }
+
+  async exportTorrent(id: TorrentId): Promise<{ blob: Blob; filename: string }> {
+    const response = await this.fetch(`/torrents/export?hash=${encodeURIComponent(id)}`)
+    return {
+      blob: await response.blob(),
+      filename: this.responseFilename(response, `${id}.torrent`),
+    }
+  }
+
+  async createTorrent(args: TorrentCreatorArgs): Promise<{ taskID: string }> {
+    const form = new FormData()
+    form.set("sourcePath", args.sourcePath)
+    form.set("format", args.format)
+    form.set("pieceSize", String(args.pieceSize))
+    form.set("private", String(args.private))
+    form.set("startSeeding", String(args.startSeeding))
+    form.set("trackers", this.torrentCreatorUrls(args.trackers))
+    form.set("urlSeeds", this.torrentCreatorUrls(args.urlSeeds))
+    form.set("comment", args.comment ?? "")
+    form.set("source", args.source ?? "")
+    const response = await this.fetch("/torrentcreator/addTask", { method: "POST", body: form })
+    return response.json() as Promise<{ taskID: string }>
+  }
+
+  async getTorrentCreatorTask(taskID: string): Promise<TorrentCreatorTask> {
+    const tasks = await this.get<TorrentCreatorTask[]>(`/torrentcreator/status?taskID=${encodeURIComponent(taskID)}`)
+    if (!tasks[0]) throw new Error("Torrent creator task was not found")
+    return tasks[0]
+  }
+
+  async downloadCreatedTorrent(taskID: string): Promise<{ blob: Blob; filename: string }> {
+    const response = await this.fetch(`/torrentcreator/torrentFile?taskID=${encodeURIComponent(taskID)}`)
+    return {
+      blob: await response.blob(),
+      filename: this.responseFilename(response, `${taskID}.torrent`),
+    }
+  }
+
+  async deleteTorrentCreatorTask(taskID: string): Promise<void> {
+    await this.post("/torrentcreator/deleteTask", { taskID })
   }
 
   async setTorrent(ids: TorrentId[], args: TorrentSetArgs) {

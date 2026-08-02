@@ -122,3 +122,18 @@ export function sortTorrents(torrents: Torrent[], sortConfig: SortConfig | null)
     return 0
   })
 }
+
+export function selectTorrentRange(
+  orderedIds: string[],
+  selectedIds: string[],
+  anchorId: string | null,
+  targetId: string,
+): string[] {
+  if (!anchorId) return selectedIds.includes(targetId) ? selectedIds : [...selectedIds, targetId]
+  const anchorIndex = orderedIds.indexOf(anchorId)
+  const targetIndex = orderedIds.indexOf(targetId)
+  if (anchorIndex < 0 || targetIndex < 0) return selectedIds.includes(targetId) ? selectedIds : [...selectedIds, targetId]
+  const start = Math.min(anchorIndex, targetIndex)
+  const end = Math.max(anchorIndex, targetIndex)
+  return Array.from(new Set([...selectedIds, ...orderedIds.slice(start, end + 1)]))
+}

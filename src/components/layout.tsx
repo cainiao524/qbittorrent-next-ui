@@ -8,6 +8,7 @@ import { I18nProvider } from "@/lib/i18n-context"
 import { SearchProvider } from "@/lib/search-context"
 import { AppSettingsProvider } from "@/lib/app-settings-context"
 import { Toaster } from "@/components/ui/sonner"
+import { GlobalTorrentDropZone } from "@/components/global-torrent-drop-zone"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <I18nProvider>
         <SearchProvider>
           <AppSettingsProvider>
+            <GlobalTorrentDropZone />
             <TooltipProvider>
               <SidebarProvider className="bg-slate-50/50">
               <AppSidebar />

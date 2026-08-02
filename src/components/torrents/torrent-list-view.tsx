@@ -22,6 +22,7 @@ import { formatSpeed, formatDuration, formatSize, getStatusLabel, formatDate } f
 import type { ColumnConfig } from "@/lib/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
+import { ExportTorrentButton } from "@/components/torrents/export-torrent-button"
 
 type SortKey =
   | "name"
@@ -45,7 +46,7 @@ interface TorrentListViewProps {
   sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null
   tableMinWidth: number
   locale: string
-  onToggleSelect: (id: TorrentId) => void
+  onToggleSelect: (id: TorrentId, range: boolean) => void
   onToggleSelectAll: () => void
   onSort: (key: SortKey) => void
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
@@ -198,7 +199,7 @@ export function TorrentListView({
                 </div>
               </TableHead>
               {orderedVisibleColumns.map(renderHeader)}
-              <TableHead className="text-center w-[130px] h-12 pr-6">{t('common.actions')}</TableHead>
+              <TableHead className="text-center w-[170px] h-12 pr-6">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -213,7 +214,7 @@ export function TorrentListView({
                 <TableCell className="pl-6">
                   <div
                     className="cursor-pointer text-muted-foreground hover:text-primary transition-colors"
-                    onClick={() => onToggleSelect(torrent.id)}
+                    onClick={(event) => onToggleSelect(torrent.id, event.shiftKey)}
                   >
                     {selectedIds.includes(torrent.id) ? (
                       <CheckSquare className="h-4 w-4 text-primary" />
@@ -223,8 +224,9 @@ export function TorrentListView({
                   </div>
                 </TableCell>
                 {orderedVisibleColumns.map((column) => renderCell(torrent, column))}
-                <TableCell className="w-[130px] pr-6">
+                <TableCell className="w-[170px] pr-6">
                   <div className="flex items-center justify-center gap-1">
+                    <ExportTorrentButton id={torrent.id} name={torrent.name} />
                     <EditTorrentDialog torrent={torrent}>
                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
                         <Pencil className="h-4 w-4" />

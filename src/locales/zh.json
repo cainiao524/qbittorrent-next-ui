@@ -356,5 +356,53 @@
     "seed_wait": "等待做种",
     "seeding": "正在做种",
     "unknown": "未知状态"
+  },
+  "creator": {
+    "title": "种子创建器",
+    "description": "使用 NAS 上已有的文件或文件夹创建 .torrent 文件。路径必须是 qBittorrent 容器内可访问的路径。",
+    "source_path": "源文件或文件夹路径",
+    "source_required": "请选择服务器上的源文件或文件夹",
+    "format": "种子格式",
+    "hybrid": "混合格式",
+    "piece_size": "分块大小",
+    "automatic": "自动",
+    "private": "私有种子",
+    "private_desc": "不会通过 DHT 网络分发",
+    "start_seeding": "立即开始做种",
+    "start_seeding_desc": "创建后加入当前 qBittorrent",
+    "trackers": "Tracker 地址",
+    "web_seeds": "网络种子地址",
+    "one_url_per_line": "每行一个地址，空行分隔层级",
+    "source": "来源",
+    "comment": "备注",
+    "creating": "正在创建种子…",
+    "create": "创建并下载",
+    "create_success": "种子创建完成并已下载",
+    "create_failed": "创建种子失败"
+  },
+  "export": {
+    "action": "导出 .torrent 文件",
+    "success": "种子文件已导出",
+    "failed": "无法导出种子文件",
+    "batch_success": "已导出选中的种子文件",
+    "batch_partial": "部分种子文件无法导出"
+  },
+  "drop": {
+    "title": "松开以添加种子",
+    "description": "可一次拖入多个 .torrent 文件",
+    "invalid": "只能添加 .torrent 文件"
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "description": "在任务页面使用；输入框和弹窗处于焦点时不会触发。",
+    "add": "打开添加种子窗口",
+    "select_all": "选择当前筛选结果",
+    "range": "连续范围选择",
+    "start": "开始选中的任务",
+    "stop": "停止选中的任务",
+    "delete": "删除选中的任务",
+    "refresh": "刷新任务列表",
+    "clear": "清除选择",
+    "help": "显示快捷键说明"
   }
 }

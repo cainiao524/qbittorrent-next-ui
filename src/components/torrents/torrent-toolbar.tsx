@@ -25,6 +25,8 @@ import {
   GripVertical,
   EyeOff,
   RotateCcw,
+  FileArchive,
+  Keyboard,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +39,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { AddTorrentDialog } from "@/components/add-torrent-dialog"
+import { TorrentCreatorDialog } from "@/components/torrent-creator-dialog"
 import { FilterPanel } from "@/components/torrents/filter-panel"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n-context"
@@ -133,6 +136,7 @@ interface TorrentToolbarProps {
   // Actions
   onBatchReplaceOpen: () => void
   onBatchMoveOpen: () => void
+  onShortcutsOpen: () => void
   fetchData: () => void
   onGlobalAction: (action: "start" | "stop") => void
 }
@@ -160,6 +164,7 @@ export function TorrentToolbar({
   handleColumnDragEnd,
   onBatchReplaceOpen,
   onBatchMoveOpen,
+  onShortcutsOpen,
   fetchData,
   onGlobalAction,
 }: TorrentToolbarProps) {
@@ -308,6 +313,23 @@ export function TorrentToolbar({
               >
                 <FolderOpen className="h-4 w-4 mr-3 text-primary opacity-70" />
                 <span className="text-sm font-medium whitespace-nowrap">{t('common.batch_move_directory')}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <TorrentCreatorDialog>
+                <DropdownMenuItem
+                  className="rounded-xl py-2.5 px-3 focus:bg-muted cursor-pointer transition-colors"
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  <FileArchive className="h-4 w-4 mr-3 text-primary opacity-70" />
+                  <span className="text-sm font-medium whitespace-nowrap">{t('creator.title', 'Torrent Creator')}</span>
+                </DropdownMenuItem>
+              </TorrentCreatorDialog>
+              <DropdownMenuItem
+                className="rounded-xl py-2.5 px-3 focus:bg-muted cursor-pointer transition-colors"
+                onClick={onShortcutsOpen}
+              >
+                <Keyboard className="h-4 w-4 mr-3 text-primary opacity-70" />
+                <span className="text-sm font-medium whitespace-nowrap">{t('shortcuts.title', 'Keyboard Shortcuts')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

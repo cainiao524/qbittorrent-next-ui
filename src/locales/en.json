@@ -349,5 +349,53 @@
     "seed_wait": "Queued (Seed)",
     "seeding": "Seeding",
     "unknown": "Unknown"
+  },
+  "creator": {
+    "title": "Torrent Creator",
+    "description": "Create a .torrent file from a file or folder already available to the qBittorrent server.",
+    "source_path": "Source file or folder path",
+    "source_required": "Select a source file or folder on the server",
+    "format": "Torrent format",
+    "hybrid": "Hybrid",
+    "piece_size": "Piece size",
+    "automatic": "Auto",
+    "private": "Private torrent",
+    "private_desc": "Do not distribute on the DHT network",
+    "start_seeding": "Start seeding immediately",
+    "start_seeding_desc": "Add the result to the current qBittorrent instance",
+    "trackers": "Tracker URLs",
+    "web_seeds": "Web seed URLs",
+    "one_url_per_line": "One URL per line; use a blank line between tiers",
+    "source": "Source",
+    "comment": "Comment",
+    "creating": "Creating torrent…",
+    "create": "Create and download",
+    "create_success": "Torrent created and downloaded",
+    "create_failed": "Unable to create torrent"
+  },
+  "export": {
+    "action": "Export .torrent file",
+    "success": "Torrent file exported",
+    "failed": "Unable to export torrent file",
+    "batch_success": "Selected torrent files exported",
+    "batch_partial": "Some torrent files could not be exported"
+  },
+  "drop": {
+    "title": "Drop to add torrents",
+    "description": "Multiple .torrent files are supported",
+    "invalid": "Only .torrent files can be added"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "description": "Available on torrent pages and disabled while typing or using a dialog.",
+    "add": "Open Add Torrent",
+    "select_all": "Select filtered torrents",
+    "range": "Select a continuous range",
+    "start": "Start selected torrents",
+    "stop": "Stop selected torrents",
+    "delete": "Delete selected torrents",
+    "refresh": "Refresh torrent list",
+    "clear": "Clear selection",
+    "help": "Show shortcut help"
   }
 }

@@ -82,6 +82,27 @@ export interface TorrentAddResponse {
   "torrent-duplicate"?: Torrent
 }
 
+export interface TorrentCreatorArgs {
+  sourcePath: string
+  format: "v1" | "v2" | "hybrid"
+  pieceSize: number
+  private: boolean
+  startSeeding: boolean
+  trackers?: string
+  urlSeeds?: string
+  comment?: string
+  source?: string
+}
+
+export interface TorrentCreatorTask {
+  taskID: string
+  sourcePath: string
+  status: "Queued" | "Running" | "Finished" | "Failed"
+  progress?: number
+  errorMessage?: string
+  pieceSize?: number
+}
+
 export interface TorrentSetArgs {
   bandwidthPriority?: number
   downloadLimit?: number

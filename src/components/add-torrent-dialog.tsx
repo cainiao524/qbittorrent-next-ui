@@ -21,8 +21,11 @@ import { cn } from "@/lib/utils"
 import { LocationInput } from "@/components/location-input"
 
 interface AddTorrentDialogProps {
-  children: React.ReactNode
+  children?: React.ReactNode
   onSuccess?: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  initialFiles?: File[]
 }
 
 const toBase64 = (file: File): Promise<string> => 
@@ -37,8 +40,8 @@ const toBase64 = (file: File): Promise<string> =>
     reader.onerror = reject;
   });
 
-export function AddTorrentDialog({ children, onSuccess }: AddTorrentDialogProps) {
-  const [open, setOpen] = React.useState(false)
+export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, onOpenChange, initialFiles }: AddTorrentDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false)
   const [location, setLocation] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
   const [magnetLink, setMagnetLink] = React.useState("")
@@ -48,6 +51,21 @@ export function AddTorrentDialog({ children, onSuccess }: AddTorrentDialogProps)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const { t } = useI18n()
+  const open = controlledOpen ?? internalOpen
+  const setOpen = React.useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      setFiles([])
+      setMagnetLink("")
+      setIsDragging(false)
+    }
+    setInternalOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }, [onOpenChange])
+
+  React.useEffect(() => {
+    if (!open || !initialFiles?.length) return
+    setFiles(initialFiles)
+  }, [initialFiles, open])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
@@ -134,9 +152,7 @@ export function AddTorrentDialog({ children, onSuccess }: AddTorrentDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-xl p-8 gap-6 border-none bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100svh-2rem)]">
         <DialogHeader className="gap-2 shrink-0">
           <DialogTitle className="text-2xl font-medium tracking-tight">{t('common.add_torrent', 'Add Torrent')}</DialogTitle>
