@@ -29,14 +29,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { RemoveTorrentDialog } from "@/components/torrents/remove-torrent-dialog"
 import { TorrentFileTree } from "@/components/torrents/torrent-file-tree"
+import { TorrentPieceMap } from "@/components/torrents/torrent-piece-map"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties-panel"
 
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
-import { type Torrent, type TorrentFilePriority, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
+import { type Torrent, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
 import { formatSize, formatSpeed, formatDuration, getStatusLabel, formatDate } from "@/lib/formatters"
+import { formatPeerRegion, peerCountryFlag } from "@/lib/peer-region"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
 import { toast } from "sonner"
 
@@ -50,6 +52,8 @@ function TorrentDetailsContent() {
   const [loading, setLoading] = useState(true)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [updatingFileIds, setUpdatingFileIds] = useState<Set<number>>(new Set())
+  const [pieceStates, setPieceStates] = useState<TorrentPieceState[]>([])
+  const [pieceStatesLoading, setPieceStatesLoading] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!idValue) return
@@ -89,6 +93,30 @@ function TorrentDetailsContent() {
     const timer = setInterval(fetchData, refreshInterval)
     return () => clearInterval(timer)
   }, [fetchData, refreshInterval, autoRefresh])
+
+  useEffect(() => {
+    if (activeTab !== "general" || !idValue) return
+    let cancelled = false
+    const loadPieceStates = async () => {
+      setPieceStatesLoading(true)
+      try {
+        const states = await rpc.getTorrentPieceStates(idValue)
+        if (!cancelled) setPieceStates(states)
+      } catch (error) {
+        console.error("Failed to fetch torrent piece states:", error)
+      } finally {
+        if (!cancelled) setPieceStatesLoading(false)
+      }
+    }
+
+    void loadPieceStates()
+    if (!autoRefresh) return () => { cancelled = true }
+    const timer = setInterval(() => void loadPieceStates(), Math.max(refreshInterval, 30_000))
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [activeTab, autoRefresh, idValue, refreshInterval])
 
   if (loading && !torrent) {
     return (
@@ -394,6 +422,12 @@ function TorrentDetailsContent() {
                     </div>
                   </div>
                 </div>
+                <TorrentPieceMap
+                  states={pieceStates}
+                  pieceSize={tor.pieceSize ?? 0}
+                  totalSize={tor.totalSize}
+                  loading={pieceStatesLoading}
+                />
                 <TorrentPropertiesPanel torrent={tor} />
               </div>
             )}
@@ -436,11 +470,12 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "peers" && (
-              <div className="animate-in fade-in slide-in-from-top-4 duration-500 min-w-[700px] md:min-w-0">
+              <div className="animate-in fade-in slide-in-from-top-4 duration-500 min-w-[820px] md:min-w-0">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="pl-6 md:pl-8 h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.address')}</TableHead>
+                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">国家／地区</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.client')}</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">Down</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">Up</TableHead>
@@ -451,6 +486,12 @@ function TorrentDetailsContent() {
                     {tor.peers?.map((peer: Peer, idx: number) => (
                       <TableRow key={idx} className="hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/30 group">
                         <TableCell className="font-medium pl-6 md:pl-8 py-4 text-xs">{peer.address}</TableCell>
+                        <TableCell className="text-xs">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2 py-1 text-muted-foreground">
+                            {peerCountryFlag(peer.countryCode) && <span aria-hidden="true">{peerCountryFlag(peer.countryCode)}</span>}
+                            <span>{formatPeerRegion(peer.countryCode, peer.country, locale)}</span>
+                          </span>
+                        </TableCell>
                         <TableCell className="font-normal text-[11px] text-muted-foreground">{peer.clientName}</TableCell>
                         <TableCell className="font-medium text-right text-green-500 text-[10px] md:text-xs tabular-nums">{formatSpeed(peer.rateToClient)}</TableCell>
                         <TableCell className="font-medium text-right text-blue-500 text-[10px] md:text-xs tabular-nums">{formatSpeed(peer.rateToPeer)}</TableCell>

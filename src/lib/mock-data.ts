@@ -129,10 +129,10 @@ const BASE_TORRENTS: Torrent[] = [
       { announce: TRACKERS.backup, host: "open.stealth.si", seederCount: 1543, leecherCount: 903, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: true },
     ],
     peers: [
-      { address: "192.168.1.50", clientName: "qBittorrent 5.0.4", rateToClient: 2250000, rateToPeer: 35000, progress: 1.0, isEncrypted: true },
-      { address: "85.24.11.22", clientName: "qBittorrent 5.1.0", rateToClient: 1640000, rateToPeer: 12000, progress: 0.86, isEncrypted: true },
-      { address: "42.156.4.8", clientName: "Deluge 2.1.1", rateToClient: 710000, rateToPeer: 0, progress: 0.55, isEncrypted: false },
-      { address: "103.22.45.1", clientName: "uTorrent 3.6.0", rateToClient: 0, rateToPeer: 28000, progress: 0.14, isEncrypted: true },
+      { address: "192.168.1.50", clientName: "qBittorrent 5.0.4", country: "Local network", countryCode: "", rateToClient: 2250000, rateToPeer: 35000, progress: 1.0, isEncrypted: true },
+      { address: "85.24.11.22", clientName: "qBittorrent 5.1.0", country: "Sweden", countryCode: "SE", rateToClient: 1640000, rateToPeer: 12000, progress: 0.86, isEncrypted: true },
+      { address: "42.156.4.8", clientName: "Deluge 2.1.1", country: "China", countryCode: "CN", rateToClient: 710000, rateToPeer: 0, progress: 0.55, isEncrypted: false },
+      { address: "103.22.45.1", clientName: "uTorrent 3.6.0", country: "Japan", countryCode: "JP", rateToClient: 0, rateToPeer: 28000, progress: 0.14, isEncrypted: true },
     ],
   },
   {

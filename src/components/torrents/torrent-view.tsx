@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   Radio,
   Tag,
-  Download,
 } from "lucide-react"
 import { BatchReplaceTrackerDialog } from "@/components/torrents/batch-replace-tracker-dialog"
 import { BatchMoveDirectoryDialog } from "@/components/torrents/batch-move-directory-dialog"
@@ -615,16 +614,10 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
                     <Tag className="h-4 w-4 opacity-60" />
                     {t('common.set_torrent_labels')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
-                    onClick={() => void exportSelectedTorrents()}
-                  >
-                    <Download className="h-4 w-4 opacity-60" />
-                    {t('export.action', 'Export .torrent')}
-                  </DropdownMenuItem>
                   <AdvancedTorrentMenu
                     ids={selectedIds}
                     onSuccess={fetchData}
+                    onExport={exportSelectedTorrents}
                     trigger={
                       <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted">
                         <MoreVertical className="h-4 w-4 opacity-60" />
