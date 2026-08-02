@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ApplicationPreferences, Session } from "./rpc-types";
+import type { ApplicationPreferences, Session, TorrentFilePriority } from "./rpc-types";
 import { MOCK_SESSION, MOCK_STATS, MOCK_TORRENTS } from "./mock-data";
 
 const MOCK_APPLICATION_PREFERENCES: ApplicationPreferences = {
@@ -75,7 +75,11 @@ class QBittorrentRPCMock {
   }
 
   async checkAuthentication() { return true; }
-  async login(_username: string, _password: string) { return; }
+  async login(_username: string, _password: string) {
+    void _username;
+    void _password;
+    return;
+  }
   async logout() { return; }
 
   async request<T = any>(method: string, args?: any): Promise<T> {
@@ -164,6 +168,14 @@ class QBittorrentRPCMock {
 
   async setTorrent(ids: string[], args: any) {
     return this.request("torrent-set", { ids, ...args });
+  }
+
+  async setFilePriority(id: string, fileIds: number[], priority: TorrentFilePriority) {
+    const torrent = MOCK_TORRENTS.find((item) => item.id === id || item.hashString === id);
+    torrent?.files?.forEach((file) => {
+      if (fileIds.includes(file.index)) file.priority = priority;
+    });
+    return {};
   }
 
   async setTorrentLocation(ids: string[], location: string, move: boolean = true) {

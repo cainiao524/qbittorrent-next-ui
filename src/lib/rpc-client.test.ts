@@ -88,6 +88,61 @@ describe("qBittorrent Web API adapter", () => {
     expect(String(fetchMock.mock.calls[1][1].body)).toBe("hashes=abc123")
   })
 
+  test("保留文件编号和四档下载优先级", async () => {
+    fetchMock
+      .mockResolvedValueOnce(createResponse([{
+        hash: "abc123",
+        name: "示例种子",
+        state: "downloading",
+        size: 120,
+        total_size: 120,
+        progress: 0.5,
+        dlspeed: 0,
+        upspeed: 0,
+        eta: 60,
+        added_on: 0,
+        completion_on: 0,
+        last_activity: 0,
+        save_path: "/downloads",
+        amount_left: 60,
+        uploaded: 0,
+        downloaded: 60,
+        ratio: 0,
+        tags: "",
+        category: "",
+        priority: 0,
+        tracker: "",
+        num_complete: 0,
+        num_incomplete: 0,
+        num_leechs: 0,
+        num_seeds: 0,
+      }]))
+      .mockResolvedValueOnce(createResponse([
+        { index: 3, name: "目录/视频.mkv", size: 100, progress: 0.5, priority: 7 },
+        { index: 8, name: "目录/说明.txt", size: 20, progress: 1, priority: 0 },
+      ]))
+
+    const result = await rpc.getTorrents(["files"], ["abc123"])
+
+    expect(result.torrents[0].files).toEqual([
+      { index: 3, name: "目录/视频.mkv", length: 100, bytesCompleted: 50, priority: 7 },
+      { index: 8, name: "目录/说明.txt", length: 20, bytesCompleted: 20, priority: 0 },
+    ])
+  })
+
+  test("可批量设置文件下载优先级", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse(""))
+
+    await rpc.setFilePriority("abc123", [2, 5, 9], 6)
+
+    const [url, options] = fetchMock.mock.calls[0]
+    const body = new URLSearchParams(String(options.body))
+    expect(url).toBe("/api/v2/torrents/filePrio")
+    expect(body.get("hash")).toBe("abc123")
+    expect(body.get("id")).toBe("2|5|9")
+    expect(body.get("priority")).toBe("6")
+  })
+
   test("reads and writes all application preferences without dropping unknown fields", async () => {
     fetchMock.mockResolvedValueOnce(createResponse({
       dht: true,

@@ -28,13 +28,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 import { RemoveTorrentDialog } from "@/components/torrents/remove-torrent-dialog"
+import { TorrentFileTree } from "@/components/torrents/torrent-file-tree"
 
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
-import { type Torrent, type TorrentFile, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
+import { type Torrent, type TorrentFilePriority, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
 import { formatSize, formatSpeed, formatDuration, getStatusLabel, formatDate } from "@/lib/formatters"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
+import { toast } from "sonner"
 
 function TorrentDetailsContent() {
   const [searchParams] = useSearchParams()
@@ -45,6 +47,7 @@ function TorrentDetailsContent() {
   const [torrent, setTorrent] = useState<Torrent | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [updatingFileIds, setUpdatingFileIds] = useState<Set<number>>(new Set())
 
   const fetchData = useCallback(async () => {
     if (!idValue) return
@@ -134,6 +137,29 @@ function TorrentDetailsContent() {
       navigate("/")
     } catch (err) {
       console.error("Failed to remove torrent:", err)
+    }
+  }
+
+  const handleFilePriorityChange = async (fileIds: number[], priority: TorrentFilePriority) => {
+    if (!fileIds.length) return
+    setUpdatingFileIds((current) => new Set([...current, ...fileIds]))
+    try {
+      await rpc.setFilePriority(tor.id, fileIds, priority)
+      const changedIds = new Set(fileIds)
+      setTorrent((current) => current ? {
+        ...current,
+        files: current.files?.map((file) => changedIds.has(file.index) ? { ...file, priority } : file),
+      } : current)
+      toast.success(t("details.priority_updated"))
+    } catch (err) {
+      console.error("Failed to update file priority:", err)
+      toast.error(t("details.priority_update_failed"))
+    } finally {
+      setUpdatingFileIds((current) => {
+        const next = new Set(current)
+        fileIds.forEach((id) => next.delete(id))
+        return next
+      })
     }
   }
 
@@ -363,38 +389,12 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "files" && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500 min-w-[700px] md:min-w-0">
-                <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow className="hover:bg-transparent border-none">
-                      <TableHead className="pl-6 md:pl-8 h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.file_name')}</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">{t('common.size', 'Size')}</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('common.progress')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tor.files?.map((file: TorrentFile, idx: number) => {
-                      const progress = (file.bytesCompleted / file.length * 100).toFixed(1)
-                      return (
-                        <TableRow key={idx} className="hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/30 group">
-                          <TableCell className="font-medium pl-6 md:pl-8 py-4 flex items-center gap-3">
-                            <FileText className="h-4 w-4 text-primary opacity-40 group-hover:opacity-100 transition-opacity" />
-                            <span className="truncate max-w-[400px]">{file.name}</span>
-                          </TableCell>
-                          <TableCell className="font-medium text-right tabular-nums text-xs">{formatSize(file.length)}</TableCell>
-                          <TableCell className="min-w-[150px] md:min-w-[200px] pr-8">
-                            <div className="flex items-center gap-3">
-                              <div className="w-full bg-muted rounded-full h-1 md:h-1.5 overflow-hidden">
-                                <div className="bg-primary h-full rounded-full" style={{ width: `${progress}%` }}></div>
-                              </div>
-                              <span className="text-[10px] md:text-xs font-medium w-12">{progress}%</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                <TorrentFileTree
+                  files={tor.files ?? []}
+                  updatingFileIds={updatingFileIds}
+                  onPriorityChange={handleFilePriorityChange}
+                />
               </div>
             )}
 

@@ -131,10 +131,14 @@ export interface Peer {
 }
 
 export interface TorrentFile {
+  index: number
   name: string
   length: number
   bytesCompleted: number
+  priority: TorrentFilePriority
 }
+
+export type TorrentFilePriority = 0 | 1 | 6 | 7
 
 export type ApplicationPreferenceValue =
   | string

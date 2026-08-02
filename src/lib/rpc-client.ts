@@ -11,7 +11,7 @@ import type {
   TorrentSetArgs,
 } from "./rpc-types"
 import { parseTorrentLabels } from "./torrent-labels"
-import { TorrentStatus, type Peer, type Torrent, type TorrentFile, type Tracker, type TrackerStat } from "./rpc-types"
+import { TorrentStatus, type Peer, type Torrent, type TorrentFile, type TorrentFilePriority, type Tracker, type TrackerStat } from "./rpc-types"
 
 type JsonRecord = Record<string, unknown>
 
@@ -216,8 +216,14 @@ class QBittorrentRPC {
     }
     if (fields.includes("trackers") || fields.includes("trackerStats") || fields.includes("trackerList")) jobs.push(this.enrichTrackers(torrent))
     if (fields.includes("files")) {
-      jobs.push(this.get<Array<{ name: string; size: number; progress: number }>>(`/torrents/files?hash=${hash}`).then((files) => {
-        torrent.files = files.map((file): TorrentFile => ({ name: file.name, length: file.size, bytesCompleted: Math.round(file.size * file.progress) }))
+      jobs.push(this.get<Array<{ index?: number; name: string; size: number; progress: number; priority?: number }>>(`/torrents/files?hash=${hash}`).then((files) => {
+        torrent.files = files.map((file, position): TorrentFile => ({
+          index: file.index ?? position,
+          name: file.name,
+          length: file.size,
+          bytesCompleted: Math.round(file.size * file.progress),
+          priority: file.priority === 0 || file.priority === 6 || file.priority === 7 ? file.priority : 1,
+        }))
       }))
     }
     if (fields.includes("peers")) {
@@ -352,7 +358,18 @@ class QBittorrentRPC {
     return {}
   }
 
+  async setFilePriority(id: TorrentId, fileIds: number[], priority: TorrentFilePriority) {
+    if (!fileIds.length) return {}
+    await this.post("/torrents/filePrio", {
+      hash: id,
+      id: fileIds.join("|"),
+      priority,
+    })
+    return {}
+  }
+
   async setTorrentLocation(ids: TorrentId[], location: string, _move: boolean = true) {
+    void _move
     await this.post("/torrents/setLocation", { hashes: this.hashes(ids), location })
     return {}
   }

@@ -27,7 +27,7 @@ export function Navbar() {
   const { searchQuery, setSearchQuery } = useSearch()
   const searchInputRef = React.useRef<HTMLInputElement>(null)
   const [newVersion, setNewVersion] = React.useState(false)
-  const [latestTag, setLatestTag] = React.useState("")
+  const [latestTag] = React.useState("")
   const [dismissedVersion, setDismissedVersion] = React.useState<string | null>(null)
 
   React.useEffect(() => {
