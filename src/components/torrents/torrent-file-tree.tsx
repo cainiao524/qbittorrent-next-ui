@@ -98,7 +98,7 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
         <div className="pl-6">{t("details.file_name")}</div><div className="pr-5 text-right">{t("common.size", "大小")}</div><div>{t("common.progress")}</div><div>{t("details.priority")}</div>
       </div>
 
-      <div ref={viewportRef} className="h-[min(62vh,680px)] min-h-80 overflow-y-auto overscroll-contain" onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
+      <div ref={viewportRef} className="h-[min(72vh,820px)] min-h-96 overflow-y-auto overscroll-contain" onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
         <div className="relative" style={{ height: `${visibleNodes.length * ROW_HEIGHT}px` }}>
           <div className="absolute inset-x-0 top-0" style={{ transform: `translateY(${startIndex * ROW_HEIGHT}px)` }}>
             {renderedNodes.map(({ node, depth }) => {
@@ -129,7 +129,6 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-muted/30 bg-muted/10 px-5 py-2 text-[10px] text-muted-foreground"><span>当前仅渲染 {renderedNodes.length} 行，共 {visibleNodes.length} 个可见节点</span><span>滚动时按需加载，不会一次创建全部文件行</span></div>
     </div>
   )
 }
