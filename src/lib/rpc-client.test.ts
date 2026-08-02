@@ -58,6 +58,13 @@ describe("qBittorrent Web API adapter", () => {
       num_incomplete: 3,
       num_leechs: 2,
       num_seeds: 4,
+      force_start: true,
+      super_seeding: false,
+      auto_tmm: true,
+      ratio_limit: -2,
+      seeding_time_limit: 120,
+      inactive_seeding_time_limit: -1,
+      share_limit_action: "Stop",
     }]))
 
     const result = await rpc.getTorrents(["name", "status"])
@@ -71,6 +78,13 @@ describe("qBittorrent Web API adapter", () => {
       percentDone: 0.5,
       labels: ["linux", "iso"],
       category: "images",
+      forceStart: true,
+      autoManagement: true,
+      seedRatioMode: 2,
+      seedingTimeLimit: 120,
+      seedingTimeMode: 1,
+      inactiveSeedingTimeMode: 0,
+      shareLimitAction: "Stop",
     })
   })
 
@@ -175,5 +189,117 @@ describe("qBittorrent Web API adapter", () => {
       web_ui_port: 9090,
       scan_dirs: { "/watch": "/downloads" },
     })
+  })
+
+  test("creates a torrent with the qBittorrent 5.2 torrent creator API", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse({ taskID: "task-1" }))
+
+    await expect(rpc.createTorrent({
+      sourcePath: "/downloads/example",
+      format: "hybrid",
+      pieceSize: 0,
+      private: true,
+      startSeeding: false,
+      trackers: "https://tracker.example/announce\n\nudp://tracker.example:80",
+    })).resolves.toEqual({ taskID: "task-1" })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v2/torrentcreator/addTask")
+    expect(options.method).toBe("POST")
+    expect(options.body).toBeInstanceOf(FormData)
+    expect(options.body.get("sourcePath")).toBe("/downloads/example")
+    expect(options.body.get("private")).toBe("true")
+    expect(options.body.get("trackers")).toBe("https%3A%2F%2Ftracker.example%2Fannounce||udp%3A%2F%2Ftracker.example%3A80")
+  })
+
+  test("提交完整的高级添加种子参数", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse({ success_count: 1, added_torrent_ids: ["abc123"] }))
+
+    const response = await rpc.addTorrent({
+      filename: "magnet:?xt=urn:btih:abc123",
+      "download-dir": "/downloads/complete",
+      paused: false,
+      category: "影视",
+      tags: ["高清", "收藏"],
+      autoTMM: false,
+      addToTopOfQueue: true,
+      skipChecking: true,
+      sequentialDownload: true,
+      firstLastPiecePrio: true,
+      forced: true,
+      contentLayout: "Subfolder",
+      rename: "示例任务",
+      useDownloadPath: true,
+      downloadPath: "/downloads/incomplete",
+      upLimit: 1024,
+      dlLimit: 2048,
+      ratioLimit: 2,
+      seedingTimeLimit: 60,
+      inactiveSeedingTimeLimit: 30,
+      shareLimitAction: "Stop",
+      stopCondition: "FilesChecked",
+      sslCertificate: "certificate",
+      sslPrivateKey: "private-key",
+      sslDhParams: "dh-params",
+    })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    const body = options.body as FormData
+    expect(url).toBe("/api/v2/torrents/add")
+    expect(body.get("savepath")).toBe("/downloads/complete")
+    expect(body.get("tags")).toBe("高清,收藏")
+    expect(body.get("skip_checking")).toBe("true")
+    expect(body.get("contentLayout")).toBe("Subfolder")
+    expect(body.get("downloadPath")).toBe("/downloads/incomplete")
+    expect(body.get("ssl_certificate")).toBe("certificate")
+    expect(response.added_torrent_ids).toEqual(["abc123"])
+  })
+
+  test("调用高级任务控制和独立路径接口", async () => {
+    fetchMock.mockResolvedValue(createResponse(""))
+
+    await rpc.setForceStart(["a", "b"], true)
+    await rpc.toggleSequentialDownload(["a"])
+    await rpc.toggleFirstLastPiecePriority(["a"])
+    await rpc.setSuperSeeding(["a"], false)
+    await rpc.setAutoManagement(["a"], true)
+    await rpc.changeQueuePriority(["a"], "top")
+    await rpc.setTorrentSavePath(["a"], "/complete")
+    await rpc.setTorrentDownloadPath(["a"], "/incomplete")
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/v2/torrents/setForceStart",
+      "/api/v2/torrents/toggleSequentialDownload",
+      "/api/v2/torrents/toggleFirstLastPiecePrio",
+      "/api/v2/torrents/setSuperSeeding",
+      "/api/v2/torrents/setAutoManagement",
+      "/api/v2/torrents/topPrio",
+      "/api/v2/torrents/setSavePath",
+      "/api/v2/torrents/setDownloadPath",
+    ])
+    expect(String(fetchMock.mock.calls[0][1].body)).toContain("hashes=a%7Cb")
+    expect(String(fetchMock.mock.calls[6][1].body)).toBe("id=a&path=%2Fcomplete")
+  })
+
+  test("提交完整的分享限制三态和达到限制后的动作", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse(""))
+
+    await rpc.setTorrent(["abc123"], {
+      seedRatioLimit: 1.5,
+      seedRatioMode: 1,
+      seedingTimeLimit: 120,
+      seedingTimeMode: 0,
+      inactiveSeedingTimeLimit: 30,
+      inactiveSeedingTimeMode: 2,
+      shareLimitAction: "Remove",
+    })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    const body = new URLSearchParams(String(options.body))
+    expect(url).toBe("/api/v2/torrents/setShareLimits")
+    expect(body.get("ratioLimit")).toBe("1.5")
+    expect(body.get("seedingTimeLimit")).toBe("-1")
+    expect(body.get("inactiveSeedingTimeLimit")).toBe("-2")
+    expect(body.get("shareLimitAction")).toBe("Remove")
   })
 })

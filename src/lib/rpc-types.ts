@@ -57,10 +57,38 @@ export interface Torrent {
   honorsSessionLimits?: boolean
   seedRatioLimit?: number
   seedRatioMode?: number
+  seedingTimeLimit?: number
+  seedingTimeMode?: number
+  inactiveSeedingTimeLimit?: number
+  inactiveSeedingTimeMode?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
   seedIdleLimit?: number
   seedIdleMode?: number
   trackerList?: string
   category?: string
+  forceStart?: boolean
+  sequentialDownload?: boolean
+  firstLastPiecePriority?: boolean
+  superSeeding?: boolean
+  autoManagement?: boolean
+  downloadPath?: string
+  timeElapsed?: number
+  seedingTime?: number
+  connectionsLimit?: number
+  downloadedSession?: number
+  uploadedSession?: number
+  averageDownloadSpeed?: number
+  averageUploadSpeed?: number
+  wastedSize?: number
+  seedsTotal?: number
+  peersTotal?: number
+  popularity?: number
+  availability?: number
+  nextAnnounce?: number
+  piecesCount?: number
+  piecesHave?: number
+  pieceSize?: number
+  lastSeenComplete?: number
 }
 
 export type TorrentId = string
@@ -75,11 +103,58 @@ export interface TorrentAddArgs {
   metainfo?: string
   "download-dir"?: string
   paused?: boolean
+  category?: string
+  tags?: string[]
+  autoTMM?: boolean
+  addToTopOfQueue?: boolean
+  skipChecking?: boolean
+  sequentialDownload?: boolean
+  firstLastPiecePrio?: boolean
+  forced?: boolean
+  contentLayout?: "Original" | "Subfolder" | "NoSubfolder"
+  rename?: string
+  useDownloadPath?: boolean
+  downloadPath?: string
+  upLimit?: number
+  dlLimit?: number
+  ratioLimit?: number
+  seedingTimeLimit?: number
+  inactiveSeedingTimeLimit?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
+  stopCondition?: "None" | "MetadataReceived" | "FilesChecked"
+  sslCertificate?: string
+  sslPrivateKey?: string
+  sslDhParams?: string
 }
 
 export interface TorrentAddResponse {
   "torrent-added"?: Torrent
   "torrent-duplicate"?: Torrent
+  success_count?: number
+  failure_count?: number
+  pending_count?: number
+  added_torrent_ids?: string[]
+}
+
+export interface TorrentCreatorArgs {
+  sourcePath: string
+  format: "v1" | "v2" | "hybrid"
+  pieceSize: number
+  private: boolean
+  startSeeding: boolean
+  trackers?: string
+  urlSeeds?: string
+  comment?: string
+  source?: string
+}
+
+export interface TorrentCreatorTask {
+  taskID: string
+  sourcePath: string
+  status: "Queued" | "Running" | "Finished" | "Failed"
+  progress?: number
+  errorMessage?: string
+  pieceSize?: number
 }
 
 export interface TorrentSetArgs {
@@ -91,6 +166,11 @@ export interface TorrentSetArgs {
   honorsSessionLimits?: boolean
   seedRatioLimit?: number
   seedRatioMode?: number
+  seedingTimeLimit?: number
+  seedingTimeMode?: number
+  inactiveSeedingTimeLimit?: number
+  inactiveSeedingTimeMode?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
   seedIdleLimit?: number
   seedIdleMode?: number
   trackerList?: string

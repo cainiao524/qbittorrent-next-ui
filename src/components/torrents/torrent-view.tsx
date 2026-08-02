@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Radio,
   Tag,
+  Download,
 } from "lucide-react"
 import { BatchReplaceTrackerDialog } from "@/components/torrents/batch-replace-tracker-dialog"
 import { BatchMoveDirectoryDialog } from "@/components/torrents/batch-move-directory-dialog"
@@ -44,12 +45,17 @@ import { useColumnManager } from "@/hooks/use-column-manager"
 import { TorrentListView } from "@/components/torrents/torrent-list-view"
 import { TorrentGridView } from "@/components/torrents/torrent-grid-view"
 import { TorrentToolbar } from "@/components/torrents/torrent-toolbar"
+import { KeyboardShortcutsDialog } from "@/components/torrents/keyboard-shortcuts-dialog"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
+import { SpeedHistoryChart } from "@/components/torrents/speed-history-chart"
+import { useAppSettings } from "@/lib/app-settings-context"
+import { exportTorrentFile } from "@/lib/torrent-export"
 import {
   createTorrentActionPlan,
   type BatchTorrentAction,
   type SingleTorrentAction,
 } from "@/lib/torrent-actions"
-import { sortTorrents, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { selectTorrentRange, sortTorrents, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
 import type { TorrentId } from "@/lib/rpc-types"
 
 type CardColor = "green" | "blue" | "orange" | "purple"
@@ -123,7 +129,9 @@ interface TorrentViewProps {
 export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps) {
   const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const { showSpeedChart } = useAppSettings()
   const [selectedIds, setSelectedIds] = useState<TorrentId[]>([])
+  const [selectionAnchorId, setSelectionAnchorId] = useState<TorrentId | null>(null)
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: "addedDate", direction: "desc" })
   const { t, locale } = useI18n()
   const { searchQuery } = useSearch()
@@ -131,6 +139,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   const [isBatchReplaceOpen, setIsBatchReplaceOpen] = useState(false)
   const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false)
   const [isBatchSetLabelsOpen, setIsBatchSetLabelsOpen] = useState(false)
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false)
   const [idsToDelete, setIdsToDelete] = useState<TorrentId[]>([])
   const [clickedCard, setClickedCard] = useState<string | null>(null)
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -217,6 +226,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
 
       if (plan.clearSelection) {
         setSelectedIds([])
+        setSelectionAnchorId(null)
       }
       await fetchData()
     } catch {
@@ -224,7 +234,9 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     }
   }, [fetchData, t])
 
-  const handleBatchAction = (action: BatchTorrentAction) => executeTorrentAction(selectedIds, action, "batch")
+  const handleBatchAction = useCallback((action: BatchTorrentAction) => {
+    void executeTorrentAction(selectedIds, action, "batch")
+  }, [executeTorrentAction, selectedIds])
 
   const confirmDelete = async (deleteLocalData: boolean) => {
     try {
@@ -282,15 +294,33 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     } else {
       setSelectedIds(filteredTorrents.map(t => t.id))
     }
+    setSelectionAnchorId(null)
   }
 
-  const toggleSelect = (id: TorrentId) => {
-    setSelectedIds(prev =>
-      prev.includes(id)
-        ? prev.filter(i => i !== id)
-        : [...prev, id]
-    )
+  const toggleSelect = (id: TorrentId, range = false) => {
+    if (range) {
+      setSelectedIds((current) => selectTorrentRange(sortedTorrents.map((torrent) => torrent.id), current, selectionAnchorId, id))
+      return
+    }
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+    setSelectionAnchorId(id)
   }
+
+  const exportSelectedTorrents = useCallback(async () => {
+    let exported = 0
+    for (const id of selectedIds) {
+      const torrent = torrents.find((item) => item.id === id)
+      if (!torrent) continue
+      try {
+        await exportTorrentFile(id, torrent.name)
+        exported += 1
+      } catch {
+        // Continue exporting the remaining selected torrents.
+      }
+    }
+    if (exported === selectedIds.length) toast.success(t("export.batch_success", "已导出选中的种子文件"))
+    else toast.error(t("export.batch_partial", "部分种子文件无法导出"))
+  }, [selectedIds, t, torrents])
 
   const handleGlobalAction = async (action: "start" | "stop") => {
     try {
@@ -306,6 +336,44 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
       toast.error(t('common.action_failed', 'Action failed'))
     }
   }
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isEditing = target?.matches("input, textarea, select, [contenteditable='true']") || target?.closest("[role='dialog']")
+      if (isEditing) return
+
+      const key = event.key.toLowerCase()
+      if ((event.ctrlKey || event.metaKey) && key === "a") {
+        event.preventDefault()
+        setSelectedIds(sortedTorrents.map((torrent) => torrent.id))
+        setSelectionAnchorId(null)
+      } else if (!event.ctrlKey && !event.metaKey && !event.altKey && key === "a") {
+        event.preventDefault()
+        window.dispatchEvent(new Event("qbittorrent:add-torrent"))
+      } else if (event.key === "Escape") {
+        setSelectedIds([])
+        setSelectionAnchorId(null)
+      } else if (event.key === "Delete" && selectedIds.length) {
+        event.preventDefault()
+        handleBatchAction("remove")
+      } else if (!event.ctrlKey && !event.metaKey && key === "s" && selectedIds.length) {
+        event.preventDefault()
+        handleBatchAction("start")
+      } else if (!event.ctrlKey && !event.metaKey && key === "p" && selectedIds.length) {
+        event.preventDefault()
+        handleBatchAction("stop")
+      } else if (!event.ctrlKey && !event.metaKey && key === "r") {
+        event.preventDefault()
+        void fetchData()
+      } else if (event.key === "?") {
+        event.preventDefault()
+        setIsShortcutsOpen(true)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out">
@@ -355,6 +423,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
           </div>
         </div>
       )}
+      {showStats && stats && showSpeedChart && <SpeedHistoryChart stats={stats} />}
 
       <div className="flex flex-col gap-4">
         <TorrentToolbar
@@ -379,7 +448,8 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
           resetVisibleColumns={resetVisibleColumns}
           handleColumnDragEnd={handleColumnDragEnd}
           onBatchReplaceOpen={() => setIsBatchReplaceOpen(true)}
-          onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
+            onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
+            onShortcutsOpen={() => setIsShortcutsOpen(true)}
           fetchData={fetchData}
           onGlobalAction={handleGlobalAction}
         />
@@ -398,11 +468,13 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
             onToggleSelectAll={toggleSelectAll}
             onSort={handleSort}
             onSingleAction={handleSingleAction}
+            onAdvancedSuccess={fetchData}
           />
         ) : (
           <TorrentGridView
             paginatedTorrents={paginatedTorrents}
             onSingleAction={handleSingleAction}
+            onAdvancedSuccess={fetchData}
           />
         )}
 
@@ -543,6 +615,23 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
                     <Tag className="h-4 w-4 opacity-60" />
                     {t('common.set_torrent_labels')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
+                    onClick={() => void exportSelectedTorrents()}
+                  >
+                    <Download className="h-4 w-4 opacity-60" />
+                    {t('export.action', 'Export .torrent')}
+                  </DropdownMenuItem>
+                  <AdvancedTorrentMenu
+                    ids={selectedIds}
+                    onSuccess={fetchData}
+                    trigger={
+                      <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted">
+                        <MoreVertical className="h-4 w-4 opacity-60" />
+                        高级任务操作
+                      </DropdownMenuItem>
+                    }
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -551,7 +640,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
               size="icon"
               variant="ghost"
               className="h-8 w-8 md:h-9 md:w-9 rounded-full shrink-0 hover:bg-muted/50"
-              onClick={() => setSelectedIds([])}
+              onClick={() => { setSelectedIds([]); setSelectionAnchorId(null) }}
             >
               <X className="h-4 w-4 opacity-50" />
             </Button>
@@ -584,6 +673,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
         selectedIds={selectedIds}
         onSuccess={fetchData}
       />
+      <KeyboardShortcutsDialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} />
     </div>
   )
 }

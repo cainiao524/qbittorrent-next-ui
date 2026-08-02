@@ -17,15 +17,19 @@ import { cn } from "@/lib/utils"
 import { formatSpeed, formatDuration, getStatusLabel, formatSizeParts, splitSpeed } from "@/lib/formatters"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
+import { ExportTorrentButton } from "@/components/torrents/export-torrent-button"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 
 interface TorrentGridViewProps {
   paginatedTorrents: Torrent[]
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
+  onAdvancedSuccess?: () => void
 }
 
 export function TorrentGridView({
   paginatedTorrents,
   onSingleAction,
+  onAdvancedSuccess,
 }: TorrentGridViewProps) {
   const { t } = useI18n()
 
@@ -66,6 +70,8 @@ export function TorrentGridView({
               </div>
             </div>
             <CardAction className="flex gap-1 shrink-0">
+              <ExportTorrentButton id={torrent.id} name={torrent.name} />
+              <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
               <EditTorrentDialog torrent={torrent}>
                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-opacity rounded-full">
                   <Pencil className="h-4 w-4" />

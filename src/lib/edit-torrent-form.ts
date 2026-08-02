@@ -15,8 +15,11 @@ export interface EditTorrentFormState {
   honorsSessionLimits: boolean
   seedRatioLimit: number
   seedRatioMode: number
+  seedingTimeLimit: number
+  seedingTimeMode: number
   seedIdleLimit: number
   seedIdleMode: number
+  shareLimitAction: NonNullable<TorrentSetArgs["shareLimitAction"]>
   trackerList: string
   labels: string[]
 }
@@ -32,6 +35,11 @@ export const EDIT_TORRENT_FIELDS: TorrentField[] = [
   "honorsSessionLimits",
   "seedRatioLimit",
   "seedRatioMode",
+  "seedingTimeLimit",
+  "seedingTimeMode",
+  "inactiveSeedingTimeLimit",
+  "inactiveSeedingTimeMode",
+  "shareLimitAction",
   "seedIdleLimit",
   "seedIdleMode",
   "trackerList",
@@ -51,8 +59,11 @@ export function createInitialEditTorrentFormState(torrent: EditTorrentDialogTorr
     honorsSessionLimits: true,
     seedRatioLimit: 0,
     seedRatioMode: 0,
+    seedingTimeLimit: 0,
+    seedingTimeMode: 0,
     seedIdleLimit: 0,
     seedIdleMode: 0,
+    shareLimitAction: "Default",
     trackerList: "",
     labels: [],
   }
@@ -76,8 +87,11 @@ export function mapTorrentToEditTorrentFormState(
     honorsSessionLimits: base?.honorsSessionLimits !== false,
     seedRatioLimit: base?.seedRatioLimit ?? 0,
     seedRatioMode: base?.seedRatioMode ?? 0,
-    seedIdleLimit: base?.seedIdleLimit ?? 0,
-    seedIdleMode: base?.seedIdleMode ?? 0,
+    seedingTimeLimit: base?.seedingTimeLimit ?? 0,
+    seedingTimeMode: base?.seedingTimeMode ?? 0,
+    seedIdleLimit: base?.inactiveSeedingTimeLimit ?? base?.seedIdleLimit ?? 0,
+    seedIdleMode: base?.inactiveSeedingTimeMode ?? base?.seedIdleMode ?? 0,
+    shareLimitAction: base?.shareLimitAction ?? "Default",
     trackerList: base?.trackerList ?? "",
     labels: parseTorrentLabels(base?.labels),
   }
@@ -93,6 +107,11 @@ export function buildEditTorrentSetArgs(form: EditTorrentFormState): TorrentSetA
     honorsSessionLimits: form.honorsSessionLimits,
     seedRatioLimit: Number(form.seedRatioLimit),
     seedRatioMode: form.seedRatioMode,
+    seedingTimeLimit: Number(form.seedingTimeLimit),
+    seedingTimeMode: form.seedingTimeMode,
+    inactiveSeedingTimeLimit: Number(form.seedIdleLimit),
+    inactiveSeedingTimeMode: form.seedIdleMode,
+    shareLimitAction: form.shareLimitAction,
     seedIdleLimit: Number(form.seedIdleLimit),
     seedIdleMode: form.seedIdleMode,
     trackerList: form.trackerList,

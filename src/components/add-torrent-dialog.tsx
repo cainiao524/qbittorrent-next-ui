@@ -1,132 +1,148 @@
 "use client"
 
 import * as React from "react"
-import { Plus, Link, FileUp, Clipboard, FolderOpen, FileIcon, Trash2 } from "lucide-react"
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { Clipboard, FileIcon, FileUp, FolderOpen, Link, Plus, Settings2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { rpc } from "@/lib/rpc-client"
-import { useI18n } from "@/lib/i18n-context"
-import { cn } from "@/lib/utils"
+
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { LocationInput } from "@/components/location-input"
+import { rpc } from "@/lib/rpc-client"
+import type { TorrentAddArgs } from "@/lib/rpc-types"
+import { cn } from "@/lib/utils"
 
 interface AddTorrentDialogProps {
-  children: React.ReactNode
+  children?: React.ReactNode
   onSuccess?: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  initialFiles?: File[]
 }
 
-const toBase64 = (file: File): Promise<string> => 
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      const b64 = result.split(',')[1];
-      resolve(b64);
-    };
-    reader.onerror = reject;
-  });
+const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.readAsDataURL(file)
+  reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "")
+  reader.onerror = reject
+})
 
-export function AddTorrentDialog({ children, onSuccess }: AddTorrentDialogProps) {
-  const [open, setOpen] = React.useState(false)
-  const [location, setLocation] = React.useState("")
+function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (value: boolean) => void; label: string; description?: string }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-3">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 h-4 w-4 accent-green-500" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        {description && <span className="block text-xs text-muted-foreground">{description}</span>}
+      </span>
+    </label>
+  )
+}
+
+export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, onOpenChange, initialFiles }: AddTorrentDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
   const [magnetLink, setMagnetLink] = React.useState("")
+  const [location, setLocation] = React.useState("")
+  const [downloadPath, setDownloadPath] = React.useState("")
+  const [category, setCategory] = React.useState("")
+  const [tags, setTags] = React.useState<string[]>([])
+  const [availableCategories, setAvailableCategories] = React.useState<string[]>([])
+  const [availableTags, setAvailableTags] = React.useState<string[]>([])
+  const [startImmediately, setStartImmediately] = React.useState(true)
+  const [autoTMM, setAutoTMM] = React.useState(false)
+  const [addToTop, setAddToTop] = React.useState(false)
+  const [skipChecking, setSkipChecking] = React.useState(false)
+  const [sequential, setSequential] = React.useState(false)
+  const [firstLast, setFirstLast] = React.useState(false)
+  const [forced, setForced] = React.useState(false)
+  const [useDownloadPath, setUseDownloadPath] = React.useState(false)
+  const [contentLayout, setContentLayout] = React.useState<TorrentAddArgs["contentLayout"]>("Original")
+  const [rename, setRename] = React.useState("")
+  const [upLimit, setUpLimit] = React.useState("")
+  const [dlLimit, setDlLimit] = React.useState("")
+  const [ratioLimit, setRatioLimit] = React.useState("")
+  const [seedingTime, setSeedingTime] = React.useState("")
+  const [inactiveTime, setInactiveTime] = React.useState("")
+  const [shareAction, setShareAction] = React.useState<TorrentAddArgs["shareLimitAction"]>("Default")
+  const [stopCondition, setStopCondition] = React.useState<TorrentAddArgs["stopCondition"]>("None")
+  const [sslCertificate, setSslCertificate] = React.useState("")
+  const [sslPrivateKey, setSslPrivateKey] = React.useState("")
+  const [sslDhParams, setSslDhParams] = React.useState("")
   const [isDragging, setIsDragging] = React.useState(false)
   const [isAdding, setIsAdding] = React.useState(false)
-  const [startImmediately, setStartImmediately] = React.useState(true)
-
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const { t } = useI18n()
+  const open = controlledOpen ?? internalOpen
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || [])
-    const torrentFiles = selectedFiles.filter(file => file.name.endsWith('.torrent'))
-    if (torrentFiles.length > 0) {
-      setFiles(prev => [...prev, ...torrentFiles])
-    }
-    // Reset input value to allow selecting same file again
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-    
-    const droppedFiles = Array.from(e.dataTransfer.files)
-    const torrentFiles = droppedFiles.filter(file => file.name.endsWith('.torrent'))
-    
-    if (torrentFiles.length > 0) {
-      setFiles(prev => [...prev, ...torrentFiles])
-    }
-  }
-
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = async () => {
-    if (files.length === 0 && !magnetLink) {
-      toast.error(t('common.no_input', 'No torrent or magnet link provided'))
-      return
-    }
-
-    setIsAdding(true)
-    try {
-      // Handle magnet links
-      if (magnetLink) {
-        const links = magnetLink.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean)
-        for (const link of links) {
-          await rpc.addTorrent({ 
-            filename: link, 
-            "download-dir": location,
-            paused: !startImmediately
-          })
-        }
-      }
-
-      // Handle files
-      for (const file of files) {
-        const metainfo = await toBase64(file)
-        await rpc.addTorrent({ 
-          metainfo, 
-          "download-dir": location,
-          paused: !startImmediately
-        })
-      }
-
-      toast.success(t('common.add_success', 'Torrent added successfully'))
-      setOpen(false)
+  const setOpen = React.useCallback((value: boolean) => {
+    if (!value) {
       setFiles([])
       setMagnetLink("")
-      setLocation("")
-      if (onSuccess) onSuccess()
-    } catch (err) {
-      console.error("Failed to add torrent:", err)
-      toast.error(t('common.add_failed', 'Failed to add torrent'))
+      setIsDragging(false)
+    }
+    setInternalOpen(value)
+    onOpenChange?.(value)
+  }, [onOpenChange])
+
+  React.useEffect(() => {
+    if (!open) return
+    if (initialFiles?.length) setFiles(initialFiles)
+    void Promise.all([rpc.getSession(), rpc.getTorrentCategories(), rpc.getTorrentTags()]).then(([session, categories, remoteTags]) => {
+      setLocation((current) => current || session["download-dir"] || "")
+      setAvailableCategories(categories.map((item) => item.name))
+      setAvailableTags(remoteTags)
+    }).catch(() => undefined)
+  }, [initialFiles, open])
+
+  const addFiles = (input: File[]) => {
+    const torrentFiles = input.filter((file) => file.name.toLowerCase().endsWith(".torrent"))
+    if (torrentFiles.length !== input.length) toast.info("已忽略非 .torrent 文件")
+    setFiles((current) => [...current, ...torrentFiles])
+  }
+
+  const links = magnetLink.split(/[\r\n]+/).map((item) => item.trim()).filter(Boolean)
+  const itemCount = links.length + files.length
+  const numeric = (value: string, multiplier = 1) => value.trim() === "" ? undefined : Number(value) * multiplier
+
+  const commonArgs = (): TorrentAddArgs => ({
+    "download-dir": location.trim() || undefined,
+    paused: !startImmediately,
+    category: category.trim() || undefined,
+    tags,
+    autoTMM,
+    addToTopOfQueue: addToTop,
+    skipChecking,
+    sequentialDownload: sequential,
+    firstLastPiecePrio: firstLast,
+    forced: startImmediately && forced,
+    contentLayout,
+    rename: itemCount === 1 ? rename.trim() || undefined : undefined,
+    useDownloadPath: autoTMM ? undefined : useDownloadPath,
+    downloadPath: !autoTMM && useDownloadPath ? downloadPath.trim() : undefined,
+    upLimit: numeric(upLimit, 1024),
+    dlLimit: numeric(dlLimit, 1024),
+    ratioLimit: numeric(ratioLimit),
+    seedingTimeLimit: numeric(seedingTime),
+    inactiveSeedingTimeLimit: numeric(inactiveTime),
+    shareLimitAction: shareAction,
+    stopCondition,
+    sslCertificate: sslCertificate.trim() || undefined,
+    sslPrivateKey: sslPrivateKey.trim() || undefined,
+    sslDhParams: sslDhParams.trim() || undefined,
+  })
+
+  const handleSubmit = async () => {
+    if (!itemCount) return toast.error("请选择种子文件或输入磁力链接")
+    setIsAdding(true)
+    try {
+      for (const link of links) await rpc.addTorrent({ ...commonArgs(), filename: link })
+      for (const file of files) await rpc.addTorrent({ ...commonArgs(), metainfo: await toBase64(file) })
+      toast.success(`已提交 ${itemCount} 个下载任务`)
+      setOpen(false)
+      onSuccess?.()
+    } catch (error) {
+      toast.error("添加任务失败", { description: error instanceof Error ? error.message : undefined })
     } finally {
       setIsAdding(false)
     }
@@ -134,209 +150,88 @@ export function AddTorrentDialog({ children, onSuccess }: AddTorrentDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-xl p-8 gap-6 border-none bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100svh-2rem)]">
-        <DialogHeader className="gap-2 shrink-0">
-          <DialogTitle className="text-2xl font-medium tracking-tight">{t('common.add_torrent', 'Add Torrent')}</DialogTitle>
-          <DialogDescription className="text-base font-medium opacity-70">
-            {t('common.add_torrent_desc', 'Upload a .torrent file or paste a magnet link to start downloading.')}
-          </DialogDescription>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
+      <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col gap-5 overflow-hidden border-none bg-background/95 p-6 shadow-2xl backdrop-blur-xl sm:max-w-3xl">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="text-2xl">添加种子</DialogTitle>
+          <DialogDescription>支持多个种子文件和多个磁力链接，所有选项会应用到本次提交的任务。</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 overflow-y-auto no-scrollbar px-1 flex-1">
-          {magnetLink.trim() === "" && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
-                  <FileUp className="h-3.5 w-3.5" /> {t('common.torrent_file', 'Torrent Files')}
-                </div>
-                {files.length > 0 && (
-                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                    {files.length} {t('common.files', 'files')}
-                  </span>
-                )}
-              </div>
-              
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept=".torrent"
-                multiple
-                onChange={handleFileChange}
-              />
-
-              {files.length === 0 ? (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer group",
-                    isDragging 
-                      ? "border-primary bg-primary/10 scale-[0.98] shadow-inner" 
-                      : "border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  <div className={cn(
-                    "h-16 w-16 rounded-full flex items-center justify-center transition-all duration-500",
-                    isDragging 
-                      ? "bg-primary text-primary-foreground scale-110 rotate-12" 
-                      : "bg-muted text-muted-foreground group-hover:scale-110 group-hover:bg-primary/10 group-hover:text-primary"
-                  )}>
-                    <FileUp className="h-8 w-8" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium">
-                      {isDragging ? t('common.release_to_drop', 'Release to drop files') : t('common.drop_file', 'Drop your files here')}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">{t('common.file_support_desc', 'Supports .torrent files up to 10MB')}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="grid gap-2">
-                    {files.map((file, idx) => (
-                      <div key={`${file.name}-${idx}`} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-muted/20 group/file">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="h-9 w-9 rounded-xl bg-background flex items-center justify-center text-muted-foreground group-hover/file:text-primary transition-colors shrink-0">
-                            <FileIcon className="h-4 w-4" />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium break-all whitespace-normal leading-tight">{file.name}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{(file.size / 1024).toFixed(1)} KB</span>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                          onClick={() => removeFile(idx)}
-                          title={t('common.remove', 'Remove')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full rounded-2xl border-dashed border-2 py-6 hover:bg-primary/5 hover:border-primary/40 text-muted-foreground hover:text-primary transition-all"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> {t('common.add_more', 'Add More Files')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {magnetLink.trim() === "" && files.length === 0 && (
-            <div className="relative animate-in fade-in duration-500">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-muted/50" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase tracking-widest font-medium text-muted-foreground bg-background px-4">
-                {t('common.or', 'Or')}
-              </div>
-            </div>
-          )}
-
-          {files.length === 0 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
-                <Link className="h-3.5 w-3.5" /> {t('common.magnet_link', 'Magnet Link')}
-              </div>
-              <div className="relative group">
-                <Textarea 
-                  value={magnetLink}
-                  onChange={(e) => setMagnetLink(e.target.value)}
-                  placeholder={t('common.magnet_placeholder', 'Paste magnet links here (one per line)...')} 
-                  className="min-h-[120px] pl-4 pr-14 py-4 rounded-2xl bg-muted/30 border-none transition-all focus-visible:ring-2 focus-visible:ring-primary/20 font-mono text-xs w-full resize-none no-scrollbar"
-                />
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="absolute right-2 bottom-2 h-10 w-10 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all font-sans"
-                  title={t('common.paste_clipboard', 'Paste from clipboard')}
-                  onClick={async () => {
-                    try {
-                      const text = await navigator.clipboard.readText()
-                      setMagnetLink(prev => prev ? `${prev}\n${text}` : text)
-                    } catch (e) {
-                      console.error("Paste failed", e)
-                    }
-                  }}
-                >
-                  <Clipboard className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
-              <FolderOpen className="h-3.5 w-3.5" /> {t('common.save_location', 'Save Location')}
-            </div>
-            <LocationInput 
-              value={location} 
-              onChange={setLocation} 
-              className="h-14 rounded-2xl bg-muted/30 border-none transition-all focus-visible:ring-2 focus-visible:ring-primary/20 font-medium text-sm"
-              menuClassName="w-[300px] sm:w-[400px]"
-            />
+        <div className="flex-1 space-y-5 overflow-y-auto px-1">
+          <input ref={fileInputRef} type="file" accept=".torrent" multiple className="hidden" onChange={(event) => { addFiles(Array.from(event.target.files ?? [])); event.target.value = "" }} />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(Array.from(event.dataTransfer.files)) }}
+            className={cn("flex cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-5 transition-colors", isDragging ? "border-green-500 bg-green-500/10" : "border-muted-foreground/20 hover:border-green-500/50")}
+          >
+            <FileUp className="h-6 w-6 text-green-500" />
+            <div><p className="text-sm font-medium">拖放或选择 .torrent 文件</p><p className="text-xs text-muted-foreground">支持一次选择多个文件</p></div>
           </div>
+          {files.length > 0 && <div className="grid gap-2 sm:grid-cols-2">{files.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 p-2.5">
+              <FileIcon className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}</div>}
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium"><Link className="h-4 w-4" />磁力链接或种子网址</label>
+            <div className="relative">
+              <Textarea value={magnetLink} onChange={(event) => setMagnetLink(event.target.value)} placeholder="每行输入一个链接" className="min-h-24 pr-12 font-mono text-xs" />
+              <Button variant="ghost" size="icon" className="absolute bottom-2 right-2" onClick={() => void navigator.clipboard.readText().then((text) => setMagnetLink((current) => current ? `${current}\n${text}` : text))}><Clipboard className="h-4 w-4" /></Button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2"><label className="flex items-center gap-2 text-sm font-medium"><FolderOpen className="h-4 w-4" />完成保存路径</label><LocationInput value={location} onChange={setLocation} /></div>
+            <div className="space-y-2"><label className="text-sm font-medium">分类</label><Input list="torrent-category-list" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="可选择或输入分类" /><datalist id="torrent-category-list">{availableCategories.map((item) => <option key={item} value={item} />)}</datalist></div>
+            <div className="space-y-2"><label className="text-sm font-medium">标签</label><Input value={tags.join(", ")} onChange={(event) => setTags(event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} placeholder="多个标签用逗号分隔" /></div>
+          </div>
+          {availableTags.length > 0 && <div className="flex flex-wrap gap-2">{availableTags.map((tag) => <Button key={tag} type="button" size="sm" variant={tags.includes(tag) ? "default" : "outline"} className="h-7 rounded-full text-xs" onClick={() => setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])}>{tag}</Button>)}</div>}
+
+          <details className="group rounded-2xl border border-border/60 bg-muted/10 p-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />高级添加选项<span className="ml-auto text-xs text-muted-foreground group-open:hidden">点击展开</span></summary>
+            <div className="mt-5 space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Toggle checked={autoTMM} onChange={setAutoTMM} label="自动种子管理" description="路径可能由分类规则接管" />
+                <Toggle checked={addToTop} onChange={setAddToTop} label="添加到队列顶部" />
+                <Toggle checked={skipChecking} onChange={setSkipChecking} label="跳过哈希检查" />
+                <Toggle checked={sequential} onChange={setSequential} label="顺序下载" />
+                <Toggle checked={firstLast} onChange={setFirstLast} label="优先下载首尾区块" />
+                <Toggle checked={forced} onChange={setForced} label="强制启动" description={!startImmediately ? "需同时开启立即开始" : undefined} />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><label className="text-sm font-medium">内容布局</label><select value={contentLayout} onChange={(event) => setContentLayout(event.target.value as TorrentAddArgs["contentLayout"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Original">原始布局</option><option value="Subfolder">创建子文件夹</option><option value="NoSubfolder">不创建子文件夹</option></select></div>
+                <div className="space-y-2"><label className="text-sm font-medium">重命名任务</label><Input value={rename} onChange={(event) => setRename(event.target.value)} disabled={itemCount > 1} placeholder={itemCount > 1 ? "批量添加时不可用" : "留空保留原名称"} /></div>
+                <div className="space-y-2 sm:col-span-2"><Toggle checked={useDownloadPath} onChange={setUseDownloadPath} label="使用临时下载目录" description="下载完成后移动到完成保存路径" />{useDownloadPath && <LocationInput value={downloadPath} onChange={setDownloadPath} disabled={autoTMM} placeholder={autoTMM ? "自动种子管理会接管此路径" : "未完成文件路径"} />}</div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-2"><label className="text-sm font-medium">下载限速（KiB/s）</label><Input type="number" min="0" value={dlLimit} onChange={(event) => setDlLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">上传限速（KiB/s）</label><Input type="number" min="0" value={upLimit} onChange={(event) => setUpLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">分享率限制</label><Input type="number" min="0" step="0.1" value={ratioLimit} onChange={(event) => setRatioLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">做种时间限制（分钟）</label><Input type="number" min="0" value={seedingTime} onChange={(event) => setSeedingTime(event.target.value)} placeholder="留空使用全局设置" /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">非活跃做种限制（分钟）</label><Input type="number" min="0" value={inactiveTime} onChange={(event) => setInactiveTime(event.target.value)} placeholder="留空使用全局设置" /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">达到分享限制后</label><select value={shareAction} onChange={(event) => setShareAction(event.target.value as TorrentAddArgs["shareLimitAction"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Default">使用全局设置</option><option value="Stop">停止任务</option><option value="Remove">移除任务</option><option value="RemoveWithContent">移除任务和文件</option><option value="EnableSuperSeeding">启用超级做种</option></select></div>
+                <div className="space-y-2"><label className="text-sm font-medium">停止条件</label><select value={stopCondition} onChange={(event) => setStopCondition(event.target.value as TorrentAddArgs["stopCondition"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="None">无</option><option value="MetadataReceived">收到元数据</option><option value="FilesChecked">文件检查完成</option></select></div>
+              </div>
+
+              <details className="rounded-xl border border-border/50 p-3">
+                <summary className="cursor-pointer text-sm font-medium">SSL 种子参数</summary>
+                <div className="mt-3 grid gap-3"><Textarea value={sslCertificate} onChange={(event) => setSslCertificate(event.target.value)} placeholder="SSL 证书（PEM）" /><Textarea value={sslPrivateKey} onChange={(event) => setSslPrivateKey(event.target.value)} placeholder="SSL 私钥（PEM）" /><Textarea value={sslDhParams} onChange={(event) => setSslDhParams(event.target.value)} placeholder="DH 参数（PEM，可选）" /></div>
+              </details>
+            </div>
+          </details>
         </div>
 
-        <DialogFooter className="sm:justify-between gap-4 pt-4 border-t border-muted/20 shrink-0">
-          <div 
-            className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer select-none"
-            onClick={() => setStartImmediately(!startImmediately)}
-          >
-            <div className={cn(
-              "h-5 w-5 rounded-md border flex items-center justify-center transition-colors",
-              startImmediately ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary/50"
-            )}>
-              {startImmediately && <CheckIcon className="h-3 w-3" />}
-            </div>
-            {t('common.start_immediately', 'Start immediately')}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="ghost" className="rounded-xl font-medium px-6" onClick={() => setOpen(false)}>
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button 
-              className="rounded-xl font-medium px-8 shadow-lg shadow-primary/20" 
-              disabled={isAdding || (files.length === 0 && !magnetLink)}
-              onClick={handleSubmit}
-            >
-              {isAdding ? t('common.adding', 'Adding...') : t('common.add_torrent', 'Add Torrent')}
-            </Button>
-          </div>
+        <DialogFooter className="shrink-0 border-t pt-4 sm:justify-between">
+          <Toggle checked={startImmediately} onChange={setStartImmediately} label="立即开始" />
+          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>取消</Button><Button disabled={isAdding || !itemCount} onClick={() => void handleSubmit()}>{isAdding ? "正在添加…" : <><Plus className="mr-2 h-4 w-4" />添加 {itemCount || ""} 个任务</>}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function CheckIcon(props: React.ComponentProps<"svg">) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
   )
 }

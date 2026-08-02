@@ -5,6 +5,7 @@ import {
   getAvailableLabels,
   getAvailableTrackers,
   getTorrentSortValue,
+  selectTorrentRange,
   sortTorrents,
 } from "./torrent-list-utils.ts"
 import type { Torrent } from "./rpc-types.ts"
@@ -127,4 +128,9 @@ test("sortTorrents sorts by regular and derived fields", () => {
   expect(sortTorrents(torrents, { key: "addedDate", direction: "asc" }).map(({ id }) => id)).toEqual(["1", "3", "2"])
   expect(sortTorrents(torrents, { key: "labels", direction: "asc" }).map(({ id }) => id)).toEqual(["3", "1", "2"])
   expect(getTorrentSortValue(torrents[0], "labels")).toBe("Linux\u0000ISO")
+})
+
+test("selectTorrentRange adds the inclusive range while preserving earlier selections", () => {
+  expect(selectTorrentRange(["1", "2", "3", "4"], ["1"], "2", "4")).toEqual(["1", "2", "3", "4"])
+  expect(selectTorrentRange(["1", "2", "3"], [], null, "2")).toEqual(["2"])
 })

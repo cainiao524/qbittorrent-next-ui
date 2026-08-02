@@ -119,6 +119,18 @@ export function EditTorrentSpeedTab({ form, updateField, toggleField, t }: TabPr
   )
 }
 
+function LimitModeButtons({ mode, onChange }: { mode: number; onChange: (value: number) => void }) {
+  return <div className="grid grid-cols-3 gap-2">
+    {[
+      { val: 0, label: "继承全局" },
+      { val: 1, label: "自定义" },
+      { val: 2, label: "无限制" },
+    ].map((item) => (
+      <button key={item.val} type="button" onClick={() => onChange(item.val)} className={cn("h-9 rounded-xl border text-[10px] font-bold transition-all", mode === item.val ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400" : "border-transparent bg-muted/20 text-muted-foreground hover:bg-muted/40")}>{item.label}</button>
+    ))}
+  </div>
+}
+
 export function EditTorrentRatioTab({ form, updateField, t }: Omit<TabProps, "toggleField">) {
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -135,27 +147,15 @@ export function EditTorrentRatioTab({ form, updateField, t }: Omit<TabProps, "to
             onChange={(e) => updateField("seedRatioLimit", Number(e.target.value))}
             className="h-10 rounded-xl bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary"
           />
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: 0, label: t("common.mode_global") },
-              { val: 1, label: t("common.mode_single") },
-              { val: 2, label: t("common.mode_unlimited") },
-            ].map((mode) => (
-              <button
-                key={mode.val}
-                type="button"
-                onClick={() => updateField("seedRatioMode", mode.val)}
-                className={cn(
-                  "h-9 rounded-xl text-[10px] font-bold transition-all border",
-                  form.seedRatioMode === mode.val
-                    ? "bg-primary/10 border-primary text-primary shadow-xs"
-                    : "bg-muted/20 border-transparent text-muted-foreground hover:bg-muted/40"
-                )}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+          <LimitModeButtons mode={form.seedRatioMode} onChange={(value) => updateField("seedRatioMode", value)} />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="flex items-center justify-between px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground"><span>做种时间限制</span><span className="rounded-full bg-green-500/10 px-2 py-0.5 font-mono text-[10px] text-green-600 dark:text-green-400">{form.seedingTimeLimit} 分钟</span></label>
+        <div className="space-y-3 rounded-2xl border border-muted/10 bg-muted/20 p-3">
+          <Input type="number" min="0" disabled={form.seedingTimeMode !== 1} value={form.seedingTimeLimit} onChange={(e) => updateField("seedingTimeLimit", Number(e.target.value))} className="h-10 rounded-xl border-none bg-background/50 disabled:opacity-40" />
+          <LimitModeButtons mode={form.seedingTimeMode} onChange={(value) => updateField("seedingTimeMode", value)} />
         </div>
       </div>
 
@@ -167,32 +167,25 @@ export function EditTorrentRatioTab({ form, updateField, t }: Omit<TabProps, "to
         <div className="space-y-3 p-3 rounded-2xl bg-muted/20 border border-muted/10">
           <Input
             type="number"
+            min="0"
+            disabled={form.seedIdleMode !== 1}
             value={form.seedIdleLimit}
             onChange={(e) => updateField("seedIdleLimit", Number(e.target.value))}
             className="h-10 rounded-xl bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary"
           />
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: 0, label: t("common.mode_global") },
-              { val: 1, label: t("common.mode_single") },
-              { val: 2, label: t("common.mode_unlimited") },
-            ].map((mode) => (
-              <button
-                key={mode.val}
-                type="button"
-                onClick={() => updateField("seedIdleMode", mode.val)}
-                className={cn(
-                  "h-9 rounded-xl text-[10px] font-bold transition-all border",
-                  form.seedIdleMode === mode.val
-                    ? "bg-primary/10 border-primary text-primary shadow-xs"
-                    : "bg-muted/20 border-transparent text-muted-foreground hover:bg-muted/40"
-                )}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+          <LimitModeButtons mode={form.seedIdleMode} onChange={(value) => updateField("seedIdleMode", value)} />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">达到任一分享限制后</label>
+        <select value={form.shareLimitAction} onChange={(event) => updateField("shareLimitAction", event.target.value as EditTorrentFormState["shareLimitAction"])} className="h-11 w-full rounded-xl border border-muted/20 bg-muted/20 px-3 text-sm">
+          <option value="Default">继承全局动作</option>
+          <option value="Stop">暂停任务</option>
+          <option value="Remove">删除任务但保留文件</option>
+          <option value="RemoveWithContent">删除任务和文件</option>
+          <option value="EnableSuperSeeding">启用超级做种</option>
+        </select>
       </div>
     </div>
   )

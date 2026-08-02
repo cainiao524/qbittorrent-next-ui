@@ -29,6 +29,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { RemoveTorrentDialog } from "@/components/torrents/remove-torrent-dialog"
 import { TorrentFileTree } from "@/components/torrents/torrent-file-tree"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
+import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties-panel"
 
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
@@ -61,7 +63,11 @@ function TorrentDetailsContent() {
         "creator", "dateCreated", "uploadedEver", "downloadedEver",
         "uploadRatio", "peersConnected", "peersGettingFromUs",
         "peersSendingToUs", "trackers", "files", "peers", "labels",
-        "trackerStats"
+        "trackerStats", "timeElapsed", "seedingTime", "connectionsLimit",
+        "downloadedSession", "uploadedSession", "averageDownloadSpeed",
+        "averageUploadSpeed", "wastedSize", "piecesCount", "pieceSize",
+        "lastSeenComplete", "seedRatioLimit", "seedingTimeLimit",
+        "inactiveSeedingTimeLimit", "shareLimitAction"
       ], [id])
 
       if (torrentsData.torrents.length > 0) {
@@ -193,6 +199,7 @@ function TorrentDetailsContent() {
             </div>
           </div>
           <div className="flex items-center gap-2 w-full lg:w-auto shrink-0">
+            <AdvancedTorrentMenu ids={[tor.id]} torrent={tor} onSuccess={fetchData} trigger={<Button variant="outline" size="sm" className="h-12 rounded-xl px-4">高级控制</Button>} />
             <Button variant="default" size="sm" className="flex-1 lg:flex-none rounded-xl font-medium h-12 px-6 shadow-lg shadow-primary/20" onClick={handleToggleStatus}>
               {isStopped ? (
                 <><Play className="h-4 w-4 mr-2" /> {t('common.resume', 'Start')}</>
@@ -385,6 +392,7 @@ function TorrentDetailsContent() {
                     </div>
                   </div>
                 </div>
+                <TorrentPropertiesPanel torrent={tor} />
               </div>
             )}
 
