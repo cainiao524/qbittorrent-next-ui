@@ -23,6 +23,7 @@ import type { ColumnConfig } from "@/lib/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 import { ExportTorrentButton } from "@/components/torrents/export-torrent-button"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 
 type SortKey =
   | "name"
@@ -50,6 +51,7 @@ interface TorrentListViewProps {
   onToggleSelectAll: () => void
   onSort: (key: SortKey) => void
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
+  onAdvancedSuccess?: () => void
 }
 
 function SortIcon({ column, sortConfig }: { column: SortKey; sortConfig: TorrentListViewProps['sortConfig'] }) {
@@ -72,6 +74,7 @@ export function TorrentListView({
   onToggleSelectAll,
   onSort,
   onSingleAction,
+  onAdvancedSuccess,
 }: TorrentListViewProps) {
   const { t } = useI18n()
   const orderedVisibleColumns = visibleColumns
@@ -227,6 +230,7 @@ export function TorrentListView({
                 <TableCell className="w-[170px] pr-6">
                   <div className="flex items-center justify-center gap-1">
                     <ExportTorrentButton id={torrent.id} name={torrent.name} />
+                    <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
                     <EditTorrentDialog torrent={torrent}>
                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
                         <Pencil className="h-4 w-4" />

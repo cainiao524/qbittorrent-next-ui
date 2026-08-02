@@ -46,6 +46,9 @@ interface QbtTorrentInfo {
   force_start?: boolean
   seq_dl?: boolean
   f_l_piece_prio?: boolean
+  super_seeding?: boolean
+  auto_tmm?: boolean
+  download_path?: string
 }
 
 interface QbtTransferInfo {
@@ -122,6 +125,12 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
     uploadRatio: raw.ratio ?? 0,
     labels: raw.tags ? raw.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
     category: raw.category || "",
+    forceStart: raw.force_start ?? false,
+    sequentialDownload: raw.seq_dl ?? false,
+    firstLastPiecePriority: raw.f_l_piece_prio ?? false,
+    superSeeding: raw.super_seeding ?? false,
+    autoManagement: raw.auto_tmm ?? false,
+    downloadPath: raw.download_path ?? "",
     queuePosition: raw.priority ?? 0,
     isFinished: (raw.progress ?? 0) >= 1,
     isPrivate: false,
@@ -359,8 +368,83 @@ class QBittorrentRPC {
       form.append("stopped", String(args.paused))
       form.append("paused", String(args.paused))
     }
-    await this.fetch("/torrents/add", { method: "POST", body: form })
-    return {} as TorrentAddResponse
+    const values: Array<[string, string | number | boolean | undefined]> = [
+      ["category", args.category],
+      ["tags", args.tags?.join(",")],
+      ["autoTMM", args.autoTMM],
+      ["addToTopOfQueue", args.addToTopOfQueue],
+      ["skip_checking", args.skipChecking],
+      ["sequentialDownload", args.sequentialDownload],
+      ["firstLastPiecePrio", args.firstLastPiecePrio],
+      ["forced", args.forced],
+      ["contentLayout", args.contentLayout],
+      ["rename", args.rename],
+      ["useDownloadPath", args.useDownloadPath],
+      ["downloadPath", args.downloadPath],
+      ["upLimit", args.upLimit],
+      ["dlLimit", args.dlLimit],
+      ["ratioLimit", args.ratioLimit],
+      ["seedingTimeLimit", args.seedingTimeLimit],
+      ["inactiveSeedingTimeLimit", args.inactiveSeedingTimeLimit],
+      ["shareLimitAction", args.shareLimitAction],
+      ["stopCondition", args.stopCondition],
+      ["ssl_certificate", args.sslCertificate],
+      ["ssl_private_key", args.sslPrivateKey],
+      ["ssl_dh_params", args.sslDhParams],
+    ]
+    values.forEach(([key, value]) => {
+      if (value !== undefined && value !== "") form.append(key, String(value))
+    })
+    const response = await this.fetch("/torrents/add", { method: "POST", body: form })
+    const text = await response.text()
+    if (!text.trim()) return {} as TorrentAddResponse
+    try {
+      return JSON.parse(text) as TorrentAddResponse
+    } catch {
+      return {} as TorrentAddResponse
+    }
+  }
+
+  async getTorrentCategories(): Promise<Array<{ name: string; savePath: string; downloadPath?: string | boolean | null }>> {
+    const categories = await this.get<Record<string, { name?: string; savePath?: string; downloadPath?: string | boolean | null }>>("/torrents/categories")
+    return Object.entries(categories).map(([key, value]) => ({ name: value.name ?? key, savePath: value.savePath ?? "", downloadPath: value.downloadPath }))
+  }
+
+  async getTorrentTags(): Promise<string[]> {
+    return this.get<string[]>("/torrents/tags")
+  }
+
+  async setForceStart(ids: TorrentId[], value: boolean) {
+    await this.post("/torrents/setForceStart", { hashes: this.hashes(ids), value })
+  }
+
+  async toggleSequentialDownload(ids: TorrentId[]) {
+    await this.post("/torrents/toggleSequentialDownload", { hashes: this.hashes(ids) })
+  }
+
+  async toggleFirstLastPiecePriority(ids: TorrentId[]) {
+    await this.post("/torrents/toggleFirstLastPiecePrio", { hashes: this.hashes(ids) })
+  }
+
+  async setSuperSeeding(ids: TorrentId[], value: boolean) {
+    await this.post("/torrents/setSuperSeeding", { hashes: this.hashes(ids), value })
+  }
+
+  async setAutoManagement(ids: TorrentId[], enable: boolean) {
+    await this.post("/torrents/setAutoManagement", { hashes: this.hashes(ids), enable })
+  }
+
+  async changeQueuePriority(ids: TorrentId[], direction: "top" | "up" | "down" | "bottom") {
+    const endpoints = { top: "topPrio", up: "increasePrio", down: "decreasePrio", bottom: "bottomPrio" }
+    await this.post(`/torrents/${endpoints[direction]}`, { hashes: this.hashes(ids) })
+  }
+
+  async setTorrentSavePath(ids: TorrentId[], path: string) {
+    await this.post("/torrents/setSavePath", { id: this.hashes(ids), path })
+  }
+
+  async setTorrentDownloadPath(ids: TorrentId[], path: string) {
+    await this.post("/torrents/setDownloadPath", { id: this.hashes(ids), path })
   }
 
   async exportTorrent(id: TorrentId): Promise<{ blob: Blob; filename: string }> {

@@ -46,6 +46,7 @@ import { TorrentListView } from "@/components/torrents/torrent-list-view"
 import { TorrentGridView } from "@/components/torrents/torrent-grid-view"
 import { TorrentToolbar } from "@/components/torrents/torrent-toolbar"
 import { KeyboardShortcutsDialog } from "@/components/torrents/keyboard-shortcuts-dialog"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { exportTorrentFile } from "@/lib/torrent-export"
 import {
   createTorrentActionPlan,
@@ -463,11 +464,13 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
             onToggleSelectAll={toggleSelectAll}
             onSort={handleSort}
             onSingleAction={handleSingleAction}
+            onAdvancedSuccess={fetchData}
           />
         ) : (
           <TorrentGridView
             paginatedTorrents={paginatedTorrents}
             onSingleAction={handleSingleAction}
+            onAdvancedSuccess={fetchData}
           />
         )}
 
@@ -615,6 +618,16 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
                     <Download className="h-4 w-4 opacity-60" />
                     {t('export.action', 'Export .torrent')}
                   </DropdownMenuItem>
+                  <AdvancedTorrentMenu
+                    ids={selectedIds}
+                    onSuccess={fetchData}
+                    trigger={
+                      <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted">
+                        <MoreVertical className="h-4 w-4 opacity-60" />
+                        高级任务操作
+                      </DropdownMenuItem>
+                    }
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

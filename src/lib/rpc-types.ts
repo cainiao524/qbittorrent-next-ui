@@ -61,6 +61,12 @@ export interface Torrent {
   seedIdleMode?: number
   trackerList?: string
   category?: string
+  forceStart?: boolean
+  sequentialDownload?: boolean
+  firstLastPiecePriority?: boolean
+  superSeeding?: boolean
+  autoManagement?: boolean
+  downloadPath?: string
 }
 
 export type TorrentId = string
@@ -75,11 +81,37 @@ export interface TorrentAddArgs {
   metainfo?: string
   "download-dir"?: string
   paused?: boolean
+  category?: string
+  tags?: string[]
+  autoTMM?: boolean
+  addToTopOfQueue?: boolean
+  skipChecking?: boolean
+  sequentialDownload?: boolean
+  firstLastPiecePrio?: boolean
+  forced?: boolean
+  contentLayout?: "Original" | "Subfolder" | "NoSubfolder"
+  rename?: string
+  useDownloadPath?: boolean
+  downloadPath?: string
+  upLimit?: number
+  dlLimit?: number
+  ratioLimit?: number
+  seedingTimeLimit?: number
+  inactiveSeedingTimeLimit?: number
+  shareLimitAction?: "Default" | "Stop" | "Remove" | "RemoveWithContent" | "EnableSuperSeeding"
+  stopCondition?: "None" | "MetadataReceived" | "FilesChecked"
+  sslCertificate?: string
+  sslPrivateKey?: string
+  sslDhParams?: string
 }
 
 export interface TorrentAddResponse {
   "torrent-added"?: Torrent
   "torrent-duplicate"?: Torrent
+  success_count?: number
+  failure_count?: number
+  pending_count?: number
+  added_torrent_ids?: string[]
 }
 
 export interface TorrentCreatorArgs {
