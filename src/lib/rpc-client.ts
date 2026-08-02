@@ -231,7 +231,8 @@ class QBittorrentRPC {
 
   async login(username: string, password: string): Promise<void> {
     const response = await this.post("/auth/login", { username, password })
-    if ((await response.text()).trim() !== "Ok.") throw new Error("Invalid username or password")
+    const result = (await response.text()).trim()
+    if (result && result !== "Ok.") throw new Error("Invalid username or password")
   }
 
   async logout(): Promise<void> {
