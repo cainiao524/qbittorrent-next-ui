@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, FolderCog, MoreHorizontal, Settings2 } from "lucide-react"
+import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, FolderCog, MoreHorizontal, Settings2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -20,18 +20,22 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LocationInput } from "@/components/location-input"
 import { rpc } from "@/lib/rpc-client"
+import { exportTorrentFile } from "@/lib/torrent-export"
+import { useI18n } from "@/lib/i18n-context"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 
 interface AdvancedTorrentMenuProps {
   ids: TorrentId[]
   torrent?: Torrent
   onSuccess?: () => void
+  onExport?: () => Promise<void> | void
   trigger?: React.ReactNode
 }
 
 type BooleanAction = "force" | "super" | "auto"
 
-export function AdvancedTorrentMenu({ ids, torrent, onSuccess, trigger }: AdvancedTorrentMenuProps) {
+export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger }: AdvancedTorrentMenuProps) {
+  const { t } = useI18n()
   const [pathOpen, setPathOpen] = React.useState(false)
   const [savePath, setSavePath] = React.useState(torrent?.downloadDir ?? "")
   const [downloadPath, setDownloadPath] = React.useState(torrent?.downloadPath ?? "")
@@ -88,6 +92,20 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, trigger }: Advanc
     }
   }
 
+  const exportTorrents = async () => {
+    if (onExport) {
+      await onExport()
+      return
+    }
+    if (!torrent || ids.length !== 1) return
+    try {
+      await exportTorrentFile(ids[0], torrent.name)
+      toast.success(t("export.success", "种子文件已导出"))
+    } catch {
+      toast.error(t("export.failed", "无法导出种子文件"))
+    }
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -125,6 +143,7 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, trigger }: Advanc
           <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "bottom"), "已移至队列底部")}><ArrowDownToLine />置底</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setPathOpen(true)}><FolderCog />修改下载与保存路径</DropdownMenuItem>
+          <DropdownMenuItem disabled={!onExport && (!torrent || ids.length !== 1)} onClick={() => void exportTorrents()}><Upload />{t("export.action", "导出 .torrent 文件")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

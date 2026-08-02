@@ -13,7 +13,7 @@ import type {
   TorrentSetArgs,
 } from "./rpc-types"
 import { parseTorrentLabels } from "./torrent-labels"
-import { TorrentStatus, type Peer, type Torrent, type TorrentFile, type TorrentFilePriority, type Tracker, type TrackerStat } from "./rpc-types"
+import { TorrentStatus, type Peer, type Torrent, type TorrentFile, type TorrentFilePriority, type TorrentPieceState, type Tracker, type TrackerStat } from "./rpc-types"
 
 type JsonRecord = Record<string, unknown>
 
@@ -301,8 +301,8 @@ class QBittorrentRPC {
       }))
     }
     if (fields.includes("peers")) {
-      jobs.push(this.get<{ peers?: Record<string, { ip: string; client: string; dl_speed: number; up_speed: number; progress: number; flags: string }> }>(`/sync/torrentPeers?hash=${hash}&rid=0`).then((data) => {
-        torrent.peers = Object.values(data.peers ?? {}).map((peer): Peer => ({ address: peer.ip, clientName: peer.client, rateToClient: peer.dl_speed, rateToPeer: peer.up_speed, progress: peer.progress, isEncrypted: peer.flags?.includes("E") ?? false }))
+      jobs.push(this.get<{ peers?: Record<string, { ip: string; client: string; country?: string; country_code?: string; dl_speed: number; up_speed: number; progress: number; flags: string }> }>(`/sync/torrentPeers?hash=${hash}&rid=0`).then((data) => {
+        torrent.peers = Object.values(data.peers ?? {}).map((peer): Peer => ({ address: peer.ip, clientName: peer.client, country: peer.country, countryCode: peer.country_code, rateToClient: peer.dl_speed, rateToPeer: peer.up_speed, progress: peer.progress, isEncrypted: peer.flags?.includes("E") ?? false }))
       }))
     }
     await Promise.all(jobs)
@@ -451,6 +451,11 @@ class QBittorrentRPC {
     } catch {
       return {} as TorrentAddResponse
     }
+  }
+
+  async getTorrentPieceStates(id: TorrentId): Promise<TorrentPieceState[]> {
+    const states = await this.get<number[]>(`/torrents/pieceStates?hash=${encodeURIComponent(id)}`)
+    return states.map((state) => state === 1 || state === 2 ? state : 0)
   }
 
   async getTorrentCategories(): Promise<Array<{ name: string; savePath: string; downloadPath?: string | boolean | null }>> {

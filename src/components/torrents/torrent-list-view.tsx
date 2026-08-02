@@ -22,7 +22,6 @@ import { formatSpeed, formatDuration, formatSize, getStatusLabel, formatDate } f
 import type { ColumnConfig } from "@/lib/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
-import { ExportTorrentButton } from "@/components/torrents/export-torrent-button"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 
 type SortKey =
@@ -229,7 +228,6 @@ export function TorrentListView({
                 {orderedVisibleColumns.map((column) => renderCell(torrent, column))}
                 <TableCell className="w-[170px] pr-6">
                   <div className="flex items-center justify-center gap-1">
-                    <ExportTorrentButton id={torrent.id} name={torrent.name} />
                     <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
                     <EditTorrentDialog torrent={torrent}>
                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
