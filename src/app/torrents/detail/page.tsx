@@ -272,8 +272,8 @@ function TorrentDetailsContent() {
       </div>
 
       {/* Details Sections with Tabs-like Header */}
-      <div className="relative flex flex-col gap-4 [--detail-tabs-offset:8rem] md:[--detail-tabs-offset:8.5rem]">
-        <div className="sticky top-16 z-30 flex h-16 w-full shrink-0 items-center gap-1 overflow-x-auto rounded-2xl border border-muted/30 bg-background/95 p-1 shadow-lg shadow-black/5 backdrop-blur-xl no-scrollbar md:h-[4.5rem] sm:self-start dark:shadow-black/30">
+      <div className="relative flex flex-col gap-4 [--detail-tabs-offset:10rem] md:[--detail-tabs-offset:10.5rem]">
+        <div className="sticky top-20 z-30 flex h-16 w-full shrink-0 items-center gap-1 overflow-x-auto rounded-2xl border border-muted/30 bg-background/95 p-1 shadow-lg shadow-black/5 backdrop-blur-xl no-scrollbar md:h-[4.5rem] sm:self-start dark:shadow-black/30">
           <Button
             variant={activeTab === "general" ? "secondary" : "ghost"}
             className={`h-14 flex-1 min-w-[90px] rounded-xl px-2 py-0 md:h-16 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "general"
