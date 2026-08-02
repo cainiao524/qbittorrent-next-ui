@@ -559,11 +559,14 @@ class QBittorrentRPC {
 
   async setFilePriority(id: TorrentId, fileIds: number[], priority: TorrentFilePriority) {
     if (!fileIds.length) return {}
-    await this.post("/torrents/filePrio", {
-      hash: id,
-      id: fileIds.join("|"),
-      priority,
-    })
+    const chunkSize = 4000
+    for (let offset = 0; offset < fileIds.length; offset += chunkSize) {
+      await this.post("/torrents/filePrio", {
+        hash: id,
+        id: fileIds.slice(offset, offset + chunkSize).join("|"),
+        priority,
+      })
+    }
     return {}
   }
 

@@ -191,6 +191,17 @@ describe("qBittorrent Web API adapter", () => {
     })
   })
 
+  test("大型种子的文件优先级请求会自动分批", async () => {
+    fetchMock.mockResolvedValue(createResponse(""))
+    const ids = Array.from({ length: 9001 }, (_, index) => index)
+
+    await rpc.setFilePriority("abc123", ids, 7)
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const chunkSizes = fetchMock.mock.calls.map(([, options]) => new URLSearchParams(String(options.body)).get("id")?.split("|").length)
+    expect(chunkSizes).toEqual([4000, 4000, 1001])
+  })
+
   test("creates a torrent with the qBittorrent 5.2 torrent creator API", async () => {
     fetchMock.mockResolvedValueOnce(createResponse({ taskID: "task-1" }))
 
