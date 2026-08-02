@@ -170,7 +170,7 @@ function TorrentDetailsContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out">
+    <div className="flex flex-col gap-6 animate-in fade-in duration-500 ease-out">
       {/* Header Section */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 overflow-hidden">
@@ -272,11 +272,11 @@ function TorrentDetailsContent() {
       </div>
 
       {/* Details Sections with Tabs-like Header */}
-      <div className="flex flex-col gap-4">
-        <div className="sticky top-0 z-30 flex w-full items-center gap-1 overflow-x-auto rounded-2xl border border-muted/30 bg-background/90 p-1 shadow-lg shadow-black/5 backdrop-blur-xl no-scrollbar sm:self-start dark:shadow-black/30">
+      <div className="relative flex flex-col gap-4 [--detail-tabs-offset:4rem] md:[--detail-tabs-offset:4.5rem]">
+        <div className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center gap-1 overflow-x-auto rounded-2xl border border-muted/30 bg-background/95 p-1 shadow-lg shadow-black/5 backdrop-blur-xl no-scrollbar md:h-[4.5rem] sm:self-start dark:shadow-black/30">
           <Button
             variant={activeTab === "general" ? "secondary" : "ghost"}
-            className={`flex-1 min-w-[90px] rounded-xl px-2 py-4 md:py-6 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "general"
+            className={`h-14 flex-1 min-w-[90px] rounded-xl px-2 py-0 md:h-16 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "general"
               ? "bg-background shadow-[0_2px_10px_rgba(0,0,0,0.1)] border border-muted/50 text-primary scale-[1.01]"
               : "text-muted-foreground hover:bg-muted/40 hover:scale-[1.01]"
               }`}
@@ -286,7 +286,7 @@ function TorrentDetailsContent() {
           </Button>
           <Button
             variant={activeTab === "files" ? "secondary" : "ghost"}
-            className={`flex-1 min-w-[90px] rounded-xl px-2 py-4 md:py-6 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "files"
+            className={`h-14 flex-1 min-w-[90px] rounded-xl px-2 py-0 md:h-16 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "files"
               ? "bg-background shadow-[0_2px_10px_rgba(0,0,0,0.1)] border border-muted/50 text-primary scale-[1.01]"
               : "text-muted-foreground hover:bg-muted/40 hover:scale-[1.01]"
               }`}
@@ -296,7 +296,7 @@ function TorrentDetailsContent() {
           </Button>
           <Button
             variant={activeTab === "trackers" ? "secondary" : "ghost"}
-            className={`flex-1 min-w-[90px] rounded-xl px-2 py-4 md:py-6 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "trackers"
+            className={`h-14 flex-1 min-w-[90px] rounded-xl px-2 py-0 md:h-16 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "trackers"
               ? "bg-background shadow-[0_2px_10px_rgba(0,0,0,0.1)] border border-muted/50 text-primary scale-[1.01]"
               : "text-muted-foreground hover:bg-muted/40 hover:scale-[1.01]"
               }`}
@@ -306,7 +306,7 @@ function TorrentDetailsContent() {
           </Button>
           <Button
             variant={activeTab === "peers" ? "secondary" : "ghost"}
-            className={`flex-1 min-w-[90px] rounded-xl px-2 py-4 md:py-6 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "peers"
+            className={`h-14 flex-1 min-w-[90px] rounded-xl px-2 py-0 md:h-16 font-medium uppercase text-[10px] md:text-xs tracking-widest transition-all duration-300 shrink-0 ${activeTab === "peers"
               ? "bg-background shadow-[0_2px_10px_rgba(0,0,0,0.1)] border border-muted/50 text-primary scale-[1.01]"
               : "text-muted-foreground hover:bg-muted/40 hover:scale-[1.01]"
               }`}
@@ -318,7 +318,7 @@ function TorrentDetailsContent() {
 
         {/* Tab Content */}
         <Card className={activeTab === "files" ? "gap-0 overflow-visible rounded-none border-none bg-transparent py-0 shadow-none ring-0" : "min-h-[400px] overflow-hidden border-none border border-muted/10 bg-card/60 py-0 shadow-2xl backdrop-blur-lg"}>
-          <CardContent className="p-0 overflow-x-auto no-scrollbar">
+          <CardContent className={activeTab === "files" ? "overflow-visible p-0" : "overflow-x-auto p-0 no-scrollbar"}>
             {activeTab === "general" && (
               <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
                 <div className="space-y-6">
