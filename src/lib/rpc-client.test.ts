@@ -191,6 +191,71 @@ describe("qBittorrent Web API adapter", () => {
     })
   })
 
+  test("读取种子文件块状态", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse([0, 1, 2, 9]))
+
+    await expect(rpc.getTorrentPieceStates("abc123")).resolves.toEqual([0, 1, 2, 0])
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v2/torrents/pieceStates?hash=abc123")
+  })
+
+  test("保留用户国家和地区信息", async () => {
+    fetchMock
+      .mockResolvedValueOnce(createResponse([{
+        hash: "abc123",
+        name: "示例种子",
+        state: "downloading",
+        size: 120,
+        total_size: 120,
+        progress: 0.5,
+        dlspeed: 0,
+        upspeed: 0,
+        eta: 60,
+        added_on: 0,
+        completion_on: 0,
+        last_activity: 0,
+        save_path: "/downloads",
+        amount_left: 60,
+        uploaded: 0,
+        downloaded: 60,
+        ratio: 0,
+        tags: "",
+        category: "",
+        priority: 0,
+        tracker: "",
+        num_complete: 0,
+        num_incomplete: 0,
+        num_leechs: 1,
+        num_seeds: 0,
+      }]))
+      .mockResolvedValueOnce(createResponse({
+        peers: {
+          "203.0.113.8:6881": {
+            ip: "203.0.113.8",
+            client: "qBittorrent 5.2.3",
+            country: "Japan",
+            country_code: "JP",
+            dl_speed: 1024,
+            up_speed: 512,
+            progress: 0.75,
+            flags: "E",
+          },
+        },
+      }))
+
+    const result = await rpc.getTorrents(["peers"], ["abc123"])
+
+    expect(result.torrents[0].peers).toEqual([{
+      address: "203.0.113.8",
+      clientName: "qBittorrent 5.2.3",
+      country: "Japan",
+      countryCode: "JP",
+      rateToClient: 1024,
+      rateToPeer: 512,
+      progress: 0.75,
+      isEncrypted: true,
+    }])
+  })
+
   test("大型种子的文件优先级请求会自动分批", async () => {
     fetchMock.mockResolvedValue(createResponse(""))
     const ids = Array.from({ length: 9001 }, (_, index) => index)

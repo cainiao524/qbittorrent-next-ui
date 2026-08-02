@@ -204,11 +204,15 @@ export interface TrackerStat {
 export interface Peer {
   address: string
   clientName: string
+  country?: string
+  countryCode?: string
   rateToClient: number
   rateToPeer: number
   progress: number
   isEncrypted: boolean
 }
+
+export type TorrentPieceState = 0 | 1 | 2
 
 export interface TorrentFile {
   index: number
