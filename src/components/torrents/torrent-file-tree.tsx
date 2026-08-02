@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
-import { Ban, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder, FolderOpen, LoaderCircle, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Ban, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder, FolderOpen, LoaderCircle, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { formatSize } from "@/lib/formatters"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentFile, TorrentFilePriority } from "@/lib/rpc-types"
-import { buildTorrentFileTree, collectTorrentFileIds, flattenVisibleTorrentFileTree, getTorrentFileSearchKeys, getTorrentFolderKeys } from "@/lib/torrent-file-tree"
+import { buildTorrentFileTree, collectTorrentFileIds, flattenVisibleTorrentFileTree, getTorrentFileSearchKeys, getTorrentFolderKeys, type TorrentFileTreeSort, type TorrentFileTreeSortKey } from "@/lib/torrent-file-tree"
 import { cn } from "@/lib/utils"
 
 const PRIORITIES: TorrentFilePriority[] = [0, 1, 6, 7]
@@ -20,6 +20,21 @@ interface TorrentFileTreeProps {
   onPriorityChange: (fileIds: number[], priority: TorrentFilePriority) => void
 }
 
+function findScrollParent(element: HTMLElement): HTMLElement | Window {
+  let parent = element.parentElement
+  while (parent) {
+    const overflow = getComputedStyle(parent).overflowY
+    if ((overflow === "auto" || overflow === "scroll") && parent.scrollHeight > parent.clientHeight + 1) return parent
+    parent = parent.parentElement
+  }
+  return window
+}
+
+function SortHeader({ label, sortKey, sort, onSort, align = "left" }: { label: string; sortKey: TorrentFileTreeSortKey; sort: TorrentFileTreeSort; onSort: (key: TorrentFileTreeSortKey) => void; align?: "left" | "right" }) {
+  const Icon = sort.key !== sortKey ? ArrowUpDown : sort.direction === "asc" ? ArrowUp : ArrowDown
+  return <button type="button" className={cn("flex w-full items-center gap-1.5 transition-colors hover:text-foreground", align === "right" && "justify-end")} onClick={() => onSort(sortKey)}>{label}<Icon className={cn("size-3.5", sort.key === sortKey ? "text-primary" : "opacity-35")} /></button>
+}
+
 export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: TorrentFileTreeProps) {
   const { t } = useI18n()
   const tree = useMemo(() => buildTorrentFileTree(files), [files])
@@ -27,28 +42,48 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
   const rootFolderKeys = useMemo(() => tree.filter((node) => node.kind === "folder").map((node) => node.key), [tree])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(rootFolderKeys))
   const [query, setQuery] = useState("")
+  const [sort, setSort] = useState<TorrentFileTreeSort>({ key: "name", direction: "asc" })
   const deferredQuery = useDeferredValue(query)
   const searchKeys = useMemo(() => getTorrentFileSearchKeys(tree, deferredQuery), [deferredQuery, tree])
-  const visibleNodes = useMemo(() => flattenVisibleTorrentFileTree(tree, expanded, searchKeys), [expanded, searchKeys, tree])
+  const visibleNodes = useMemo(() => flattenVisibleTorrentFileTree(tree, expanded, searchKeys, sort), [expanded, searchKeys, sort, tree])
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(560)
-  const viewportRef = useRef<HTMLDivElement>(null)
+  const rowsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const updateHeight = () => setViewportHeight(viewport.clientHeight || 560)
-    updateHeight()
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(viewport)
-    return () => observer.disconnect()
-  }, [])
+    const rows = rowsRef.current
+    if (!rows) return
+    const scrollParent = findScrollParent(rows)
+    let frame = 0
+    const updateRange = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const rowsRect = rows.getBoundingClientRect()
+        const parentRect = scrollParent instanceof Window
+          ? { top: 0, bottom: window.innerHeight, height: window.innerHeight }
+          : scrollParent.getBoundingClientRect()
+        setScrollTop(Math.max(0, parentRect.top - rowsRect.top))
+        setViewportHeight(Math.max(1, parentRect.height))
+      })
+    }
+    scrollParent.addEventListener("scroll", updateRange, { passive: true })
+    window.addEventListener("resize", updateRange, { passive: true })
+    const observer = new ResizeObserver(updateRange)
+    observer.observe(rows)
+    updateRange()
+    return () => {
+      cancelAnimationFrame(frame)
+      scrollParent.removeEventListener("scroll", updateRange)
+      window.removeEventListener("resize", updateRange)
+      observer.disconnect()
+    }
+  }, [visibleNodes.length])
 
   const updateQuery = (value: string) => {
     setQuery(value)
-    setScrollTop(0)
-    viewportRef.current?.scrollTo({ top: 0 })
   }
+
+  const updateSort = (key: TorrentFileTreeSortKey) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }))
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
   const endIndex = Math.min(visibleNodes.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN)
@@ -95,11 +130,14 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
       </div>
 
       <div className="grid h-12 grid-cols-[minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
-        <div className="pl-6">{t("details.file_name")}</div><div className="pr-5 text-right">{t("common.size", "大小")}</div><div>{t("common.progress")}</div><div>{t("details.priority")}</div>
+        <div className="pl-6"><SortHeader label={t("details.file_name")} sortKey="name" sort={sort} onSort={updateSort} /></div>
+        <div className="pr-5"><SortHeader label={t("common.size", "大小")} sortKey="size" sort={sort} onSort={updateSort} align="right" /></div>
+        <div><SortHeader label={t("common.progress")} sortKey="progress" sort={sort} onSort={updateSort} /></div>
+        <div><SortHeader label={t("details.priority")} sortKey="priority" sort={sort} onSort={updateSort} /></div>
       </div>
 
-      <div ref={viewportRef} className="h-[min(72vh,820px)] min-h-96 overflow-y-auto overscroll-contain" onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
-        <div className="relative" style={{ height: `${visibleNodes.length * ROW_HEIGHT}px` }}>
+      <div>
+        <div ref={rowsRef} className="relative" style={{ height: `${visibleNodes.length * ROW_HEIGHT}px` }}>
           <div className="absolute inset-x-0 top-0" style={{ transform: `translateY(${startIndex * ROW_HEIGHT}px)` }}>
             {renderedNodes.map(({ node, depth }) => {
               const isFolder = node.kind === "folder"

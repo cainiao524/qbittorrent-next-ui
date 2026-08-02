@@ -18,6 +18,14 @@ export interface VisibleTorrentFileTreeNode {
   depth: number
 }
 
+export type TorrentFileTreeSortKey = "name" | "size" | "progress" | "priority"
+export type TorrentFileTreeSortDirection = "asc" | "desc"
+
+export interface TorrentFileTreeSort {
+  key: TorrentFileTreeSortKey
+  direction: TorrentFileTreeSortDirection
+}
+
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" })
 
 function sortNodes(nodes: TorrentFileTreeNode[]): void {
@@ -144,17 +152,35 @@ export function flattenVisibleTorrentFileTree(
   nodes: TorrentFileTreeNode[],
   expanded: ReadonlySet<string>,
   searchKeys: ReadonlySet<string> | null = null,
+  sort: TorrentFileTreeSort = { key: "name", direction: "asc" },
 ): VisibleTorrentFileTreeNode[] {
+  const value = (node: TorrentFileTreeNode): string | number => {
+    if (sort.key === "size") return node.length
+    if (sort.key === "progress") return node.length > 0 ? node.bytesCompleted / node.length : 0
+    if (sort.key === "priority") return node.priority ?? -1
+    return node.name
+  }
+  const compare = (left: TorrentFileTreeNode, right: TorrentFileTreeNode) => {
+    if (left.kind !== right.kind) return left.kind === "folder" ? -1 : 1
+    const leftValue = value(left)
+    const rightValue = value(right)
+    const result = typeof leftValue === "string" && typeof rightValue === "string"
+      ? collator.compare(leftValue, rightValue)
+      : Number(leftValue) - Number(rightValue)
+    return sort.direction === "asc" ? result : -result
+  }
+  const ordered = (items: TorrentFileTreeNode[]) => [...items].sort(compare)
   const result: VisibleTorrentFileTreeNode[] = []
-  const stack = nodes.map((node) => ({ node, depth: 0 })).reverse()
+  const stack = ordered(nodes).map((node) => ({ node, depth: 0 })).reverse()
   while (stack.length) {
     const current = stack.pop()!
     if (searchKeys && !searchKeys.has(current.node.key)) continue
     result.push(current)
     const shouldExpand = current.node.kind === "folder" && (searchKeys !== null || expanded.has(current.node.key))
     if (!shouldExpand) continue
-    for (let index = current.node.children.length - 1; index >= 0; index--) {
-      stack.push({ node: current.node.children[index], depth: current.depth + 1 })
+    const children = ordered(current.node.children)
+    for (let index = children.length - 1; index >= 0; index--) {
+      stack.push({ node: children[index], depth: current.depth + 1 })
     }
   }
   return result
