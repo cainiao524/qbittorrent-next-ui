@@ -4,13 +4,12 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Ban, ChevronDown, ChevronRight, Chevro
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { formatSize } from "@/lib/formatters"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentFile, TorrentFilePriority } from "@/lib/rpc-types"
 import { buildTorrentFileTree, collectTorrentFileIds, flattenVisibleTorrentFileTree, getTorrentFileSearchKeys, getTorrentFolderKeys, type TorrentFileTreeNode, type TorrentFileTreeSort, type TorrentFileTreeSortKey } from "@/lib/torrent-file-tree"
 import { cn } from "@/lib/utils"
-import { BatchSetFilePriorityDialog } from "@/components/torrents/batch-set-file-priority-dialog"
 
 const PRIORITIES: TorrentFilePriority[] = [0, 1, 6, 7]
 const ROW_HEIGHT = 56
@@ -57,7 +56,6 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
     return map
   }, [tree])
   const [selectedFileIds, setSelectedFileIds] = useState<ReadonlySet<number>>(new Set())
-  const [isBatchPriorityOpen, setIsBatchPriorityOpen] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(rootFolderKeys))
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<TorrentFileTreeSort>({ key: "name", direction: "asc" })
@@ -261,15 +259,35 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
               </div>
               <span className="text-sm font-bold tracking-tight hidden lg:inline">{t("details.selected_files", { count: selectedFileIds.size })}</span>
             </div>
-            <Button
-              size="sm"
-              className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4"
-              disabled={globallyUpdating}
-              onClick={() => setIsBatchPriorityOpen(true)}
-            >
-              <ListChecks className="h-4 w-4" />
-              {t("details.batch_priority")}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4"
+                  disabled={globallyUpdating}
+                >
+                  <ListChecks className="h-4 w-4" />
+                  {t("details.batch_priority")}
+                  <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-44 p-1.5">
+                <DropdownMenuLabel>{t("details.batch_priority")}</DropdownMenuLabel>
+                {PRIORITIES.map((priority) => (
+                  <DropdownMenuItem
+                    key={priority}
+                    className="py-2"
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      onPriorityChange([...selectedFileIds], priority)
+                    }}
+                  >
+                    {priority === 0 && <Ban className="text-muted-foreground" />}
+                    <span>{priorityLabel(priority)}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="icon"
               variant="ghost"
@@ -283,15 +301,6 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
         </div>
       )}
 
-      <BatchSetFilePriorityDialog
-        open={isBatchPriorityOpen}
-        onOpenChange={setIsBatchPriorityOpen}
-        selectedFileCount={selectedFileIds.size}
-        onConfirm={(priority) => {
-          onPriorityChange([...selectedFileIds], priority)
-          setIsBatchPriorityOpen(false)
-        }}
-      />
     </div>
   )
 }

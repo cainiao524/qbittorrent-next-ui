@@ -166,8 +166,6 @@
     "priority": "Priority",
     "file_priority": "Set file download priority",
     "folder_priority": "Set download priority for every file in this folder",
-    "batch_priority_desc": "Set download priority for {count} selected files",
-    "batch_priority_confirm": "Apply to {count} files",
     "priority_skip": "Do not download",
     "priority_high": "High",
     "priority_max": "Maximum",

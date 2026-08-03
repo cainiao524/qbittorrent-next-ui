@@ -173,8 +173,6 @@
     "priority": "优先级",
     "file_priority": "设置文件下载优先级",
     "folder_priority": "设置文件夹内全部文件的下载优先级",
-    "batch_priority_desc": "为已选中的 {count} 个文件设置下载优先级",
-    "batch_priority_confirm": "应用到 {count} 个文件",
     "priority_skip": "不下载",
     "priority_high": "高",
     "priority_max": "最高",
