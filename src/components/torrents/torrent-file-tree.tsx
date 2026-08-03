@@ -1,13 +1,14 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, ArrowUpDown, Ban, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder, FolderOpen, LoaderCircle, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Ban, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder, FolderOpen, ListChecks, LoaderCircle, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { formatSize } from "@/lib/formatters"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentFile, TorrentFilePriority } from "@/lib/rpc-types"
-import { buildTorrentFileTree, collectTorrentFileIds, flattenVisibleTorrentFileTree, getTorrentFileSearchKeys, getTorrentFolderKeys, type TorrentFileTreeSort, type TorrentFileTreeSortKey } from "@/lib/torrent-file-tree"
+import { buildTorrentFileTree, collectTorrentFileIds, flattenVisibleTorrentFileTree, getTorrentFileSearchKeys, getTorrentFolderKeys, type TorrentFileTreeNode, type TorrentFileTreeSort, type TorrentFileTreeSortKey } from "@/lib/torrent-file-tree"
 import { cn } from "@/lib/utils"
 
 const PRIORITIES: TorrentFilePriority[] = [0, 1, 6, 7]
@@ -40,6 +41,21 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
   const tree = useMemo(() => buildTorrentFileTree(files), [files])
   const folderKeys = useMemo(() => getTorrentFolderKeys(tree), [tree])
   const rootFolderKeys = useMemo(() => tree.filter((node) => node.kind === "folder").map((node) => node.key), [tree])
+  const fileIdsByKey = useMemo(() => {
+    const map = new Map<string, number[]>()
+    const visit = (node: TorrentFileTreeNode) => {
+      const ids = node.file
+        ? [node.file.index]
+        : node.children.flatMap((child) => {
+            visit(child)
+            return map.get(child.key) ?? []
+          })
+      map.set(node.key, ids)
+    }
+    tree.forEach(visit)
+    return map
+  }, [tree])
+  const [selectedFileIds, setSelectedFileIds] = useState<ReadonlySet<number>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(rootFolderKeys))
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<TorrentFileTreeSort>({ key: "name", direction: "asc" })
@@ -81,6 +97,15 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
 
   const updateQuery = (value: string) => {
     setQuery(value)
+    const keys = getTorrentFileSearchKeys(tree, value)
+    if (!keys) return
+    setExpanded((current) => {
+      const next = new Set(current)
+      keys.forEach((key) => {
+        if (key.startsWith("folder:")) next.add(key)
+      })
+      return next
+    })
   }
 
   const updateSort = (key: TorrentFileTreeSortKey) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }))
@@ -90,6 +115,19 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
   const renderedNodes = visibleNodes.slice(startIndex, endIndex)
   const matchingFileCount = searchKeys ? [...searchKeys].filter((key) => key.startsWith("file:")).length : files.length
   const globallyUpdating = updatingFileIds.size > 0
+  const selectedCountByKey = useMemo(() => {
+    const counts = new Map<string, number>()
+    fileIdsByKey.forEach((ids, key) => {
+      let count = 0
+      for (const id of ids) {
+        if (selectedFileIds.has(id)) count++
+      }
+      counts.set(key, count)
+    })
+    return counts
+  }, [fileIdsByKey, selectedFileIds])
+  const allSelected = files.length > 0 && selectedFileIds.size === files.length
+  const someSelected = selectedFileIds.size > 0
 
   const toggleFolder = (key: string) => {
     setExpanded((current) => {
@@ -98,6 +136,31 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
       else next.add(key)
       return next
     })
+  }
+
+  const toggleNodeSelection = (node: TorrentFileTreeNode) => {
+    const ids = fileIdsByKey.get(node.key) ?? (node.file ? [node.file.index] : [])
+    if (!ids.length) return
+    setSelectedFileIds((current) => {
+      const next = new Set(current)
+      const allIncluded = ids.every((id) => next.has(id))
+      if (allIncluded) ids.forEach((id) => next.delete(id))
+      else ids.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedFileIds(new Set())
+    else setSelectedFileIds(new Set(files.map((file) => file.index)))
+  }
+
+  const nodeSelection = (node: TorrentFileTreeNode): boolean | "indeterminate" => {
+    const ids = fileIdsByKey.get(node.key) ?? (node.file ? [node.file.index] : [])
+    const selectedCount = selectedCountByKey.get(node.key) ?? 0
+    if (selectedCount === 0) return false
+    if (selectedCount === ids.length) return true
+    return "indeterminate"
   }
 
   const priorityLabel = (priority: TorrentFilePriority | null) => {
@@ -117,22 +180,48 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/30 bg-muted/15 px-5 py-3 md:px-6">
           <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-2"><Folder className="size-4 text-emerald-500" />{files.length} {t("details.file_count")}</span>
-            {searchKeys && <span className="rounded-full bg-green-500/10 px-2 py-1 text-green-600 dark:text-green-400">找到 {matchingFileCount} 个文件</span>}
-            {files.length >= 5000 && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">大型种子优化已启用</span>}
+            {someSelected && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">{t("details.selected_files", { count: selectedFileIds.size })}</span>}
+            {searchKeys && <span className="rounded-full bg-green-500/10 px-2 py-1 text-green-600 dark:text-green-400">{t("details.search_results", { count: matchingFileCount })}</span>}
+            {files.length >= 5000 && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">{t("details.large_torrent_optimization")}</span>}
           </div>
-          <div className="flex flex-1 items-center justify-end gap-2">
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!someSelected || globallyUpdating} aria-label={t("details.batch_priority")}><ListChecks />{t("details.batch_priority")}</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 p-1.5">
+                <DropdownMenuLabel>{t("details.batch_priority")}</DropdownMenuLabel>
+                {PRIORITIES.map((priority) => (
+                  <DropdownMenuItem key={priority} className="py-2" onSelect={(event) => {
+                    event.preventDefault()
+                    onPriorityChange([...selectedFileIds], priority)
+                  }}>
+                    {priority === 0 && <Ban className="text-muted-foreground" />}
+                    <span>{priorityLabel(priority)}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {someSelected && <Button variant="ghost" size="sm" onClick={() => setSelectedFileIds(new Set())}><X />{t("details.clear_selection")}</Button>}
             <div className="relative w-full max-w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="搜索文件或路径" className="h-9 rounded-xl bg-background/70 pl-9 pr-9 text-sm" />
+              <Input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder={t("details.search_files")} className="h-9 rounded-xl bg-background/70 pl-9 pr-9 text-sm" />
               {query && <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2" onClick={() => updateQuery("")}><X className="size-3.5" /></Button>}
             </div>
-            <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set(folderKeys))}><ChevronsUpDown />全部展开</Button>
-            <Button variant="ghost" size="sm" disabled={Boolean(searchKeys)} onClick={() => setExpanded(new Set())}><ChevronsDownUp />全部折叠</Button>
+            <Button variant="ghost" size="sm" onClick={() => setExpanded(new Set(folderKeys))}><ChevronsUpDown />{t("details.expand_all")}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setExpanded(new Set())}><ChevronsDownUp />{t("details.collapse_all")}</Button>
           </div>
         </div>
 
-        <div className="grid h-12 grid-cols-[minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center border-b border-muted/30 bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
-          <div className="pl-6"><SortHeader label={t("details.file_name")} sortKey="name" sort={sort} onSort={updateSort} /></div>
+        <div className="grid h-12 grid-cols-[44px_minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center border-b border-muted/30 bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={toggleSelectAll}
+              aria-label={t("details.select_all")}
+            />
+          </div>
+          <div className="pl-2"><SortHeader label={t("details.file_name")} sortKey="name" sort={sort} onSort={updateSort} /></div>
           <div className="pr-5"><SortHeader label={t("common.size", "大小")} sortKey="size" sort={sort} onSort={updateSort} align="right" /></div>
           <div><SortHeader label={t("common.progress")} sortKey="progress" sort={sort} onSort={updateSort} /></div>
           <div><SortHeader label={t("details.priority")} sortKey="priority" sort={sort} onSort={updateSort} /></div>
@@ -145,13 +234,21 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
           <div className="absolute inset-x-0 top-0" style={{ transform: `translateY(${startIndex * ROW_HEIGHT}px)` }}>
             {renderedNodes.map(({ node, depth }) => {
               const isFolder = node.kind === "folder"
-              const isExpanded = isFolder && (searchKeys !== null || expanded.has(node.key))
+              const isExpanded = isFolder && expanded.has(node.key)
               const progress = node.length > 0 ? Math.min(100, node.bytesCompleted / node.length * 100) : 0
               const isUpdating = node.file ? updatingFileIds.has(node.file.index) : globallyUpdating
               return (
-                <div key={node.key} className="group grid h-14 grid-cols-[minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center border-b border-muted/30 transition-colors hover:bg-muted/25">
-                  <div className="flex min-w-0 items-center gap-2.5 pr-4 font-medium" style={{ paddingLeft: `${24 + depth * 22}px` }}>
-                    {isFolder ? <button type="button" className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => !searchKeys && toggleFolder(node.key)} aria-expanded={isExpanded}>
+                <div key={node.key} className="group grid h-14 grid-cols-[44px_minmax(320px,1fr)_120px_minmax(180px,260px)_150px] items-center border-b border-muted/30 transition-colors hover:bg-muted/25">
+                  <div className="flex items-center justify-center">
+                    <Checkbox
+                      checked={nodeSelection(node)}
+                      onCheckedChange={() => toggleNodeSelection(node)}
+                      disabled={isUpdating}
+                      aria-label={`${node.name} ${t("details.select_all")}`}
+                    />
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2.5 pr-4 font-medium" style={{ paddingLeft: `${18 + depth * 22}px` }}>
+                    {isFolder ? <button type="button" className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => toggleFolder(node.key)} aria-expanded={isExpanded}>
                       {isExpanded ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                       {isExpanded ? <FolderOpen className="size-4 shrink-0 text-emerald-500" /> : <Folder className="size-4 shrink-0 text-emerald-500" />}
                       <span className="truncate" title={node.path}>{node.name}</span><span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{node.fileCount}</span>

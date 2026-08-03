@@ -176,7 +176,7 @@ export function flattenVisibleTorrentFileTree(
     const current = stack.pop()!
     if (searchKeys && !searchKeys.has(current.node.key)) continue
     result.push(current)
-    const shouldExpand = current.node.kind === "folder" && (searchKeys !== null || expanded.has(current.node.key))
+    const shouldExpand = current.node.kind === "folder" && expanded.has(current.node.key)
     if (!shouldExpand) continue
     const children = ordered(current.node.children)
     for (let index = children.length - 1; index >= 0; index--) {
