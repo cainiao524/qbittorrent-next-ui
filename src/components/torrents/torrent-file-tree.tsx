@@ -182,13 +182,10 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/30 bg-muted/15 px-5 py-3 md:px-6">
           <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-2"><Folder className="size-4 text-emerald-500" />{files.length} {t("details.file_count")}</span>
-            {someSelected && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">{t("details.selected_files", { count: selectedFileIds.size })}</span>}
             {searchKeys && <span className="rounded-full bg-green-500/10 px-2 py-1 text-green-600 dark:text-green-400">{t("details.search_results", { count: matchingFileCount })}</span>}
             {files.length >= 5000 && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">{t("details.large_torrent_optimization")}</span>}
           </div>
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <Button variant="outline" size="sm" disabled={!someSelected || globallyUpdating} aria-label={t("details.batch_priority")} onClick={() => setIsBatchPriorityOpen(true)}><ListChecks />{t("details.batch_priority")}</Button>
-            {someSelected && <Button variant="ghost" size="sm" onClick={() => setSelectedFileIds(new Set())}><X />{t("details.clear_selection")}</Button>}
             <div className="relative w-full max-w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={query} onChange={(event) => updateQuery(event.target.value)} placeholder={t("details.search_files")} className="h-9 rounded-xl bg-background/70 pl-9 pr-9 text-sm" />
@@ -254,6 +251,37 @@ export function TorrentFileTree({ files, updatingFileIds, onPriorityChange }: To
           </div>
         </div>
       </div>
+
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in slide-in-from-bottom-8 duration-300 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0">
+          <div className="bg-background/80 backdrop-blur-xl border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)] rounded-[2.5rem] px-3 py-2.5 md:px-6 md:py-4 flex items-center gap-2 md:gap-6 justify-between md:justify-start">
+            <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
+              <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
+                {selectedFileIds.size}
+              </div>
+              <span className="text-sm font-bold tracking-tight hidden lg:inline">{t("details.selected_files", { count: selectedFileIds.size })}</span>
+            </div>
+            <Button
+              size="sm"
+              className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4"
+              disabled={globallyUpdating}
+              onClick={() => setIsBatchPriorityOpen(true)}
+            >
+              <ListChecks className="h-4 w-4" />
+              {t("details.batch_priority")}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 md:h-9 md:w-9 rounded-full shrink-0 hover:bg-muted/50"
+              onClick={() => setSelectedFileIds(new Set())}
+              aria-label={t("details.clear_selection")}
+            >
+              <X className="h-4 w-4 opacity-50" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <BatchSetFilePriorityDialog
         open={isBatchPriorityOpen}
