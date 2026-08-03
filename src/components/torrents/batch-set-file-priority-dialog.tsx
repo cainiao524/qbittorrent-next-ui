@@ -12,55 +12,47 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
-import type { TorrentId } from "@/lib/rpc-types"
+import type { TorrentFilePriority } from "@/lib/rpc-types"
 
-type TorrentBandwidthPriority = -1 | 0 | 1
-
-interface BatchSetPrioritySelectedDialogProps {
+interface BatchSetFilePriorityDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  selectedIds: TorrentId[]
-  onSuccess?: () => void
+  selectedFileCount: number
+  onConfirm: (priority: TorrentFilePriority) => void
 }
 
-const PRIORITY_OPTIONS: { value: TorrentBandwidthPriority; labelKey: string }[] = [
-  { value: -1, labelKey: "common.priority_low" },
-  { value: 0, labelKey: "common.priority_normal" },
-  { value: 1, labelKey: "common.priority_high" },
-]
+const FILE_PRIORITIES: TorrentFilePriority[] = [0, 1, 6, 7]
 
-export function BatchSetPrioritySelectedDialog({
+export function BatchSetFilePriorityDialog({
   open,
   onOpenChange,
-  selectedIds,
-  onSuccess,
-}: BatchSetPrioritySelectedDialogProps) {
+  selectedFileCount,
+  onConfirm,
+}: BatchSetFilePriorityDialogProps) {
   const { t } = useI18n()
-  const [priority, setPriority] = React.useState<TorrentBandwidthPriority>(0)
+  const [priority, setPriority] = React.useState<TorrentFilePriority>(1)
   const [isApplying, setIsApplying] = React.useState(false)
 
   React.useEffect(() => {
-    if (open) setPriority(0)
-  }, [open])
-
-  const handleApply = async () => {
-    if (!selectedIds.length) return
-    setIsApplying(true)
-    try {
-      await rpc.setTorrent(selectedIds, { bandwidthPriority: priority })
-      toast.success(t("common.set_priority_success", { count: selectedIds.length }))
-      onOpenChange(false)
-      onSuccess?.()
-    } catch (error) {
-      console.error("Batch set priority failed:", error)
-      toast.error(t("common.action_failed"))
-    } finally {
+    if (open) {
+      setPriority(1)
       setIsApplying(false)
     }
+  }, [open])
+
+  const priorityLabel = (value: TorrentFilePriority) => {
+    if (value === 0) return t("details.priority_skip")
+    if (value === 6) return t("details.priority_high")
+    if (value === 7) return t("details.priority_max")
+    return t("details.priority_normal")
+  }
+
+  const handleConfirm = () => {
+    if (!selectedFileCount) return
+    setIsApplying(true)
+    onConfirm(priority)
   }
 
   return (
@@ -74,10 +66,10 @@ export function BatchSetPrioritySelectedDialog({
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-muted/50 bg-muted/20 shrink-0">
           <div>
             <DialogTitle className="text-2xl font-medium tracking-tight">
-              {t("common.set_torrent_priority")}
+              {t("details.batch_priority")}
             </DialogTitle>
             <DialogDescription className="text-base font-medium opacity-70">
-              {t("common.set_torrent_priority_desc", { count: selectedIds.length })}
+              {t("details.batch_priority_desc", { count: selectedFileCount })}
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -85,22 +77,22 @@ export function BatchSetPrioritySelectedDialog({
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">
-              {t("common.bandwidth_priority")}
+              {t("details.priority")}
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {PRIORITY_OPTIONS.map((option) => (
+            <div className="grid grid-cols-2 gap-2">
+              {FILE_PRIORITIES.map((value) => (
                 <button
-                  key={option.value}
+                  key={value}
                   type="button"
-                  onClick={() => setPriority(option.value)}
+                  onClick={() => setPriority(value)}
                   className={cn(
                     "h-12 rounded-2xl text-sm font-bold transition-all border",
-                    priority === option.value
+                    priority === value
                       ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
                       : "bg-muted/30 text-muted-foreground border-muted/30 hover:bg-muted/50"
                   )}
                 >
-                  {t(option.labelKey)}
+                  {priorityLabel(value)}
                 </button>
               ))}
             </div>
@@ -110,15 +102,15 @@ export function BatchSetPrioritySelectedDialog({
         <DialogFooter className="p-6 bg-muted/10 border-t border-muted/50 shrink-0">
           <Button
             className="w-full h-12 rounded-2xl font-medium tracking-widest uppercase transition-all shadow-lg shadow-primary/20 bg-primary hover:scale-[1.01] active:scale-[0.99] text-xs"
-            onClick={handleApply}
-            disabled={isApplying || selectedIds.length === 0}
+            onClick={handleConfirm}
+            disabled={isApplying || selectedFileCount === 0}
           >
             {isApplying ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <>
                 <Gauge className="h-4 w-4 mr-2" />
-                {t("common.set_priority_confirm", { count: selectedIds.length })}
+                {t("details.batch_priority_confirm", { count: selectedFileCount })}
               </>
             )}
           </Button>

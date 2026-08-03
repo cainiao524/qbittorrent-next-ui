@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -41,7 +41,7 @@ describe("TorrentFileTree", () => {
     localStorage.removeItem("qbittorrent-next-locale")
   })
 
-  test("勾选文件夹后可通过批量菜单设置其下文件优先级", async () => {
+  test("勾选文件夹后可通过弹窗批量设置其下文件优先级", async () => {
     const user = userEvent.setup()
     const onPriorityChange = vi.fn()
     renderTree(onPriorityChange)
@@ -52,14 +52,16 @@ describe("TorrentFileTree", () => {
 
     expect(screen.getByText("已选 2 个文件")).toBeTruthy()
     await user.click(screen.getByRole("button", { name: "批量设置优先级" }))
-    await user.click(await screen.findByRole("menuitem", { name: "高" }))
+    const dialog = await screen.findByRole("dialog")
+    await user.click(within(dialog).getByRole("button", { name: "高" }))
+    await user.click(within(dialog).getByRole("button", { name: "应用到 2 个文件" }))
 
     const [ids, priority] = onPriorityChange.mock.calls[0] as [number[], TorrentFilePriority]
     expect([...ids].sort((left, right) => left - right)).toEqual([0, 1])
     expect(priority).toBe(6)
   })
 
-  test("表头全选所有文件并批量设置优先级", async () => {
+  test("表头全选所有文件并通过弹窗批量设置优先级", async () => {
     const user = userEvent.setup()
     const onPriorityChange = vi.fn()
     renderTree(onPriorityChange)
@@ -69,7 +71,9 @@ describe("TorrentFileTree", () => {
 
     expect(screen.getByText("已选 3 个文件")).toBeTruthy()
     await user.click(screen.getByRole("button", { name: "批量设置优先级" }))
-    await user.click(await screen.findByRole("menuitem", { name: "不下载" }))
+    const dialog = await screen.findByRole("dialog")
+    await user.click(within(dialog).getByRole("button", { name: "不下载" }))
+    await user.click(within(dialog).getByRole("button", { name: "应用到 3 个文件" }))
 
     expect(onPriorityChange).toHaveBeenCalledWith([0, 1, 2], 0)
   })

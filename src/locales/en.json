@@ -136,11 +136,7 @@
     "set_labels_overwrite_hint": "Replace all existing labels on selected torrents",
     "set_labels_append_hint": "Add new labels to existing labels on selected torrents",
     "set_labels_confirm": "Apply to {count} torrents",
-    "set_labels_success": "Successfully set labels for {count} torrents",
-    "set_torrent_priority": "Set Torrent Priority",
-    "set_torrent_priority_desc": "Set download priority for {count} selected torrents",
-    "set_priority_confirm": "Apply to {count} torrents",
-    "set_priority_success": "Successfully set priority for {count} torrents"
+    "set_labels_success": "Successfully set labels for {count} torrents"
   },
   "details": {
     "general": "General",
@@ -170,6 +166,8 @@
     "priority": "Priority",
     "file_priority": "Set file download priority",
     "folder_priority": "Set download priority for every file in this folder",
+    "batch_priority_desc": "Set download priority for {count} selected files",
+    "batch_priority_confirm": "Apply to {count} files",
     "priority_skip": "Do not download",
     "priority_high": "High",
     "priority_max": "Maximum",
