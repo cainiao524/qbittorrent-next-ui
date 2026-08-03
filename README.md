@@ -4,6 +4,24 @@
 
 <h1 align="center">qBittorrent Next UI</h1>
 
+## Docker 镜像安装
+
+项目提供适用于 `amd64` 和 `arm64` 的独立 WebUI 镜像。镜像通过 Nginx 将 `/api/` 请求反向代理到已有的 qBittorrent 实例。
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    environment:
+      QBITTORRENT_URL: http://192.168.50.149:8085
+    ports:
+      - "9480:80"
+    restart: unless-stopped
+```
+
+请将 `QBITTORRENT_URL` 改成 qBittorrent WebUI 的实际地址，然后运行 `docker compose up -d`。浏览器访问 `http://NAS地址:9480`。如果两个服务位于同一个 Compose 网络，也可以填写 `http://qbittorrent:8080`。
+
 <p align="center">
   面向 qBittorrent 的现代化、响应式第三方网页界面
 </p>
