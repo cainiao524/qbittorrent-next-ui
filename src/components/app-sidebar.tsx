@@ -179,7 +179,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Github className="h-4 w-4" />
           </Link>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-sm font-semibold text-primary/80 tracking-tight">V{APP_CONFIG.version}</span>
+            <span className="text-sm font-semibold text-primary/80 tracking-tight">{APP_CONFIG.version}</span>
           </div>
         </div>
         <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center">
