@@ -4,24 +4,6 @@
 
 <h1 align="center">qBittorrent Next UI</h1>
 
-## Docker 镜像安装
-
-项目提供适用于 `amd64` 和 `arm64` 的独立 WebUI 镜像。镜像通过 Nginx 将 `/api/` 请求反向代理到已有的 qBittorrent 实例。
-
-```yaml
-services:
-  qbittorrent-next-ui:
-    image: lowsabishi/qbittorrent-next-ui:latest
-    container_name: qbittorrent-next-ui
-    environment:
-      QBITTORRENT_URL: http://192.168.50.149:8085
-    ports:
-      - "9480:80"
-    restart: unless-stopped
-```
-
-请将 `QBITTORRENT_URL` 改成 qBittorrent WebUI 的实际地址，然后运行 `docker compose up -d`。浏览器访问 `http://NAS地址:9480`。如果两个服务位于同一个 Compose 网络，也可以填写 `http://qbittorrent:8080`。
-
 <p align="center">
   面向 qBittorrent 的现代化、响应式第三方网页界面
 </p>
@@ -29,14 +11,16 @@ services:
 <p align="center">
   <a href="https://github.com/cainiao524/qbittorrent-next-ui/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/cainiao524/qbittorrent-next-ui/build.yml?branch=main&label=%E6%9E%84%E5%BB%BA" alt="构建状态" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/cainiao524/qbittorrent-next-ui" alt="许可证" /></a>
+  <a href="https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui"><img src="https://img.shields.io/docker/pulls/lowsabishi/qbittorrent-next-ui?label=Docker%20Hub" alt="Docker Hub 镜像拉取量" /></a>
   <img src="https://img.shields.io/badge/qBittorrent-4.x%20%7C%205.x-2f67ba" alt="qBittorrent 兼容版本" />
   <img src="https://img.shields.io/badge/React-19-149eca" alt="React 版本" />
 </p>
 
 <p align="center">
   <a href="#安装">安装</a> ·
-  <a href="#方式一发行版安装推荐">发行版安装</a> ·
-  <a href="#方式二从源码构建">源码构建</a> ·
+  <a href="#推荐安装方式一docker-hub-镜像推荐">Docker 镜像安装</a> ·
+  <a href="#安装方式二发行版--nginx-独立部署">发行版安装</a> ·
+  <a href="#安装方式四从源码构建开发者">源码构建</a> ·
   <a href="#功能">功能</a> ·
   <a href="#开发">开发</a>
 </p>
@@ -83,15 +67,56 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 | 推荐顺序 | 安装方式 | 独立访问端口 | 是否修改 qBittorrent 备用界面 | 适合场景 |
 | --- | --- | --- | --- | --- |
-| 1 | Docker + Nginx 独立部署 | 是 | 否 | NAS、Docker、希望新版与原生界面并存，推荐大多数用户使用 |
-| 2 | 直接导入 qBittorrent WebUI | 否 | 是 | 希望直接替换 qBittorrent 原生界面，部署步骤最少 |
-| 3 | 从源码构建 | 取决于部署方式 | 取决于部署方式 | 开发、二次修改或需要构建最新 `main` 分支 |
+| 1 | **Docker Hub 镜像** | 是 | 否 | NAS、Docker，步骤最少且升级方便，首要推荐 |
+| 2 | 发行版 + Nginx 独立部署 | 是 | 否 | 不使用项目镜像，希望自行管理 Nginx 配置与静态文件 |
+| 3 | 直接导入 qBittorrent WebUI | 否 | 是 | 希望直接替换 qBittorrent 原生界面，不增加独立端口 |
+| 4 | 从源码构建 | 取决于部署方式 | 取决于部署方式 | 开发、二次修改或需要构建最新 `main` 分支 |
 
-> 推荐先使用方式一。即使新版界面配置错误，仍可通过 qBittorrent 原生端口进入原生界面，排查和回滚更方便。
+> 首要推荐直接拉取 Docker Hub 镜像。镜像已经包含 WebUI、Nginx 和 API 代理配置，无需手动下载发行版、解压文件或编写 Nginx 配置。
 
-### 推荐安装方式一：Docker + Nginx 独立部署（推荐）
+### 推荐安装方式一：Docker Hub 镜像（推荐）
 
-这种方式由 Nginx 容器提供 WebUI 静态文件，并把同源 `/api/v2/` 请求转发给 qBittorrent。新版界面和 qBittorrent 原生界面使用不同端口，可以同时保留。
+镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)，支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `V1.0-baka9`。
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    environment:
+      QBITTORRENT_URL: http://192.168.50.149:8085
+    ports:
+      - "9480:80"
+    restart: unless-stopped
+```
+
+将 `QBITTORRENT_URL` 改成 qBittorrent WebUI 的实际地址，然后启动：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+浏览器访问 `http://服务器地址:9480`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
+
+如果两个服务位于同一个 Compose 网络，可以把地址写成：
+
+```yaml
+environment:
+  QBITTORRENT_URL: http://qbittorrent:8080
+```
+
+需要锁定当前版本时，将镜像改为：
+
+```yaml
+image: lowsabishi/qbittorrent-next-ui:V1.0-baka9
+```
+
+### 安装方式二：发行版 + Nginx 独立部署
+
+这是原来的推荐安装方式，现调整为次要方式。它由通用 Nginx 容器提供发行版静态文件，并把同源 `/api/v2/` 请求转发给 qBittorrent。适合希望自行管理 Nginx 配置和 WebUI 文件的用户。
 
 ```text
 浏览器
@@ -257,7 +282,7 @@ docker restart qbittorrent-next-ui
 
 不要在没有 HTTPS 和强密码保护的情况下把此端口直接暴露到公网。公网访问建议在外层增加可信反向代理、TLS 证书和访问控制。
 
-### 推荐安装方式二：直接导入 qBittorrent WebUI
+### 安装方式三：直接导入 qBittorrent WebUI
 
 这种方式把发行版文件设置为 qBittorrent 的备用网页用户界面。访问地址和端口保持不变，但启用后会直接替换原生界面，不需要额外运行 Nginx 容器。
 
@@ -322,7 +347,7 @@ sudo cp -a webui/. /opt/qbittorrent-next-ui/
 sudo chmod -R a+rX /opt/qbittorrent-next-ui
 ```
 
-### 从源码构建（开发者）
+### 安装方式四：从源码构建（开发者）
 
 #### 环境要求
 
