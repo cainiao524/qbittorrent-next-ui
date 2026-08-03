@@ -25,10 +25,12 @@ import {
   ShieldCheck,
   Radio,
   Tag,
+  Gauge,
 } from "lucide-react"
 import { BatchReplaceTrackerDialog } from "@/components/torrents/batch-replace-tracker-dialog"
 import { BatchMoveDirectoryDialog } from "@/components/torrents/batch-move-directory-dialog"
 import { BatchSetLabelsSelectedDialog } from "@/components/torrents/batch-set-labels-selected-dialog"
+import { BatchSetPrioritySelectedDialog } from "@/components/torrents/batch-set-priority-selected-dialog"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { RemoveTorrentDialog } from "@/components/torrents/remove-torrent-dialog"
@@ -138,6 +140,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   const [isBatchReplaceOpen, setIsBatchReplaceOpen] = useState(false)
   const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false)
   const [isBatchSetLabelsOpen, setIsBatchSetLabelsOpen] = useState(false)
+  const [isBatchSetPriorityOpen, setIsBatchSetPriorityOpen] = useState(false)
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false)
   const [idsToDelete, setIdsToDelete] = useState<TorrentId[]>([])
   const [clickedCard, setClickedCard] = useState<string | null>(null)
@@ -614,6 +617,13 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
                     <Tag className="h-4 w-4 opacity-60" />
                     {t('common.set_torrent_labels')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
+                    onClick={() => setIsBatchSetPriorityOpen(true)}
+                  >
+                    <Gauge className="h-4 w-4 opacity-60" />
+                    {t('common.set_torrent_priority')}
+                  </DropdownMenuItem>
                   <AdvancedTorrentMenu
                     ids={selectedIds}
                     onSuccess={fetchData}
@@ -663,6 +673,12 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
       <BatchSetLabelsSelectedDialog
         open={isBatchSetLabelsOpen}
         onOpenChange={setIsBatchSetLabelsOpen}
+        selectedIds={selectedIds}
+        onSuccess={fetchData}
+      />
+      <BatchSetPrioritySelectedDialog
+        open={isBatchSetPriorityOpen}
+        onOpenChange={setIsBatchSetPriorityOpen}
         selectedIds={selectedIds}
         onSuccess={fetchData}
       />

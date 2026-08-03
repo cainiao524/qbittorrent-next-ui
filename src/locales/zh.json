@@ -143,7 +143,11 @@
     "set_labels_overwrite_hint": "替换选中种子的所有现有标签",
     "set_labels_append_hint": "在选中种子的现有标签基础上添加新标签",
     "set_labels_confirm": "应用到 {count} 个种子",
-    "set_labels_success": "已成功为 {count} 个种子设置标签"
+    "set_labels_success": "已成功为 {count} 个种子设置标签",
+    "set_torrent_priority": "设置种子优先级",
+    "set_torrent_priority_desc": "为已选中的 {count} 个种子设置下载优先级",
+    "set_priority_confirm": "应用到 {count} 个种子",
+    "set_priority_success": "已成功为 {count} 个种子设置优先级"
   },
   "details": {
     "general": "常规",
