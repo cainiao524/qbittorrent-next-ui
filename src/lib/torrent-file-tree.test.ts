@@ -26,10 +26,11 @@ describe("种子文件树", () => {
     expect(flattenVisibleTorrentFileTree(tree, new Set(["folder:视频"])).map(({ node }) => node.name)).toEqual(["视频", "花絮", "正片.mkv", "说明.txt"])
   })
 
-  test("搜索文件路径时自动保留祖先目录", () => {
+  test("搜索文件路径时展开祖先目录且可手动折叠", () => {
     const tree = buildTorrentFileTree(files)
     const keys = getTorrentFileSearchKeys(tree, "片段")
-    expect(flattenVisibleTorrentFileTree(tree, new Set(), keys).map(({ node }) => node.name)).toEqual(["视频", "花絮", "片段.mp4"])
+    expect(flattenVisibleTorrentFileTree(tree, new Set(["folder:视频", "folder:视频/花絮"]), keys).map(({ node }) => node.name)).toEqual(["视频", "花絮", "片段.mp4"])
+    expect(flattenVisibleTorrentFileTree(tree, new Set(["folder:视频"]), keys).map(({ node }) => node.name)).toEqual(["视频", "花絮"])
   })
 
   test("支持按名称、大小、进度和优先级排序", () => {

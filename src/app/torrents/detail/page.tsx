@@ -212,8 +212,8 @@ function TorrentDetailsContent() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                <h1 className="text-xl md:text-3xl font-semibold tracking-tight truncate max-w-full" title={tor.name}>{tor.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 min-w-0">
+                <h1 className="text-xl md:text-3xl font-semibold tracking-tight min-w-0 break-all" title={tor.name}>{tor.name}</h1>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-widest ${tor.status === TorrentStatus.DOWNLOAD ? "bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400" :
                   tor.status === TorrentStatus.SEED ? "bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400" :
                     "bg-muted text-muted-foreground"

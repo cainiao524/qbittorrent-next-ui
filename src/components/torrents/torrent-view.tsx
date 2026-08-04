@@ -562,8 +562,10 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-300 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0">
-          <div className="bg-background/80 backdrop-blur-xl border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)] rounded-[2.5rem] px-3 py-2.5 md:px-6 md:py-4 flex items-center gap-2 md:gap-6 min-w-0 md:min-w-[400px] justify-between md:justify-start">
+        <div className="selected-toolbar-in fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0">
+          <div className="relative min-w-0 md:min-w-[400px] rounded-[2.5rem] border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)]">
+            <div className="selected-toolbar-bg absolute inset-0 rounded-[2.5rem] bg-background/80" />
+            <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
             <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
               <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
                 {selectedIds.length}
@@ -637,6 +639,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
             >
               <X className="h-4 w-4 opacity-50" />
             </Button>
+            </div>
           </div>
         </div>
       )}

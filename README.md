@@ -67,16 +67,16 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 | 推荐顺序 | 安装方式 | 独立访问端口 | 是否修改 qBittorrent 备用界面 | 适合场景 |
 | --- | --- | --- | --- | --- |
-| 1 | **Docker Hub 镜像** | 是 | 否 | NAS、Docker，步骤最少且升级方便，首要推荐 |
+| 1 | **Docker Hub / GHCR 镜像** | 是 | 否 | NAS、Docker，步骤最少且升级方便，首要推荐 |
 | 2 | 发行版 + Nginx 独立部署 | 是 | 否 | 不使用项目镜像，希望自行管理 Nginx 配置与静态文件 |
 | 3 | 直接导入 qBittorrent WebUI | 否 | 是 | 希望直接替换 qBittorrent 原生界面，不增加独立端口 |
 | 4 | 从源码构建 | 取决于部署方式 | 取决于部署方式 | 开发、二次修改或需要构建最新 `main` 分支 |
 
-> 首要推荐直接拉取 Docker Hub 镜像。镜像已经包含 WebUI、Nginx 和 API 代理配置，无需手动下载发行版、解压文件或编写 Nginx 配置。
+> 首要推荐直接拉取 Docker Hub 镜像；GitHub Container Registry（GHCR）提供同一版本的备用镜像。两者都已包含 WebUI、Nginx 和 API 代理配置，无需手动下载发行版、解压文件或编写 Nginx 配置。
 
 ### 推荐安装方式一：Docker Hub 镜像（推荐）
 
-镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)，支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `V1.0-baka9`。
+镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.2-baka9`。
 
 创建 `docker-compose.yml`：
 
@@ -111,7 +111,13 @@ environment:
 需要锁定当前版本时，将镜像改为：
 
 ```yaml
-image: lowsabishi/qbittorrent-next-ui:V1.0-baka9
+image: lowsabishi/qbittorrent-next-ui:v1.2-baka9
+```
+
+如果从 Docker Hub 拉取受限，可以把镜像地址换成 GHCR：
+
+```yaml
+image: ghcr.io/cainiao524/qbittorrent-next-ui:v1.2-baka9
 ```
 
 ### 安装方式二：发行版 + Nginx 独立部署
