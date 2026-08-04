@@ -202,6 +202,8 @@
 
   [data-slot="dialog-overlay"] {
     opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
     animation: dialog-overlay-out 300ms ease-out forwards;
   }
 
@@ -222,18 +224,26 @@
 @keyframes dialog-overlay-in {
   from {
     opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
   }
   to {
     opacity: 1;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 }
 
 @keyframes dialog-overlay-out {
   from {
     opacity: 1;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
   to {
     opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
   }
 }
 
