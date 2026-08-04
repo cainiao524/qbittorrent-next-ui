@@ -3,7 +3,7 @@ services:
     image: lowsabishi/qbittorrent-next-ui:latest
     container_name: qbittorrent-next-ui
     environment:
-      QBITTORRENT_URL: http://192.168.50.149:8085
+      QBITTORRENT_URL: http://192.168.1.10:8085
     ports:
       - "9480:80"
     restart: unless-stopped
