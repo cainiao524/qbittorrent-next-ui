@@ -21,6 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -142,6 +148,9 @@ export function TorrentFileTree({
     () => new Set(rootFolderKeys),
   );
   const [query, setQuery] = useState("");
+  const [detailNode, setDetailNode] = useState<TorrentFileTreeNode | null>(
+    null,
+  );
   const [sort, setSort] = useState<TorrentFileTreeSort>({
     key: "name",
     direction: "asc",
@@ -639,30 +648,37 @@ export function TorrentFileTree({
       )}
 
       {isMobile && (
-        <div className="flex flex-col gap-2.5 p-3">
-          {visibleNodes.map(({ node, depth }) => {
-            const isFolder = node.kind === "folder";
-            const isExpanded = isFolder && expanded.has(node.key);
-            const progress =
-              node.length > 0
-                ? Math.min(100, (node.bytesCompleted / node.length) * 100)
-                : 0;
-            const isUpdating = node.file
-              ? updatingFileIds.has(node.file.index)
-              : globallyUpdating;
-            return (
-              <div
-                key={node.key}
-                className={cn(
-                  "rounded-xl border border-muted/30 bg-card/50 shadow-sm",
-                  isFolder && "border-emerald-500/15",
-                )}
-              >
-                <div className="flex items-center gap-2 px-3 pt-2.5">
+        <>
+          <div className="flex flex-col">
+            {visibleNodes.map(({ node, depth }) => {
+              const isFolder = node.kind === "folder";
+              const isExpanded = isFolder && expanded.has(node.key);
+              const progress =
+                node.length > 0
+                  ? Math.min(100, (node.bytesCompleted / node.length) * 100)
+                  : 0;
+              const isUpdating = node.file
+                ? updatingFileIds.has(node.file.index)
+                : globallyUpdating;
+              return (
+                <div
+                  key={node.key}
+                  role="button"
+                  tabIndex={0}
+                  className="flex min-h-12 cursor-pointer items-center gap-2 border-b border-muted/30 px-3 py-2 transition-colors last:border-b-0 active:bg-muted/30"
+                  onClick={() => setDetailNode(node)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setDetailNode(node);
+                    }
+                  }}
+                >
                   <Checkbox
                     checked={nodeSelection(node)}
                     onCheckedChange={() => toggleNodeSelection(node)}
                     disabled={isUpdating}
+                    onClick={(event) => event.stopPropagation()}
                     aria-label={`${node.name} ${t("details.select_all")}`}
                   />
                   <div
@@ -673,7 +689,10 @@ export function TorrentFileTree({
                       <button
                         type="button"
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                        onClick={() => toggleFolder(node.key)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleFolder(node.key);
+                        }}
                         aria-expanded={isExpanded}
                       >
                         {isExpanded ? (
@@ -709,89 +728,163 @@ export function TorrentFileTree({
                       </div>
                     )}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
+                      <div
                         className={cn(
-                          "h-8 shrink-0 rounded-lg px-2 text-[11px] font-medium",
-                          node.priority === 0 && "text-muted-foreground",
-                          node.priority === 6 &&
-                            "border-amber-500/30 text-amber-500",
-                          node.priority === 7 &&
-                            "border-emerald-500/30 text-emerald-500",
+                          "h-full rounded-full",
+                          node.priority === 0
+                            ? "bg-muted-foreground/35"
+                            : "bg-primary",
                         )}
-                        disabled={isUpdating}
-                        aria-label={`${node.name} ${t("details.priority")}`}
-                      >
-                        {isUpdating ? (
-                          <LoaderCircle className="animate-spin" />
-                        ) : (
-                          priorityLabel(node.priority)
-                        )}
-                        <ChevronsUpDown className="size-3.5 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44 p-1.5">
-                      <DropdownMenuLabel>
-                        {isFolder
-                          ? t("details.folder_priority")
-                          : t("details.file_priority")}
-                      </DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        value={
-                          node.priority === null ? "" : String(node.priority)
-                        }
-                        onValueChange={(value) =>
-                          onPriorityChange(
-                            collectTorrentFileIds(node),
-                            Number(value) as TorrentFilePriority,
-                          )
-                        }
-                      >
-                        {PRIORITIES.map((priority) => (
-                          <DropdownMenuRadioItem
-                            key={priority}
-                            value={String(priority)}
-                            className="py-2"
-                          >
-                            {priority === 0 && (
-                              <Ban className="text-muted-foreground" />
-                            )}
-                            <span>{priorityLabel(priority)}</span>
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div
-                  className="flex items-center gap-3 px-3 pb-3 pt-1.5"
-                  style={{ paddingLeft: `${16 + depth * 14 + 24}px` }}
-                >
-                  <div className="h-1.5 w-full min-w-0 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full rounded-full",
-                        node.priority === 0
-                          ? "bg-muted-foreground/35"
-                          : "bg-primary",
-                      )}
-                      style={{ width: `${progress}%` }}
-                    />
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground">
+                      {progress.toFixed(1)}%
+                    </span>
                   </div>
-                  <span className="w-11 shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground">
-                    {progress.toFixed(1)}%
-                  </span>
-                  <span className="shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground">
-                    {formatSize(node.length)}
-                  </span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          <Sheet
+            open={detailNode !== null}
+            onOpenChange={(open) => {
+              if (!open) setDetailNode(null);
+            }}
+          >
+            <SheetContent
+              side="bottom"
+              className="gap-0 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+            >
+              {detailNode &&
+                (() => {
+                  const node = detailNode;
+                  const isFolder = node.kind === "folder";
+                  const isExpanded = isFolder && expanded.has(node.key);
+                  const progress =
+                    node.length > 0
+                      ? Math.min(100, (node.bytesCompleted / node.length) * 100)
+                      : 0;
+                  const isUpdating = node.file
+                    ? updatingFileIds.has(node.file.index)
+                    : globallyUpdating;
+                  return (
+                    <>
+                      <SheetHeader className="pb-3">
+                        <div className="flex items-start gap-2.5 pr-8">
+                          {isFolder ? (
+                            <Folder className="mt-0.5 size-5 shrink-0 text-emerald-500" />
+                          ) : (
+                            <FileText className="mt-0.5 size-5 shrink-0 text-primary/70" />
+                          )}
+                          <div className="min-w-0">
+                            <SheetTitle className="break-words text-base leading-snug">
+                              {node.name}
+                            </SheetTitle>
+                            <SheetDescription className="mt-1 break-words text-xs leading-relaxed">
+                              {node.path}
+                            </SheetDescription>
+                          </div>
+                        </div>
+                      </SheetHeader>
+                      <div className="flex flex-col gap-4 px-4 pb-2">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-muted/30 bg-card/40 p-3 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              {t("common.size")}
+                            </p>
+                            <p className="mt-0.5 font-medium tabular-nums">
+                              {formatSize(node.length)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              {t("common.progress")}
+                            </p>
+                            <p className="mt-0.5 font-medium tabular-nums">
+                              {progress.toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full",
+                                  node.priority === 0
+                                    ? "bg-muted-foreground/35"
+                                    : "bg-primary",
+                                )}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                          {isFolder && (
+                            <div className="col-span-2">
+                              <p className="text-xs text-muted-foreground">
+                                {t("details.file_count")}
+                              </p>
+                              <p className="mt-0.5 font-medium tabular-nums">
+                                {node.fileCount}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            {isFolder
+                              ? t("details.folder_priority")
+                              : t("details.file_priority")}
+                          </p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {PRIORITIES.map((priority) => (
+                              <Button
+                                key={priority}
+                                variant={
+                                  node.priority === priority
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                className="h-9 px-1 text-[11px]"
+                                disabled={isUpdating}
+                                onClick={() =>
+                                  onPriorityChange(
+                                    collectTorrentFileIds(node),
+                                    priority,
+                                  )
+                                }
+                              >
+                                {priority === 0 && <Ban className="size-3.5" />}
+                                {priorityLabel(priority)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        {isFolder && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => {
+                              toggleFolder(node.key);
+                              setDetailNode(null);
+                            }}
+                          >
+                            {isExpanded
+                              ? t("common.collapse")
+                              : t("common.expand")}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+            </SheetContent>
+          </Sheet>
+        </>
       )}
 
       {someSelected && (
