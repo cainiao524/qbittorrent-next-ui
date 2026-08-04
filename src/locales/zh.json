@@ -181,6 +181,7 @@
     "priority_updated": "下载优先级已更新",
     "priority_update_failed": "下载优先级更新失败",
     "file_count": "个文件",
+    "view_details": "查看详情",
     "select_all": "全选",
     "selected_files": "已选 {count} 个文件",
     "batch_priority": "批量设置优先级",
