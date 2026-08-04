@@ -3,7 +3,7 @@ name: 验证与构建
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["v*", "beta*"]
   pull_request:
     branches: [main]
 
