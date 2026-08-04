@@ -204,24 +204,24 @@
     opacity: 0;
     backdrop-filter: blur(0);
     -webkit-backdrop-filter: blur(0);
-    animation: dialog-overlay-out 300ms ease-out forwards;
+    animation: dialog-overlay-out 200ms ease-out forwards;
   }
 
   [data-slot="dialog-overlay"][data-state="open"] {
-    animation: dialog-overlay-in 300ms ease-out forwards;
+    animation: dialog-overlay-in 200ms ease-out forwards;
   }
 
   [data-slot="dialog-content"] {
     opacity: 0;
-    animation: dialog-content-out 300ms ease-out forwards;
+    animation: dialog-content-out 200ms ease-out forwards;
   }
 
   [data-slot="dialog-content"][data-state="open"] {
-    animation: dialog-content-in 300ms ease-out forwards;
+    animation: dialog-content-in 200ms ease-out forwards;
   }
 
   .selected-toolbar-in {
-    animation: toolbar-in 300ms ease-out forwards;
+    animation: toolbar-in 200ms ease-out forwards;
   }
 }
 
