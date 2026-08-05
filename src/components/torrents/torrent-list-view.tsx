@@ -28,6 +28,7 @@ type SortKey =
   | "name"
   | "status"
   | "percentDone"
+  | "size"
   | "totalSize"
   | "addedDate"
   | "editDate"
@@ -106,7 +107,9 @@ export function TorrentListView({
       case "progress":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
       case "size":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("size")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="size" sortConfig={sortConfig} /></div></TableHead>
+      case "totalSize":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.total_size", "Total Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
       case "addedDate":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
       case "editDate":
@@ -133,8 +136,8 @@ export function TorrentListView({
     switch (column.id) {
       case "name":
         return (
-          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] whitespace-normal" style={style}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 break-words [overflow-wrap:anywhere]">
+          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] truncate" style={style} title={torrent.name}>
+            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
               {torrent.name}
             </Link>
           </TableCell>

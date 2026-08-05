@@ -6,6 +6,7 @@ export type SortKey =
   | "name"
   | "status"
   | "percentDone"
+  | "size"
   | "totalSize"
   | "addedDate"
   | "editDate"

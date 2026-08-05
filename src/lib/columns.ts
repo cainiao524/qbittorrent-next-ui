@@ -40,6 +40,14 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
     labelKey: "common.size",
     defaultLabel: "Size",
     width: "100px",
+    rpcFields: ["size"],
+    align: "right"
+  },
+  {
+    id: "totalSize",
+    labelKey: "common.total_size",
+    defaultLabel: "Total Size",
+    width: "110px",
     rpcFields: ["totalSize"],
     align: "right"
   },

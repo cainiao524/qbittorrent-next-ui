@@ -20,6 +20,7 @@ export interface Torrent {
   name: string
   status: TorrentStatus
   hashString: string
+  size: number
   totalSize: number
   percentDone: number
   rateDownload: number

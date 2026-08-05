@@ -93,6 +93,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.DOWNLOAD,
     hashString: "8f56e9c9a0b1d3e1f5a4b3c2d1e0f9a8b1c2d3e4",
     totalSize: 18650000000,
+    size: 13055000000,
     percentDone: 0.674,
     rateDownload: 12400000,
     rateUpload: 510000,
@@ -141,6 +142,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.SEED,
     hashString: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
     totalSize: 5930000000,
+    size: 4151000000,
     percentDone: 1,
     rateDownload: 0,
     rateUpload: 2350000,
@@ -175,6 +177,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.SEED_WAIT,
     hashString: "f1e2d3c4b5a697887766554433221100aabbccdd",
     totalSize: 1270000000,
+    size: 1270000000,
     percentDone: 1,
     rateDownload: 0,
     rateUpload: 0,
@@ -209,6 +212,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.STOPPED,
     hashString: "ccddeeff00112233445566778899aabbccddeeff",
     totalSize: 8940000000,
+    size: 8940000000,
     percentDone: 1,
     rateDownload: 0,
     rateUpload: 0,
@@ -240,6 +244,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.DOWNLOAD_WAIT,
     hashString: "11bb33dd55ff77aa99cc00ee22dd44ff66aa88cc",
     totalSize: 265000000000,
+    size: 185500000000,
     percentDone: 0.031,
     rateDownload: 0,
     rateUpload: 0,
@@ -274,6 +279,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.CHECK,
     hashString: "44aabb66ccdd88ee00ff11aa22bb33cc44dd55ee",
     totalSize: 3960000000,
+    size: 3960000000,
     percentDone: 1,
     rateDownload: 0,
     rateUpload: 0,
@@ -305,6 +311,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.DOWNLOAD,
     hashString: "99887766554433221100ffeeddccbbaa99887766",
     totalSize: 9810000000,
+    size: 6867000000,
     percentDone: 0.982,
     rateDownload: 340000,
     rateUpload: 1800000,
@@ -339,6 +346,7 @@ const BASE_TORRENTS: Torrent[] = [
     status: TorrentStatus.STOPPED,
     hashString: "554433221100ffeeddccbbaa9988776655443322",
     totalSize: 78000000000,
+    size: 78000000000,
     percentDone: 0.431,
     rateDownload: 0,
     rateUpload: 0,
@@ -385,6 +393,7 @@ const GENERATED_TORRENTS: Torrent[] = Array.from({ length: 48 }, (_, index) => {
   const status = statusCycle[variant]
   const isFinished = status === TorrentStatus.SEED || status === TorrentStatus.SEED_WAIT || status === TorrentStatus.STOPPED || status === TorrentStatus.CHECK
   const totalSize = 700000000 + index * 420000000
+  const size = isFinished ? totalSize : Math.floor(totalSize * (0.55 + ((index * 7) % 40) / 100))
   const percentDone = isFinished ? 1 : Number((0.08 + ((index * 13) % 87) / 100).toFixed(3))
   const addedAgo = 1800 * (index + 2)
   const doneDate = isFinished ? now - addedAgo / 2 : 0
@@ -421,6 +430,7 @@ const GENERATED_TORRENTS: Torrent[] = Array.from({ length: 48 }, (_, index) => {
                     : `General Test Torrent #${index + 1}`,
     status,
     hashString: `mock-hash-${id.toString(16).padStart(8, "0")}${index}abcdef0123456789`,
+    size,
     totalSize,
     percentDone,
     rateDownload,
@@ -502,6 +512,7 @@ function makeBigSeriesTorrent(): Torrent {
     status: TorrentStatus.DOWNLOAD,
     hashString: "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
     totalSize: files.reduce((sum, file) => sum + file.length, 0),
+    size: Math.floor(files.reduce((sum, file) => sum + file.length, 0) * 0.7),
     percentDone: 0.42,
     rateDownload: 9200000,
     rateUpload: 120000,
