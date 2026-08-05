@@ -2,8 +2,7 @@ name: Build and publish Docker images
 
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*", "V*", "beta*"]
+  # push 推送不再自动触发，避免影响共享镜像仓库的现有镜像
 
 permissions:
   contents: read
