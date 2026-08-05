@@ -134,7 +134,7 @@ export function TorrentListView({
       case "name":
         return (
           <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px]" style={style}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block truncate">
+            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block break-words">
               {torrent.name}
             </Link>
           </TableCell>
@@ -160,12 +160,12 @@ export function TorrentListView({
             <div className="w-full bg-muted rounded-full h-2 min-w-[100px]">
               <div className="bg-primary h-2 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(var(--primary),0.5)]" style={{ width: `${torrent.percentDone * 100}%` }} />
             </div>
-            <div className="mt-1.5 flex items-baseline justify-between gap-1.5 min-w-0">
+            <div className="mt-1.5 flex flex-col gap-0.5 min-w-0">
               <span className="text-label font-medium whitespace-nowrap">
                 {(torrent.percentDone * 100).toFixed(1)}%
               </span>
               {!isComplete && (
-                <span className="text-label text-muted-foreground truncate min-w-0">
+                <span className="text-label text-muted-foreground whitespace-nowrap">
                   {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}
                 </span>
               )}
