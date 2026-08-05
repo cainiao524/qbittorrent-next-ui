@@ -160,7 +160,7 @@ export function TorrentListView({
               <div className="bg-primary h-2 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(var(--primary),0.5)]" style={{ width: `${torrent.percentDone * 100}%` }} />
             </div>
             <span className="text-label mt-1.5 block">
-              {(torrent.percentDone * 100).toFixed(1)}% • {formatSize(torrent.totalSize)}
+              {(torrent.percentDone * 100).toFixed(1)}% • {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}
             </span>
           </TableCell>
         )
