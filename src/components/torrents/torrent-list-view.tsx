@@ -160,10 +160,16 @@ export function TorrentListView({
             <div className="w-full bg-muted rounded-full h-2 min-w-[100px]">
               <div className="bg-primary h-2 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(var(--primary),0.5)]" style={{ width: `${torrent.percentDone * 100}%` }} />
             </div>
-            <span className="text-label mt-1.5 block">
-              {(torrent.percentDone * 100).toFixed(1)}%
-              {!isComplete && <> • {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}</>}
-            </span>
+            <div className="mt-1.5 flex items-baseline justify-between gap-1.5 min-w-0">
+              <span className="text-label font-medium whitespace-nowrap">
+                {(torrent.percentDone * 100).toFixed(1)}%
+              </span>
+              {!isComplete && (
+                <span className="text-label text-muted-foreground truncate min-w-0">
+                  {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}
+                </span>
+              )}
+            </div>
           </TableCell>
         )
       }
