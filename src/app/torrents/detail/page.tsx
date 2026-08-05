@@ -148,7 +148,6 @@ function TorrentDetailsContent() {
 
   const tor = torrent;
   const isComplete = tor.totalSize > 0 && tor.downloadedEver >= tor.totalSize;
-  const downloadRatio = tor.totalSize > 0 ? Math.min(1, tor.downloadedEver / tor.totalSize) : 0;
 
   const isStopped = tor.status === TorrentStatus.STOPPED;
 
@@ -257,7 +256,7 @@ function TorrentDetailsContent() {
                 {!isComplete && <span className="text-[10px] md:text-xs font-medium text-muted-foreground">{formatSize(tor.downloadedEver)} / {formatSize(tor.totalSize)}</span>}
               </div>
               <div className="w-full bg-muted rounded-full h-1.5 md:h-2 overflow-hidden">
-                <div className="bg-primary h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(var(--primary),0.5)]" style={{ width: `${downloadRatio * 100}%` }}></div>
+                <div className="bg-primary h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(var(--primary),0.5)]" style={{ width: `${tor.percentDone * 100}%` }}></div>
               </div>
             </CardContent>
           </Card>
