@@ -28,6 +28,7 @@ type SortKey =
   | "name"
   | "status"
   | "percentDone"
+  | "totalSize"
   | "addedDate"
   | "editDate"
   | "uploadedEver"
@@ -104,6 +105,8 @@ export function TorrentListView({
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("status")}><div className="flex items-center">{t("common.status")} <SortIcon column="status" sortConfig={sortConfig} /></div></TableHead>
       case "progress":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
+      case "size":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
       case "addedDate":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
       case "editDate":
@@ -161,6 +164,8 @@ export function TorrentListView({
             </span>
           </TableCell>
         )
+      case "size":
+        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.totalSize)}</TableCell>
       case "addedDate":
         return <TableCell key={column.id} className="text-numeric text-right text-muted-foreground text-xs">{formatDate(torrent.addedDate, locale)}</TableCell>
       case "editDate":
