@@ -165,6 +165,8 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
 
   const { torrents, stats, freeSpace, fetchData } = useTorrentData(showStats, viewMode, visibleColumns)
 
+  const contentReady = showStats ? !!stats : torrents.length > 0
+
   const {
     trackerFilter,
     dirFilter,
@@ -375,7 +377,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-500 ease-out">
+    <div className={cn("flex flex-col gap-6", contentReady && "animate-in fade-in slide-in-from-top-2 duration-500 ease-out")}>
       {showStats && (
         <div className="p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm mb-2">
           {stats ? (
@@ -467,7 +469,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
           onGlobalAction={handleGlobalAction}
         />
 
-        <div className={cn(torrents.length > 0 && "animate-in fade-in slide-in-from-top-2 duration-500 ease-out")}>
+        <div>
         {viewMode === "list" ? (
           <TorrentListView
             paginatedTorrents={paginatedTorrents}
