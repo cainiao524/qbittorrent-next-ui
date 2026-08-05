@@ -8,11 +8,11 @@ import { AuthGate } from "@/components/auth-gate"
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<TorrentView key="all" />} />
-      <Route path="/active" element={<TorrentView key="active" statusFilter="active" showStats={false} />} />
-      <Route path="/downloading" element={<TorrentView key="downloading" statusFilter="downloading" showStats={false} />} />
-      <Route path="/paused" element={<TorrentView key="paused" statusFilter="Paused" showStats={false} />} />
-      <Route path="/seeding" element={<TorrentView key="seeding" statusFilter="Seeding" showStats={false} />} />
+      <Route path="/" element={<TorrentView />} />
+      <Route path="/active" element={<TorrentView statusFilter="active" showStats={false} />} />
+      <Route path="/downloading" element={<TorrentView statusFilter="downloading" showStats={false} />} />
+      <Route path="/paused" element={<TorrentView statusFilter="Paused" showStats={false} />} />
+      <Route path="/seeding" element={<TorrentView statusFilter="Seeding" showStats={false} />} />
       <Route path="/settings" element={<SettingsPage key="settings" />} />
       <Route path="/torrents/detail" element={<TorrentDetailsPage key="detail" />} />
     </Routes>

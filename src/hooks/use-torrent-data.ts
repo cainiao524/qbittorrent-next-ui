@@ -6,7 +6,6 @@ import { getRequiredRpcFields } from "@/lib/columns"
 import type { Torrent, SessionStats } from "@/lib/rpc-types"
 
 export function useTorrentData(
-  showStats: boolean,
   viewMode: "list" | "grid",
   visibleColumns: string[]
 ) {
@@ -21,26 +20,24 @@ export function useTorrentData(
       const torrentsData = await rpc.getTorrents(torrentFields)
       setTorrents(torrentsData.torrents)
 
-      if (showStats) {
-        const [statsData, sessionData] = await Promise.all([
-          rpc.getStats(),
-          rpc.getSession()
-        ])
-        setStats(statsData)
+      const [statsData, sessionData] = await Promise.all([
+        rpc.getStats(),
+        rpc.getSession()
+      ])
+      setStats(statsData)
 
-        if (sessionData["download-dir"]) {
-          try {
-            const freeData = await rpc.freeSpace(sessionData["download-dir"])
-            setFreeSpace(freeData)
-          } catch (e) {
-            console.error("Failed to fetch free space:", e)
-          }
+      if (sessionData["download-dir"]) {
+        try {
+          const freeData = await rpc.freeSpace(sessionData["download-dir"])
+          setFreeSpace(freeData)
+        } catch (e) {
+          console.error("Failed to fetch free space:", e)
         }
       }
     } catch (err) {
       console.error("Failed to fetch qBittorrent data:", err)
     }
-  }, [showStats, viewMode, visibleColumns])
+  }, [viewMode, visibleColumns])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

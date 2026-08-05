@@ -163,7 +163,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
     localStorage.setItem('torrent-page-size', pageSize.toString())
   }, [pageSize])
 
-  const { torrents, stats, freeSpace, fetchData } = useTorrentData(showStats, viewMode, visibleColumns)
+  const { torrents, stats, freeSpace, fetchData } = useTorrentData(viewMode, visibleColumns)
 
   const {
     trackerFilter,
@@ -375,7 +375,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-500 ease-out">
+    <div key={statusFilter ?? "all"} className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-500 ease-out">
       {showStats && (
         <div className="p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm mb-2">
           {stats ? (
