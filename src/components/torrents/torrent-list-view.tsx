@@ -133,7 +133,7 @@ export function TorrentListView({
     switch (column.id) {
       case "name":
         return (
-          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px]" style={style}>
+          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] whitespace-normal" style={style}>
             <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 break-words [overflow-wrap:anywhere]">
               {torrent.name}
             </Link>
