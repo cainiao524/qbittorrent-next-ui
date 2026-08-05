@@ -37,6 +37,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (status === "authenticated") return children
 
+  if (status === "checking") {
+    return (
+      <ThemeProvider>
+        <div className="min-h-screen bg-background grid place-items-center">
+          <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </ThemeProvider>
+    )
+  }
+
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-background text-foreground grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] overflow-hidden">
@@ -59,10 +69,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground grid place-items-center"><DownloadCloud className="h-5 w-5" /></div>
               qBittorrent Next
             </div>
-            {status === "checking" ? (
-              <div className="flex items-center gap-3 text-muted-foreground"><LoaderCircle className="animate-spin" />正在连接 qBittorrent…</div>
-            ) : (
-              <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} className="space-y-6">
                 <div>
                   <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary grid place-items-center mb-6"><LockKeyhole /></div>
                   <h1 className="text-3xl font-semibold tracking-tight">登录</h1>
@@ -78,7 +85,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 </Button>
                 <p className="text-xs text-muted-foreground leading-relaxed">若此界面由 qBittorrent 直接托管且已有会话，将自动跳过登录。</p>
               </form>
-            )}
           </div>
         </div>
       </div>

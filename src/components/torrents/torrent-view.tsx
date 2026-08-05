@@ -375,9 +375,10 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out">
-      {showStats && stats && (
-        <div className="p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm animate-in slide-in-from-top-4 duration-500 ease-out mb-2">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-500 ease-out">
+      {showStats && (
+        <div className="p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm mb-2">
+          {stats ? (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               color="green"
@@ -420,9 +421,22 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
               onClick={() => setClickedCard(clickedCard === "space" ? null : "space")}
             />
           </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-20 rounded-[2rem] bg-muted/30 animate-pulse" />
+            ))}
+          </div>
+        )}
         </div>
       )}
-      {showStats && stats && showSpeedChart && <SpeedHistoryChart stats={stats} />}
+      {showStats && showSpeedChart && (
+        stats ? (
+          <SpeedHistoryChart stats={stats} />
+        ) : (
+          <div className="h-72 rounded-3xl border border-muted/30 bg-muted/20 animate-pulse" />
+        )
+      )}
 
       <div className="flex flex-col gap-4">
         <TorrentToolbar
@@ -453,6 +467,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
           onGlobalAction={handleGlobalAction}
         />
 
+        <div className={cn(torrents.length > 0 && "animate-in fade-in slide-in-from-top-2 duration-500 ease-out")}>
         {viewMode === "list" ? (
           <TorrentListView
             paginatedTorrents={paginatedTorrents}
@@ -476,6 +491,7 @@ export function TorrentView({ statusFilter, showStats = true }: TorrentViewProps
             onAdvancedSuccess={fetchData}
           />
         )}
+        </div>
 
         {sortedTorrents.length >= 50 && (
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 pb-10">

@@ -215,7 +215,8 @@ export function TorrentListView({
               >
                 <TableCell className="pl-6">
                   <div
-                    className="cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                    className="cursor-pointer text-muted-foreground hover:text-primary transition-colors select-none"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => onToggleSelect(torrent.id, event.shiftKey)}
                   >
                     {selectedIds.includes(torrent.id) ? (
