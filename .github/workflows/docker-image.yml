@@ -6,7 +6,7 @@ on:
     tags: ["v*", "V*", "beta*"]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -41,7 +41,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            lowsabishi/qbittorrent-next-ui-test:latest
+            lowsabishi/qbittorrent-next-ui:latest
+            lowsabishi/qbittorrent-next-ui:v1.3-funky9
 
       - name: Login GHCR
         uses: docker/login-action@v3
@@ -59,5 +60,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/cainiao524/qbittorrent-next-ui-test:latest
-            ghcr.io/cainiao524/qbittorrent-next-ui-test:sha-${{ github.sha }}
+            ghcr.io/cainiao524/qbittorrent-next-ui:latest
+            ghcr.io/cainiao524/qbittorrent-next-ui:v1.3-funky9
+
+  export:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ghcr.io/cainiao524/qbittorrent-next-ui:v1.3-funky9-export
+
+      - name: Save docker image tarball
+        run: |
+          docker save ghcr.io/cainiao524/qbittorrent-next-ui:v1.3-funky9-export | gzip > qbittorrent-next-ui-v1.3-funky9-docker-amd64.tar.gz
+
+      - name: Upload docker image to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: qbittorrent-next-ui-v1.3-funky9-docker-amd64.tar.gz

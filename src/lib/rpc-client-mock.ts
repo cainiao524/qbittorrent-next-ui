@@ -90,6 +90,14 @@ class QBittorrentRPCMock {
 
     switch (method) {
       case "torrent-get":
+        if (Array.isArray(args?.ids) && args.ids.length > 0) {
+          const wanted = new Set(args.ids.map((item: string | number) => String(item)));
+          return {
+            torrents: MOCK_TORRENTS.filter(
+              (item) => wanted.has(String(item.id)) || wanted.has(item.hashString),
+            ),
+          } as any;
+        }
         return { torrents: MOCK_TORRENTS } as any;
       case "session-get":
         return MOCK_SESSION as any;

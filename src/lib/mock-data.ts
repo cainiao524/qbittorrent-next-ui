@@ -473,4 +473,70 @@ const GENERATED_TORRENTS: Torrent[] = Array.from({ length: 48 }, (_, index) => {
   }
 })
 
-export const MOCK_TORRENTS: Torrent[] = [...BASE_TORRENTS, ...GENERATED_TORRENTS]
+export const MOCK_TORRENTS: Torrent[] = [
+  ...BASE_TORRENTS,
+  ...GENERATED_TORRENTS,
+  makeBigSeriesTorrent(),
+]
+
+function makeBigSeriesTorrent(): Torrent {
+  const files: NonNullable<Torrent["files"]> = [];
+  let index = 0;
+  for (let season = 1; season <= 20; season++) {
+    for (let ep = 1; ep <= 600; ep++) {
+      const length = 150000000 + (index % 97) * 7891;
+      const completed = index % 3 === 0 ? length : Math.floor(length * 0.37);
+      files.push({
+        index,
+        name: `Season ${String(season).padStart(2, "0")}/EP_${String(ep).padStart(4, "0")}.mkv`,
+        length,
+        bytesCompleted: completed,
+        priority: 1,
+      });
+      index++;
+    }
+  }
+  return {
+    id: "big1",
+    name: "Big.Series.2026.COMPLETE.2160p.WEB-DL.AAC5.1-x264",
+    status: TorrentStatus.DOWNLOAD,
+    hashString: "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
+    totalSize: files.reduce((sum, file) => sum + file.length, 0),
+    percentDone: 0.42,
+    rateDownload: 9200000,
+    rateUpload: 120000,
+    eta: 86400 * 3,
+    addedDate: now - 3600 * 5,
+    doneDate: 0,
+    editDate: now - 120,
+    downloadDir: "/srv/downloads/tv",
+    error: 0,
+    errorString: "",
+    uploadedEver: 0,
+    downloadedEver: 756000000000,
+    uploadRatio: 0,
+    queuePosition: 0,
+    isFinished: false,
+    isPrivate: false,
+    isStalled: false,
+    peersConnected: 42,
+    peersSendingToUs: 18,
+    peersGettingFromUs: 0,
+    labels: [jsonLabel("TV")],
+    files,
+    trackers: [
+      { id: 0, tier: 0, announce: TRACKERS.backup, scrape: "", sitename: "Open Tracker" },
+    ],
+    trackerStats: [
+      {
+        announce: TRACKERS.backup,
+        host: "open.stealth.si",
+        seederCount: 1543,
+        leecherCount: 903,
+        lastAnnounceSucceeded: true,
+        lastAnnounceResult: "Success",
+        isBackup: true,
+      },
+    ],
+  };
+}
