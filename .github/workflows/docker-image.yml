@@ -41,8 +41,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            lowsabishi/qbittorrent-next-ui:latest
-            lowsabishi/qbittorrent-next-ui:v1.2-baka9
+            lowsabishi/qbittorrent-next-ui-test:latest
 
       - name: Login GHCR
         uses: docker/login-action@v3
@@ -60,5 +59,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/cainiao524/qbittorrent-next-ui:latest
-            ghcr.io/cainiao524/qbittorrent-next-ui:v1.2-baka9
+            ghcr.io/cainiao524/qbittorrent-next-ui-test:latest
+            ghcr.io/cainiao524/qbittorrent-next-ui-test:sha-${{ github.sha }}
