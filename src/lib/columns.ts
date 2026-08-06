@@ -114,6 +114,7 @@ export const DEFAULT_VISIBLE_COLUMNS = [
   "status",
   "progress",
   "size",
+  "totalSize",
   "uploadedEver",
   "rateDownload",
   "eta"

@@ -176,7 +176,9 @@ export function TorrentListView({
           </TableCell>
         )
       }
-      case "size":
+            case "size":
+        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.size)}</TableCell>
+      case "totalSize":
         return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.totalSize)}</TableCell>
       case "addedDate":
         return <TableCell key={column.id} className="text-numeric text-right text-muted-foreground text-xs">{formatDate(torrent.addedDate, locale)}</TableCell>
