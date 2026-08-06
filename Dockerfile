@@ -15,6 +15,9 @@ FROM nginx:1.29-alpine
 ENV QBITTORRENT_URL=http://host.docker.internal:8080
 
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/init-webui.sh /docker-entrypoint.d/10-init-webui.sh
+RUN chmod +x /docker-entrypoint.d/10-init-webui.sh
+COPY --from=builder /app/dist /usr/share/nginx/html.default
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
