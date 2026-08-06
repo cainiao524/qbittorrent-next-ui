@@ -78,20 +78,6 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.7-funky9`。
 
-#### docker run 快速启动
-
-```bash
-docker run -d \
-  --name qbittorrent-next-ui \
-  -p 8088:80 \
-  -e QBITTORRENT_URL=http://host.docker.internal:8085 \
-  --add-host host.docker.internal:host-gateway \   # Linux / NAS 需要；Docker Desktop 可删除
-  -v ./webui:/usr/share/nginx/html \
-  lowsabishi/qbittorrent-next-ui:latest
-```
-
-首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
-
 #### 写法 A（推荐）：`host.docker.internal` 自动指向宿主机
 
 `host.docker.internal` 由 Docker 自动解析到宿主机，无需关心服务器 IP，跨平台通用：
@@ -172,6 +158,21 @@ image: lowsabishi/qbittorrent-next-ui:v1.7-funky9
 ```yaml
 image: ghcr.io/cainiao524/qbittorrent-next-ui:v1.7-funky9
 ```
+
+#### 写法 C：docker run 快速启动
+
+```bash
+docker run -d \
+  --name qbittorrent-next-ui \
+  -p 8088:80 \
+  -e QBITTORRENT_URL=http://host.docker.internal:8085 \
+  --add-host host.docker.internal:host-gateway \   # Linux / NAS 需要；Docker Desktop 可删除
+  -v ./webui:/usr/share/nginx/html \
+  lowsabishi/qbittorrent-next-ui:latest
+```
+
+首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
+
 
 ### 安装方式二：发行版 + Nginx 独立部署
 
