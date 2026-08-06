@@ -97,7 +97,7 @@ services:
     environment:
       QBITTORRENT_URL: http://host.docker.internal:8085
     ports:
-      - "9480:80"
+      - "8087:80"
     restart: unless-stopped
 ```
 
@@ -121,7 +121,7 @@ services:
     environment:
       QBITTORRENT_URL: http://192.168.1.10:8085
     ports:
-      - "9480:80"
+      - "8087:80"
     restart: unless-stopped
 ```
 
