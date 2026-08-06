@@ -78,6 +78,39 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.2-baka9`。
 
+#### 写法 A（推荐）：`host.docker.internal` 自动指向宿主机
+
+`host.docker.internal` 由 Docker 自动解析到宿主机，无需关心服务器 IP，跨平台通用：
+
+- Docker Desktop（Windows / macOS）：直接可用，无需额外配置
+- Linux / 群晖等 NAS：Docker 20.10+ 需添加 `extra_hosts: ["host.docker.internal:host-gateway"]`
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux / NAS 需要；Docker Desktop 可删除
+    environment:
+      QBITTORRENT_URL: http://host.docker.internal:8085
+    ports:
+      - "9480:80"
+    restart: unless-stopped
+```
+
+启动：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+浏览器访问 `http://服务器地址:9480`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
+
+#### 写法 B：直接填写宿主机局域网 IP（原有写法）
 创建 `docker-compose.yml`：
 
 ```yaml

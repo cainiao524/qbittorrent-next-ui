@@ -1,0 +1,60 @@
+# qBittorrent Next UI
+
+面向 qBittorrent 的现代化、响应式第三方 WebUI。基于 React、Vite、Tailwind CSS 与 shadcn/ui 构建，通过 qBittorrent Web API v2 提供完整的种子管理体验，支持 qBittorrent 4.x / 5.x。
+
+## 功能特性
+
+- 列表 / 网格两种视图，支持列宽拖动、排序与一键对齐
+- 搜索、状态、Tracker、目录与标签过滤
+- 启动、停止、删除、重新校验与重新汇报
+- 添加磁力链接与多个种子文件
+- 重命名、移动目录、限速与分享率限制
+- 批量移动、批量标签与批量替换 Tracker
+- 查看种子属性、文件、Peer 与 Tracker
+- 全局上传 / 下载速度与磁盘剩余空间展示
+- 深色 / 浅色主题，简体中文与英文界面
+- Cookie 会话登录与自动验证
+
+## 快速开始
+
+### docker run
+
+```bash
+docker run -d \
+  --name qbittorrent-next-ui \
+  -p 8080:80 \
+  -e QBITTORRENT_URL=http://host.docker.internal:8080 \
+  --add-host host.docker.internal:host-gateway \   # Linux / NAS 需要；Docker Desktop 可删除
+  lowsabishi/qbittorrent-next-ui:latest
+```
+
+### docker-compose
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux / NAS 需要；Docker Desktop 可删除
+    ports:
+      - "8080:80"
+    environment:
+      - QBITTORRENT_URL=http://host.docker.internal:8080
+    restart: unless-stopped
+```
+
+镜像内置 WebUI、Nginx 与 API 代理配置，无需手动配置。浏览器访问 `http://<??>:8080`，登录你的 qBittorrent 账号即可使用。
+
+> `QBITTORRENT_URL` 是 qBittorrent WebUI 的地址。默认值 `http://host.docker.internal:8080` 适用于 Docker Desktop；Linux / 群晖等 NAS 需在 compose 中添加 `extra_hosts: ["host.docker.internal:host-gateway"]`（docker run 加 `--add-host host.docker.internal:host-gateway`）。也可以直接填写宿主机 IP，例如 `http://192.168.1.100:8080`。
+
+## 镜像标签
+
+- `latest`：跟随最新稳定版本
+- `v1.6-funky9`：固定版本标签（支持 linux/amd64、linux/arm64）
+
+备用镜像（GHCR）：`ghcr.io/cainiao524/qbittorrent-next-ui`
+
+## 相关链接
+
+- GitHub 项目：https://github.com/cainiao524/qbittorrent-next-ui
