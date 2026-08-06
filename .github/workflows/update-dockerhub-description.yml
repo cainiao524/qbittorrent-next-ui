@@ -1,4 +1,4 @@
-﻿name: Update Docker Hub description
+name: Update Docker Hub description
 
 on:
   workflow_dispatch:
@@ -18,14 +18,40 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           REPO_NAME: lowsabishi/qbittorrent-next-ui
         run: |
-          set -euo pipefail
-          JWT=$(curl -fsS -X POST https://hub.docker.com/v2/users/login \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" | jq -r .token)
-          FULL_DESC=$(python3 -c "import json; print(json.dumps(open('DOCKERHUB.md', encoding='utf-8').read()))")
-          SHORT_DESC=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "面向 qBittorrent 的现代化响应式第三方 WebUI，基于 React + Vite + Tailwind CSS，内置 Nginx 与 API 代理")
-          curl -fsS -X PATCH "https://hub.docker.com/v2/repositories/${REPO_NAME}/" \
-            -H "Authorization: JWT ${JWT}" \
-            -H "Content-Type: application/json" \
-            -d "{\"description\": ${SHORT_DESC}, \"full_description\": ${FULL_DESC}}"
-          echo "Docker Hub description updated"
+          python3 - <<'PYEOF'
+          import json, os, urllib.request, urllib.error
+
+          username = os.environ["DOCKERHUB_USERNAME"]
+          password = os.environ["DOCKERHUB_TOKEN"]
+          repo = os.environ["REPO_NAME"]
+
+          def api(method, url, data=None, token=None):
+              req = urllib.request.Request(url, method=method)
+              req.add_header("Content-Type", "application/json")
+              if token:
+                  req.add_header("Authorization", "JWT " + token)
+              body = json.dumps(data).encode("utf-8") if data is not None else None
+              try:
+                  with urllib.request.urlopen(req, body) as resp:
+                      return resp.status, resp.read().decode("utf-8")
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode("utf-8")
+
+          status, text = api("POST", "https://hub.docker.com/v2/users/login",
+                             {"username": username, "password": password})
+          print("login status:", status)
+          if status != 200:
+              print(text[:500])
+              raise SystemExit(1)
+          jwt = json.loads(text)["token"]
+
+          full_desc = open("DOCKERHUB.md", encoding="utf-8").read()
+          short_desc = "面向 qBittorrent 的现代化响应式第三方 WebUI"
+          status2, text2 = api("PATCH", f"https://hub.docker.com/v2/repositories/{repo}/",
+                               {"description": short_desc, "full_description": full_desc}, jwt)
+          print("patch status:", status2)
+          print(text2[:1000])
+          if status2 not in (200, 201):
+              raise SystemExit(1)
+          print("Docker Hub description updated")
+          PYEOF
