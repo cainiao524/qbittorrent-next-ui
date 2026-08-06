@@ -97,7 +97,7 @@ services:
     environment:
       QBITTORRENT_URL: http://host.docker.internal:8085
     ports:
-      - "8087:80"
+      - "8088:80"
     restart: unless-stopped
 ```
 
@@ -108,7 +108,7 @@ docker compose pull
 docker compose up -d
 ```
 
-浏览器访问 `http://服务器地址:9480`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
+浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
 
 #### 写法 B：直接填写宿主机局域网 IP（原有写法）
 创建 `docker-compose.yml`：
@@ -121,7 +121,7 @@ services:
     environment:
       QBITTORRENT_URL: http://192.168.1.10:8085
     ports:
-      - "8087:80"
+      - "8088:80"
     restart: unless-stopped
 ```
 
@@ -132,7 +132,7 @@ docker compose pull
 docker compose up -d
 ```
 
-浏览器访问 `http://服务器地址:9480`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
+浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
 
 如果两个服务位于同一个 Compose 网络，可以把地址写成：
 
