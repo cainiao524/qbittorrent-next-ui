@@ -1,4 +1,4 @@
-﻿name: Update Docker Hub description
+name: Update Docker Hub description
 
 on:
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
           jwt = json.loads(text)["token"]
 
           full_desc = open("DOCKERHUB.md", encoding="utf-8").read()
-          short_desc = "面向 qBittorrent 的现代化响应式第三方 WebUI，基于 React + Vite + Tailwind CSS，内置 Nginx 与 API 代理"
+          short_desc = "面向 qBittorrent 的现代化响应式第三方 WebUI"
           status2, text2 = api("PATCH", f"https://hub.docker.com/v2/repositories/{repo}/",
                                {"description": short_desc, "full_description": full_desc}, jwt)
           print("patch status:", status2)
