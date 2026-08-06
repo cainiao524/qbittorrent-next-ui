@@ -78,6 +78,8 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.8-funky9`。
 
+> 镜像内置 WebUI，开箱即用。如需修改 WebUI 文件进行调试或自定义，请使用「安装方式二：发行版 + Nginx 独立部署」。
+
 #### 写法 A（推荐）：`host.docker.internal` 自动指向宿主机
 
 `host.docker.internal` 由 Docker 自动解析到宿主机，无需关心服务器 IP，跨平台通用：
@@ -98,8 +100,6 @@ services:
       QBITTORRENT_URL: http://host.docker.internal:8085
     ports:
       - "8088:80"
-    volumes:
-      - ./webui:/usr/share/nginx/html
     restart: unless-stopped
 ```
 
@@ -110,9 +110,8 @@ docker compose pull
 docker compose up -d
 ```
 
-浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
-首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效，方便调试或自定义页面。挂载后 WebUI 文件以宿主机为准，重启容器不会覆盖你的修改。
-> 群晖 NAS（Container Manager）注意：`./webui` 目录不会被自动创建，若目录不存在，`docker compose up` 会报 `Bind mount failed`。首次部署或目录被删后，请先执行 `mkdir -p webui` 再启动，空目录会被自动填充。
+浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。镜像内置 WebUI，开箱即用，无需挂载或管理 `webui` 文件。
+> 如需修改 WebUI 文件进行调试或自定义，请使用「安装方式二：发行版 + Nginx 独立部署」，直接在宿主机目录上修改。
 
 #### 写法 B：直接填写宿主机局域网 IP（原有写法）
 创建 `docker-compose.yml`：
@@ -126,8 +125,6 @@ services:
       QBITTORRENT_URL: http://192.168.1.10:8085
     ports:
       - "8088:80"
-    volumes:
-      - ./webui:/usr/share/nginx/html
     restart: unless-stopped
 ```
 
@@ -138,9 +135,8 @@ docker compose pull
 docker compose up -d
 ```
 
-浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
-首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效，方便调试或自定义页面。挂载后 WebUI 文件以宿主机为准，重启容器不会覆盖你的修改。
-> 群晖 NAS（Container Manager）注意：`./webui` 目录不会被自动创建，若目录不存在，`docker compose up` 会报 `Bind mount failed`。首次部署或目录被删后，请先执行 `mkdir -p webui` 再启动，空目录会被自动填充。
+浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。镜像内置 WebUI，开箱即用，无需挂载或管理 `webui` 文件。
+> 如需修改 WebUI 文件进行调试或自定义，请使用「安装方式二：发行版 + Nginx 独立部署」，直接在宿主机目录上修改。
 
 如果两个服务位于同一个 Compose 网络，可以把地址写成：
 
@@ -169,16 +165,14 @@ docker run -d \
   -p 8088:80 \
   -e QBITTORRENT_URL=http://host.docker.internal:8085 \
   --add-host host.docker.internal:host-gateway \   # Linux / NAS 需要；Docker Desktop 可删除
-  -v ./webui:/usr/share/nginx/html \
   --restart unless-stopped \
   lowsabishi/qbittorrent-next-ui:latest
 ```
 
-> 提示：`./webui` 会创建在执行命令时的当前目录。如果想自行修改 webui 文件，请先 `cd` 到方便存取的目录（例如 `/volume1/docker/qbittorrent-next-ui`）再执行上面的命令；也可以把 `-v ./webui:/usr/share/nginx/html` 改成绝对路径，例如 `-v /volume1/docker/qbittorrent-next-ui/webui:/usr/share/nginx/html`。
-> 群晖 NAS 注意：`docker run` 的 `-v` 挂载目录通常由 Docker 自动创建；如遇 `Bind mount failed`，先执行 `mkdir -p webui` 再运行。
+> 镜像内置 WebUI，开箱即用，无需挂载 `./webui` 目录。如需修改 WebUI 文件进行调试或自定义，请使用「安装方式二：发行版 + Nginx 独立部署」，直接在宿主机目录上修改。
 
 
-首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
+镜像内置 WebUI，开箱即用。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
 
 
 ### 安装方式二：发行版 + Nginx 独立部署
