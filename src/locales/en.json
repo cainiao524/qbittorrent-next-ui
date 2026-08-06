@@ -18,6 +18,7 @@
     "status": "Status",
     "progress": "Progress",
     "size": "Size",
+    "total_size": "Total Size",
     "down_speed": "Down Speed",
     "up_speed": "Up Speed",
     "eta": "ETA",

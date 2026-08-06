@@ -17,6 +17,7 @@
     "status": "状态",
     "progress": "进度",
     "size": "大小",
+    "total_size": "总大小",
     "down_speed": "下载速度",
     "up_speed": "上传速度",
     "eta": "剩余时间",
