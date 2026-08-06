@@ -112,6 +112,7 @@ docker compose up -d
 
 浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
 首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效，方便调试或自定义页面。挂载后 WebUI 文件以宿主机为准，重启容器不会覆盖你的修改。
+> 群晖 NAS（Container Manager）注意：`./webui` 目录不会被自动创建，若目录不存在，`docker compose up` 会报 `Bind mount failed`。首次部署或目录被删后，请先执行 `mkdir -p webui` 再启动，空目录会被自动填充。
 
 #### 写法 B：直接填写宿主机局域网 IP（原有写法）
 创建 `docker-compose.yml`：
@@ -139,6 +140,7 @@ docker compose up -d
 
 浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。此方式不会修改 qBittorrent 的备用网页界面设置，原生界面仍可通过原端口访问。
 首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效，方便调试或自定义页面。挂载后 WebUI 文件以宿主机为准，重启容器不会覆盖你的修改。
+> 群晖 NAS（Container Manager）注意：`./webui` 目录不会被自动创建，若目录不存在，`docker compose up` 会报 `Bind mount failed`。首次部署或目录被删后，请先执行 `mkdir -p webui` 再启动，空目录会被自动填充。
 
 如果两个服务位于同一个 Compose 网络，可以把地址写成：
 
@@ -173,6 +175,7 @@ docker run -d \
 ```
 
 > 提示：`./webui` 会创建在执行命令时的当前目录。如果想自行修改 webui 文件，请先 `cd` 到方便存取的目录（例如 `/volume1/docker/qbittorrent-next-ui`）再执行上面的命令；也可以把 `-v ./webui:/usr/share/nginx/html` 改成绝对路径，例如 `-v /volume1/docker/qbittorrent-next-ui/webui:/usr/share/nginx/html`。
+> 群晖 NAS 注意：`docker run` 的 `-v` 挂载目录通常由 Docker 自动创建；如遇 `Bind mount failed`，先执行 `mkdir -p webui` 再运行。
 
 
 首次启动会自动将内置 WebUI 释放到 `./webui` 目录，之后可直接覆盖该目录中的文件实时生效。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
