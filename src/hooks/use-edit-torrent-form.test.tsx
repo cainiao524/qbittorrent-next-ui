@@ -35,6 +35,7 @@ const details: Torrent = {
   status: 6,
   hashString: "hash",
   totalSize: 1000,
+  size: 1000,
   percentDone: 1,
   rateDownload: 0,
   rateUpload: 0,

@@ -36,6 +36,22 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
     align: "left"
   },
   {
+    id: "size",
+    labelKey: "common.size",
+    defaultLabel: "Size",
+    width: "100px",
+    rpcFields: ["size"],
+    align: "right"
+  },
+  {
+    id: "totalSize",
+    labelKey: "common.total_size",
+    defaultLabel: "Total Size",
+    width: "110px",
+    rpcFields: ["totalSize"],
+    align: "right"
+  },
+  {
     id: "addedDate",
     labelKey: "common.added_date",
     defaultLabel: "Added Date",
@@ -97,6 +113,8 @@ export const DEFAULT_VISIBLE_COLUMNS = [
   "name",
   "status",
   "progress",
+  "size",
+  "totalSize",
   "uploadedEver",
   "rateDownload",
   "eta"

@@ -28,6 +28,8 @@ type SortKey =
   | "name"
   | "status"
   | "percentDone"
+  | "size"
+  | "totalSize"
   | "addedDate"
   | "editDate"
   | "uploadedEver"
@@ -104,6 +106,10 @@ export function TorrentListView({
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("status")}><div className="flex items-center">{t("common.status")} <SortIcon column="status" sortConfig={sortConfig} /></div></TableHead>
       case "progress":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
+      case "size":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("size")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="size" sortConfig={sortConfig} /></div></TableHead>
+      case "totalSize":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.total_size", "Total Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
       case "addedDate":
         return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
       case "editDate":
@@ -130,8 +136,8 @@ export function TorrentListView({
     switch (column.id) {
       case "name":
         return (
-          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px]" style={style}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block truncate">
+          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] truncate" style={style} title={torrent.name}>
+            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
               {torrent.name}
             </Link>
           </TableCell>
@@ -150,17 +156,30 @@ export function TorrentListView({
             </span>
           </TableCell>
         )
-      case "progress":
+      case "progress": {
+        const isComplete = torrent.totalSize > 0 && torrent.downloadedEver >= torrent.totalSize
         return (
           <TableCell key={column.id}>
             <div className="w-full bg-muted rounded-full h-2 min-w-[100px]">
               <div className="bg-primary h-2 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(var(--primary),0.5)]" style={{ width: `${torrent.percentDone * 100}%` }} />
             </div>
-            <span className="text-label mt-1.5 block">
-              {(torrent.percentDone * 100).toFixed(1)}% • {formatSize(torrent.totalSize)}
-            </span>
+            <div className="mt-1.5 flex flex-col gap-0.5 min-w-0">
+              <span className="text-label font-medium whitespace-nowrap">
+                {(torrent.percentDone * 100).toFixed(1)}%
+              </span>
+              {!isComplete && (
+                <span className="text-label text-muted-foreground whitespace-nowrap">
+                  {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}
+                </span>
+              )}
+            </div>
           </TableCell>
         )
+      }
+            case "size":
+        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.size)}</TableCell>
+      case "totalSize":
+        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.totalSize)}</TableCell>
       case "addedDate":
         return <TableCell key={column.id} className="text-numeric text-right text-muted-foreground text-xs">{formatDate(torrent.addedDate, locale)}</TableCell>
       case "editDate":
@@ -215,7 +234,8 @@ export function TorrentListView({
               >
                 <TableCell className="pl-6">
                   <div
-                    className="cursor-pointer text-muted-foreground hover:text-primary transition-colors"
+                    className="cursor-pointer text-muted-foreground hover:text-primary transition-colors select-none"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => onToggleSelect(torrent.id, event.shiftKey)}
                   >
                     {selectedIds.includes(torrent.id) ? (

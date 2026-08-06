@@ -131,6 +131,7 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
     hashString: raw.hash,
     name: raw.name,
     status,
+    size: raw.size ?? 0,
     totalSize: raw.total_size ?? raw.size ?? 0,
     percentDone: raw.progress ?? 0,
     rateDownload: raw.dlspeed ?? 0,
