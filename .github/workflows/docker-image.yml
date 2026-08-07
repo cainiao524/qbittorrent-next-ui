@@ -110,7 +110,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
-          output: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+          outputs: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
 
       - name: Compress multiarch archive
         run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
