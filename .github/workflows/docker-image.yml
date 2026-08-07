@@ -70,7 +70,7 @@ jobs:
           tags: |
             ghcr.io/cainiao524/qbittorrent-next-ui:latest
             ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
+
   export:
     needs: build
     runs-on: ubuntu-latest
@@ -92,23 +92,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install skopeo
-        run: sudo apt-get update && sudo apt-get install -y skopeo
+      - name: Pull amd64 image
+        run: docker pull --platform linux/amd64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
 
-      - name: Export amd64 image
-        run: |
-          skopeo copy --platform linux/amd64 docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar
-          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar
+      - name: Save amd64 image
+        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
 
-      - name: Export arm64 image
-        run: |
-          skopeo copy --platform linux/arm64 docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar
-          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar
+      - name: Pull arm64 image
+        run: docker pull --platform linux/arm64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
 
-      - name: Export multiarch image
-        run: |
-          skopeo copy --all docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
-          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+      - name: Save arm64 image
+        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
+
+      - name: Build multiarch OCI archive
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          output: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+
+      - name: Compress multiarch archive
+        run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
 
       - name: Upload docker images to Release
         uses: softprops/action-gh-release@v2
