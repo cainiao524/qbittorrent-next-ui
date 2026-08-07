@@ -12,30 +12,36 @@ export function useTorrentData(
   const [torrents, setTorrents] = useState<Torrent[]>([])
   const [stats, setStats] = useState<SessionStats | null>(null)
   const [freeSpace, setFreeSpace] = useState<{ path: string; "size-bytes": number; total_size: number } | null>(null)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const { refreshInterval, autoRefresh } = useAppSettings()
 
   const fetchData = useCallback(async () => {
     try {
       const torrentFields = getRequiredRpcFields(visibleColumns, viewMode)
-      const torrentsData = await rpc.getTorrents(torrentFields)
-      setTorrents(torrentsData.torrents)
-
-      const [statsData, sessionData] = await Promise.all([
+      const [torrentsData, statsData, sessionData] = await Promise.all([
+        rpc.getTorrents(torrentFields),
         rpc.getStats(),
         rpc.getSession()
       ])
-      setStats(statsData)
+
+      setTorrents(torrentsData.torrents)
+
+      let freeData = null
 
       if (sessionData["download-dir"]) {
         try {
-          const freeData = await rpc.freeSpace(sessionData["download-dir"])
-          setFreeSpace(freeData)
+          freeData = await rpc.freeSpace(sessionData["download-dir"])
         } catch (e) {
           console.error("Failed to fetch free space:", e)
         }
       }
+
+      setStats(statsData)
+      setFreeSpace(freeData)
+      setIsInitialLoading(false)
     } catch (err) {
       console.error("Failed to fetch qBittorrent data:", err)
+      setIsInitialLoading(false)
     }
   }, [viewMode, visibleColumns])
 
@@ -48,5 +54,5 @@ export function useTorrentData(
     return () => clearInterval(timer)
   }, [fetchData, refreshInterval, autoRefresh])
 
-  return { torrents, stats, freeSpace, fetchData }
+  return { torrents, stats, freeSpace, isInitialLoading, fetchData }
 }

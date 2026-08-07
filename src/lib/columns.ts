@@ -31,8 +31,9 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
     id: "progress",
     labelKey: "common.progress",
     defaultLabel: "Progress",
-    width: "150px",
-    rpcFields: ["percentDone", "totalSize"],
+    width: "210px",
+    minWidth: "190px",
+    rpcFields: ["percentDone", "size", "totalSize"],
     align: "left"
   },
   {

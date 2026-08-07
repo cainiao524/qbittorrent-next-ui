@@ -59,14 +59,14 @@ export function RemoveTorrentDialog({
             {count > 1 ? t('common.remove', 'Remove Torrents') : t('common.remove', 'Remove Torrent')}
           </DialogTitle>
           <DialogDescription className="text-base font-medium opacity-70">
-            {count > 1 
+            {count > 1
               ? t('common.confirm_remove_all', `Are you sure you want to remove ${count} torrents?`)
               : t('common.confirm_remove', 'Are you sure you want to remove this torrent from the list?')}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex flex-col gap-5 py-4">
-          <div 
+          <div
             className="flex items-center gap-3 p-4 rounded-2xl bg-muted/30 border border-muted/50 cursor-pointer group hover:bg-destructive/5 hover:border-destructive/20 transition-all"
             onClick={() => setDeleteLocalData(!deleteLocalData)}
           >
@@ -83,14 +83,14 @@ export function RemoveTorrentDialog({
                 "text-sm font-medium transition-colors",
                 deleteLocalData ? "text-destructive" : "text-foreground group-hover:text-destructive"
               )}>
-                {t('common.move_data', 'Delete local data')}
+                {t('common.remove_data', 'Also remove data')}
               </span>
               <span className="text-xs text-muted-foreground opacity-60">
-                {t('common.remove_desc', 'This will permanently delete the downloaded files.')}
+                {t('common.remove_data_desc', 'Also delete the downloaded data files.')}
               </span>
             </div>
           </div>
-          
+
           <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/10 flex items-start gap-3">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <span className="text-[11px] font-medium text-destructive/80 leading-relaxed text-left">
@@ -100,16 +100,16 @@ export function RemoveTorrentDialog({
         </div>
 
         <DialogFooter className="pt-4 border-t border-muted/20">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="rounded-xl font-medium"
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             className="rounded-xl font-medium px-8 shadow-lg shadow-destructive/20 active:scale-[0.98] transition-all"
             onClick={handleConfirm}
             disabled={isSubmitting}

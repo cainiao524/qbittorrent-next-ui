@@ -1,7 +1,7 @@
 "use client"
 
 import type { CSSProperties } from "react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,7 @@ import type { ColumnConfig } from "@/lib/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
+import { getTorrentProgressColor } from "@/lib/torrent-progress"
 
 type SortKey =
   | "name"
@@ -46,6 +47,7 @@ interface TorrentListViewProps {
   selectedIds: TorrentId[]
   filteredCount: number
   sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null
+  animateSortTransitions: boolean
   tableMinWidth: number
   locale: string
   onToggleSelect: (id: TorrentId, range: boolean) => void
@@ -69,6 +71,7 @@ export function TorrentListView({
   selectedIds,
   filteredCount,
   sortConfig,
+  animateSortTransitions,
   tableMinWidth,
   locale,
   onToggleSelect,
@@ -78,9 +81,13 @@ export function TorrentListView({
   onAdvancedSuccess,
 }: TorrentListViewProps) {
   const { t } = useI18n()
+  const location = useLocation()
   const orderedVisibleColumns = visibleColumns
     .map((columnId) => allColumns.find((column) => column.id === columnId))
     .filter((column): column is ColumnConfig & { label: string } => Boolean(column))
+  const rowAnimationKey = animateSortTransitions
+    ? `${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
+    : "stable"
 
   const getColumnStyle = (columnId: ColumnConfig["id"]) => {
     const column = allColumns.find(c => c.id === columnId)
@@ -137,7 +144,7 @@ export function TorrentListView({
       case "name":
         return (
           <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] truncate" style={style} title={torrent.name}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
+            <Link to={`/torrents/detail?id=${torrent.id}`} state={{ fromListPath: location.pathname }} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
               {torrent.name}
             </Link>
           </TableCell>
@@ -157,21 +164,31 @@ export function TorrentListView({
           </TableCell>
         )
       case "progress": {
-        const isComplete = torrent.totalSize > 0 && torrent.downloadedEver >= torrent.totalSize
+        const isPartialDownload = torrent.totalSize > 0 && torrent.size < torrent.totalSize - 1
+        const progressRatio = isPartialDownload
+          ? Math.min(Math.max((torrent.size * torrent.percentDone) / torrent.totalSize, 0), 1)
+          : Math.min(Math.max(torrent.percentDone, 0), 1)
+        const progressColor = isPartialDownload
+          ? "bg-fuchsia-500/65 dark:bg-fuchsia-400/65"
+          : getTorrentProgressColor(torrent)
         return (
           <TableCell key={column.id}>
-            <div className="w-full bg-muted rounded-full h-2 min-w-[100px]">
-              <div className="bg-primary h-2 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(var(--primary),0.5)]" style={{ width: `${torrent.percentDone * 100}%` }} />
-            </div>
-            <div className="mt-1.5 flex flex-col gap-0.5 min-w-0">
-              <span className="text-label font-medium whitespace-nowrap">
-                {(torrent.percentDone * 100).toFixed(1)}%
-              </span>
-              {!isComplete && (
-                <span className="text-label text-muted-foreground whitespace-nowrap">
-                  {formatSize(torrent.downloadedEver)} / {formatSize(torrent.totalSize)}
+            <div className="flex h-10 min-w-0 items-center">
+              <div className="flex w-full min-w-0 items-center gap-2.5">
+                <div
+                  role="progressbar"
+                  aria-label={t("common.progress")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Number((progressRatio * 100).toFixed(1))}
+                  className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
+                >
+                  <div className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", progressColor)} style={{ transform: `scaleX(${progressRatio})` }} />
+                </div>
+                <span className="w-12 shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground">
+                  {(progressRatio * 100).toFixed(1)}%
                 </span>
-              )}
+              </div>
             </div>
           </TableCell>
         )
@@ -191,7 +208,7 @@ export function TorrentListView({
       case "rateUpload":
         return <TableCell key={column.id} className="text-numeric text-blue-500 text-right">{formatSpeed(torrent.rateUpload)}</TableCell>
       case "eta":
-        return <TableCell key={column.id} className="text-right"><div className="flex items-center justify-end gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta)}</span></div></TableCell>
+        return <TableCell key={column.id} className="text-right"><div className="flex items-center justify-end gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
       case "uploadRatio":
         return <TableCell key={column.id} className="text-numeric text-right">{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</TableCell>
     }
@@ -199,7 +216,7 @@ export function TorrentListView({
 
   return (
     <Card className="shadow-md border-none overflow-hidden py-0">
-      <CardContent className="p-0 overflow-auto">
+      <CardContent className="p-0 overflow-hidden">
         <Table className="table-fixed" style={{ minWidth: `${tableMinWidth}px` }}>
           <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent border-none">
@@ -224,13 +241,14 @@ export function TorrentListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTorrents.map((torrent) => (
+            {paginatedTorrents.map((torrent, index) => (
               <TableRow
-                key={torrent.id}
+                key={`${rowAnimationKey}-${torrent.id}`}
                 className={cn(
-                  "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row",
+                  "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
                   selectedIds.includes(torrent.id) && "bg-primary/5 hover:bg-primary/10"
                 )}
+                style={{ animationDelay: `${Math.min(index, 6) * 12}ms`, animationFillMode: "both" }}
               >
                 <TableCell className="pl-6">
                   <div

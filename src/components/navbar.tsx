@@ -96,9 +96,9 @@ export function Navbar() {
         <ThemeSwitcher />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full h-10 w-10 relative"
             >
               <Bell className="h-5 w-5" />
@@ -124,8 +124,8 @@ export function Navbar() {
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <DropdownMenuItem 
-                    key={msg.id} 
+                  <DropdownMenuItem
+                    key={msg.id}
                     className="rounded-xl p-3 focus:bg-muted cursor-pointer transition-colors"
                   >
                     <Link to={msg.url} target="_blank" className="flex gap-4 w-full">
@@ -146,8 +146,8 @@ export function Navbar() {
             </div>
             {messages.length > 0 && (
                <div className="p-1 border-t border-muted/50 bg-muted/10">
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="w-full rounded-xl h-10 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
                   onClick={markAsRead}
                 >

@@ -1,6 +1,7 @@
 import { Boxes, Clock3, Network, RadioTower } from "lucide-react"
 
 import { formatDuration, formatSize, formatSpeed } from "@/lib/formatters"
+import { useI18n } from "@/lib/i18n-context"
 import type { Torrent } from "@/lib/rpc-types"
 
 function Property({ label, value }: { label: string; value: React.ReactNode }) {
@@ -12,43 +13,44 @@ function Group({ title, icon, children }: { title: string; icon: React.ReactNode
 }
 
 export function TorrentPropertiesPanel({ torrent: tor }: { torrent: Torrent }) {
-  const state = (value: boolean | undefined) => value ? <span className="text-green-500">已启用</span> : <span className="text-muted-foreground">已关闭</span>
-  const limit = (mode: number | undefined, value: number | undefined, unit = "") => mode === 0 ? "继承全局" : mode === 2 ? "无限制" : `${value ?? 0}${unit}`
+  const { t, locale } = useI18n()
+  const state = (value: boolean | undefined) => value ? <span className="text-green-500">{t("torrent_properties.enabled")}</span> : <span className="text-muted-foreground">{t("torrent_properties.disabled")}</span>
+  const limit = (mode: number | undefined, value: number | undefined, unit = "") => mode === 0 ? t("torrent_properties.global") : mode === 2 ? t("torrent_properties.unlimited") : `${value ?? 0}${unit}`
   return (
     <div className="col-span-full grid gap-4 border-t border-muted/20 pt-6 md:grid-cols-2 xl:grid-cols-4">
-      <Group title="运行状态" icon={<RadioTower className="h-4 w-4" />}>
-        <Property label="强制启动" value={state(tor.forceStart)} />
-        <Property label="超级做种" value={state(tor.superSeeding)} />
-        <Property label="自动种子管理" value={state(tor.autoManagement)} />
-        <Property label="顺序下载" value={state(tor.sequentialDownload)} />
-        <Property label="首尾区块优先" value={state(tor.firstLastPiecePriority)} />
-        <Property label="分享率限制" value={limit(tor.seedRatioMode, tor.seedRatioLimit)} />
-        <Property label="做种时间限制" value={limit(tor.seedingTimeMode, tor.seedingTimeLimit, " 分钟")} />
-        <Property label="非活跃做种限制" value={limit(tor.inactiveSeedingTimeMode, tor.inactiveSeedingTimeLimit, " 分钟")} />
-        <Property label="达到限制后" value={({ Default: "继承全局", Stop: "暂停", Remove: "删除任务", RemoveWithContent: "删除任务和文件", EnableSuperSeeding: "启用超级做种" } as const)[tor.shareLimitAction ?? "Default"]} />
+      <Group title={t("torrent_properties.runtime")} icon={<RadioTower className="h-4 w-4" />}>
+        <Property label={t("torrent_properties.force_start")} value={state(tor.forceStart)} />
+        <Property label={t("torrent_properties.super_seeding")} value={state(tor.superSeeding)} />
+        <Property label={t("torrent_properties.auto_management")} value={state(tor.autoManagement)} />
+        <Property label={t("torrent_properties.sequential")} value={state(tor.sequentialDownload)} />
+        <Property label={t("torrent_properties.first_last")} value={state(tor.firstLastPiecePriority)} />
+        <Property label={t("torrent_properties.ratio_limit")} value={limit(tor.seedRatioMode, tor.seedRatioLimit)} />
+        <Property label={t("torrent_properties.seeding_limit")} value={limit(tor.seedingTimeMode, tor.seedingTimeLimit, t("torrent_properties.minutes"))} />
+        <Property label={t("torrent_properties.inactive_limit")} value={limit(tor.inactiveSeedingTimeMode, tor.inactiveSeedingTimeLimit, t("torrent_properties.minutes"))} />
+        <Property label={t("torrent_properties.limit_action")} value={({ Default: t("torrent_properties.action_default"), Stop: t("torrent_properties.action_stop"), Remove: t("torrent_properties.action_remove"), RemoveWithContent: t("torrent_properties.action_remove_files"), EnableSuperSeeding: t("torrent_properties.action_super") } as const)[tor.shareLimitAction ?? "Default"]} />
       </Group>
-      <Group title="连接与时间" icon={<Network className="h-4 w-4" />}>
-        <Property label="连接数／上限" value={`${tor.peersConnected} / ${tor.connectionsLimit || "∞"}`} />
-        <Property label="种子总数" value={tor.seedsTotal ?? 0} />
-        <Property label="用户总数" value={tor.peersTotal ?? 0} />
-        <Property label="活动时间" value={formatDuration(tor.timeElapsed ?? 0)} />
-        <Property label="做种时间" value={formatDuration(tor.seedingTime ?? 0)} />
-        <Property label="下次汇报" value={formatDuration(tor.nextAnnounce ?? 0)} />
+      <Group title={t("torrent_properties.connections_time")} icon={<Network className="h-4 w-4" />}>
+        <Property label={t("torrent_properties.connections_limit")} value={`${tor.peersConnected} / ${tor.connectionsLimit || "∞"}`} />
+        <Property label={t("torrent_properties.seeds_total")} value={tor.seedsTotal ?? 0} />
+        <Property label={t("torrent_properties.peers_total")} value={tor.peersTotal ?? 0} />
+        <Property label={t("torrent_properties.active_time")} value={formatDuration(tor.timeElapsed ?? 0, locale)} />
+        <Property label={t("torrent_properties.seeding_time")} value={formatDuration(tor.seedingTime ?? 0, locale)} />
+        <Property label={t("torrent_properties.next_announce")} value={formatDuration(tor.nextAnnounce ?? 0, locale)} />
       </Group>
-      <Group title="区块与可用性" icon={<Boxes className="h-4 w-4" />}>
-        <Property label="已拥有区块" value={`${tor.piecesHave ?? 0} / ${tor.piecesCount ?? 0}`} />
-        <Property label="区块大小" value={formatSize(tor.pieceSize ?? 0)} />
-        <Property label="可用性" value={(tor.availability ?? 0).toFixed(3)} />
-        <Property label="流行度" value={(tor.popularity ?? 0).toFixed(3)} />
-        <Property label="丢弃数据" value={formatSize(tor.wastedSize ?? 0)} />
+      <Group title={t("torrent_properties.pieces_availability")} icon={<Boxes className="h-4 w-4" />}>
+        <Property label={t("torrent_properties.pieces_have")} value={`${tor.piecesHave ?? 0} / ${tor.piecesCount ?? 0}`} />
+        <Property label={t("torrent_properties.piece_size")} value={formatSize(tor.pieceSize ?? 0)} />
+        <Property label={t("torrent_properties.availability")} value={(tor.availability ?? 0).toFixed(3)} />
+        <Property label={t("torrent_properties.popularity")} value={(tor.popularity ?? 0).toFixed(3)} />
+        <Property label={t("torrent_properties.wasted")} value={formatSize(tor.wastedSize ?? 0)} />
       </Group>
-      <Group title="本次传输" icon={<Clock3 className="h-4 w-4" />}>
-        <Property label="本次下载" value={formatSize(tor.downloadedSession ?? 0)} />
-        <Property label="本次上传" value={formatSize(tor.uploadedSession ?? 0)} />
-        <Property label="平均下载速度" value={formatSpeed(tor.averageDownloadSpeed ?? 0)} />
-        <Property label="平均上传速度" value={formatSpeed(tor.averageUploadSpeed ?? 0)} />
-        <Property label="最后完整可见" value={tor.lastSeenComplete ? new Date(tor.lastSeenComplete * 1000).toLocaleString("zh-CN") : "从未"} />
-        <Property label="临时下载路径" value={tor.downloadPath || "未启用"} />
+      <Group title={t("torrent_properties.session_transfer")} icon={<Clock3 className="h-4 w-4" />}>
+        <Property label={t("torrent_properties.downloaded")} value={formatSize(tor.downloadedSession ?? 0)} />
+        <Property label={t("torrent_properties.uploaded")} value={formatSize(tor.uploadedSession ?? 0)} />
+        <Property label={t("torrent_properties.average_download")} value={formatSpeed(tor.averageDownloadSpeed ?? 0)} />
+        <Property label={t("torrent_properties.average_upload")} value={formatSpeed(tor.averageUploadSpeed ?? 0)} />
+        <Property label={t("torrent_properties.last_seen_complete")} value={tor.lastSeenComplete ? new Date(tor.lastSeenComplete * 1000).toLocaleString(locale) : t("torrent_properties.never")} />
+        <Property label={t("torrent_properties.download_path")} value={tor.downloadPath || t("torrent_properties.not_enabled")} />
       </Group>
     </div>
   )

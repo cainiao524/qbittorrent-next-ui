@@ -129,7 +129,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
           // Build trackerList string: URLs one per line, blank line between tiers
           let trackerListString = ""
           let currentTier = -1
-          
+
           updatedTrackers.forEach((tr) => {
             if (currentTier !== -1 && tr.tier !== currentTier) {
               trackerListString += "\n" // Blank line between tiers
@@ -142,7 +142,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
           await rpc.setTorrent([item.id], {
              trackerList: trackerListString.trim()
           })
-          
+
           successCount++
         } catch (e) {
           console.error(`Failed to replace tracker for torrent ${item.id}:`, e)
@@ -179,7 +179,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
              <div>
                 <DialogTitle className="text-2xl font-medium tracking-tight">{t('common.batch_replace_tracker')}</DialogTitle>
                 <DialogDescription className="text-base font-medium opacity-70">
-                   {step === "input" ? "通过输入前缀，批量更新命中种子的 Tracker 地址。" : `发现了 ${matchingTorrents.length} 个匹配的种子。`}
+                   {step === "input" ? t("batch_ui.tracker_desc") : t("batch_ui.found_count", { count: matchingTorrents.length })}
                 </DialogDescription>
              </div>
         </DialogHeader>
@@ -213,7 +213,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex gap-3">
                 <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                 <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
-                  该操作将遍历所有正在进行的任务。修改 Tracker 地址的前缀部分可能会导致种子短暂掉线，系统会自动尝试重连。
+                  {t("batch_ui.tracker_warning")}
                 </p>
               </div>
             </div>
@@ -224,21 +224,21 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
                   <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{matchingTorrents.length}</span>
                </div>
                 <BatchTorrentList torrents={matchingTorrents} />
-               
+
                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-4 px-2">
                   <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">PREFIX OLD</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">{t("batch_ui.old_prefix")}</span>
                     <div className="w-full bg-muted/50 p-3 rounded-2xl border border-muted/50 text-center transition-colors group/old">
                       <span className="text-xs font-mono font-medium break-all line-clamp-2 leading-relaxed" title={oldTracker}>{oldTracker}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-center sm:mt-6">
                     <ArrowRight className="h-5 w-5 text-primary opacity-30 rotate-90 sm:rotate-0" />
                   </div>
-                  
+
                   <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">PREFIX NEW</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">{t("batch_ui.new_prefix")}</span>
                     <div className="w-full bg-primary/5 p-3 rounded-2xl border border-primary/20 text-center transition-colors">
                       <span className="text-xs font-mono font-medium text-primary break-all line-clamp-2 leading-relaxed" title={newTracker}>{newTracker}</span>
                     </div>
@@ -255,8 +255,8 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
               onClick={handleSearch}
               disabled={isSearching || !oldTracker || !newTracker}
             >
-              {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> : 
-               <><Search className="h-4 w-4 mr-2" /> 扫描匹配种子</>}
+              {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> :
+               <><Search className="h-4 w-4 mr-2" /> {t("common.scan_torrents")}</>}
             </Button>
           ) : (
             <div className="flex gap-3 w-full">
@@ -266,14 +266,14 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
                 onClick={() => setStep("input")}
                 disabled={isReplacing}
               >
-                返回修改
+                {t("batch_ui.return_edit")}
               </Button>
               <Button
                 className="flex-[2] h-12 rounded-2xl font-medium tracking-widest uppercase text-xs shadow-lg shadow-primary/20"
                 onClick={handleReplace}
                 disabled={isReplacing}
               >
-                {isReplacing ? <RefreshCw className="h-4 w-4 animate-spin" /> : 
+                {isReplacing ? <RefreshCw className="h-4 w-4 animate-spin" /> :
                  <><ListCheck className="h-4 w-4 mr-2" /> {t('common.replace_confirm')}</>}
               </Button>
             </div>

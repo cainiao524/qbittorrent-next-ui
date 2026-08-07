@@ -68,7 +68,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
     try {
       const { torrents } = await rpc.getTorrents(["id", "name", "downloadDir"])
       const targetOldDir = oldDir.trim()
-      
+
       const matches: MatchingTorrent[] = torrents
         .filter((tor: { id: string; name: string; downloadDir: string }) => tor.downloadDir === targetOldDir)
         .map((tor: { id: string; name: string; downloadDir: string }) => ({
@@ -98,7 +98,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
     try {
       const ids = matchingTorrents.map(t => t.id)
       const targetNewDir = newDir.trim()
-      
+
       // qBittorrent Web API: torrents/setLocation
       // { "ids": [...], "location": "...", "move": true }
       await rpc.setTorrentLocation(ids, targetNewDir, true)
@@ -133,7 +133,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
              <div>
                 <DialogTitle className="text-2xl font-medium tracking-tight">{t('common.batch_move_directory')}</DialogTitle>
                 <DialogDescription className="text-base font-medium opacity-70">
-                   {step === "input" ? t('common.move_directory_desc') : `发现了 ${matchingTorrents.length} 个匹配的种子。`}
+                   {step === "input" ? t('common.move_directory_desc') : t("batch_ui.found_count", { count: matchingTorrents.length })}
                 </DialogDescription>
              </div>
         </DialogHeader>
@@ -169,7 +169,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex gap-3">
                 <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                 <p className="text-sm text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
-                  该操作将移动匹配种子的物理文件。请确保目标路径有足够的磁盘空间。
+                  {t("batch_ui.move_warning")}
                 </p>
               </div>
             </div>
@@ -180,21 +180,21 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
                   <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{matchingTorrents.length}</span>
                </div>
                <BatchTorrentList torrents={matchingTorrents} />
-               
+
                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-4 px-2">
                   <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">OLD PATH</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">{t("batch_ui.old_path")}</span>
                     <div className="w-full bg-muted/50 p-3 rounded-2xl border border-muted/50 text-center transition-colors group/old">
                       <span className="text-xs font-mono font-medium break-all line-clamp-2 leading-relaxed" title={oldDir}>{oldDir}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-center sm:mt-6">
                     <ArrowRight className="h-5 w-5 text-primary opacity-30 rotate-90 sm:rotate-0" />
                   </div>
-                  
+
                   <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">NEW PATH</span>
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">{t("batch_ui.new_path")}</span>
                     <div className="w-full bg-primary/5 p-3 rounded-2xl border border-primary/20 text-center transition-colors">
                       <span className="text-xs font-mono font-medium text-primary break-all line-clamp-2 leading-relaxed" title={newDir}>{newDir}</span>
                     </div>
@@ -211,8 +211,8 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
               onClick={handleSearch}
               disabled={isSearching || !oldDir || !newDir}
             >
-              {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> : 
-               <><Search className="h-4 w-4 mr-2" /> 扫描匹配种子</>}
+              {isSearching ? <RefreshCw className="h-4 w-4 animate-spin" /> :
+               <><Search className="h-4 w-4 mr-2" /> {t("common.scan_torrents")}</>}
             </Button>
           ) : (
             <div className="flex gap-3 w-full">
@@ -222,14 +222,14 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
                 onClick={() => setStep("input")}
                 disabled={isMoving}
               >
-                返回修改
+                {t("batch_ui.return_edit")}
               </Button>
               <Button
                 className="flex-[2] h-12 rounded-2xl font-medium tracking-widest uppercase text-xs shadow-lg shadow-primary/20"
                 onClick={handleMove}
                 disabled={isMoving}
               >
-                {isMoving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 
+                {isMoving ? <RefreshCw className="h-4 w-4 animate-spin" /> :
                  <><ListCheck className="h-4 w-4 mr-2" /> {t('common.move_confirm')}</>}
               </Button>
             </div>

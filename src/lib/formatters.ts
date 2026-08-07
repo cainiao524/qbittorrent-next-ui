@@ -12,14 +12,19 @@ export function formatSpeed(bytesPerSecond: number): string {
   return formatSize(bytesPerSecond) + "/s"
 }
 
-export function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number, locale?: string): string {
   if (seconds < 0 || seconds === Infinity) return "-"
-  if (seconds === 0) return "0s"
-  
+  if (seconds === 0) return locale === "zh" ? "0 秒" : "0s"
+
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
-  
+
+  if (locale === "zh") {
+    if (h > 0) return `${h} 小时 ${m} 分钟`
+    if (m > 0) return `${m} 分钟 ${s} 秒`
+    return `${s} 秒`
+  }
   if (h > 0) return `${h}h ${m}m`
   if (m > 0) return `${m}m ${s}s`
   return `${s}s`
@@ -59,7 +64,7 @@ export function splitSpeed(speedStr: string): { value: string, unit: string } {
 export function formatDate(timestamp: number, locale?: string): string {
   if (!timestamp || timestamp <= 0) return "-"
   const date = new Date(timestamp * 1000)
-  
+
   if (locale === 'zh') {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')

@@ -53,7 +53,7 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
       toast.success(message)
       onSuccess?.()
     } catch (error) {
-      toast.error("操作失败", { description: error instanceof Error ? error.message : "qBittorrent 拒绝了此操作" })
+      toast.error(t("advanced_menu.action_failed"), { description: error instanceof Error ? error.message : t("advanced_menu.action_rejected") })
     }
   }
 
@@ -61,32 +61,32 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
     if (action === "force") return rpc.setForceStart(ids, value)
     if (action === "super") return rpc.setSuperSeeding(ids, value)
     return rpc.setAutoManagement(ids, value)
-  }, value ? "已启用所选功能" : "已关闭所选功能")
+  }, value ? t("advanced_menu.enabled") : t("advanced_menu.disabled"))
 
   const BooleanSubmenu = ({ label, action }: { label: string; action: BooleanAction }) => (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
-        <DropdownMenuItem onClick={() => void setBoolean(action, true)}>启用</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void setBoolean(action, false)}>关闭</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void setBoolean(action, true)}>{t("advanced_menu.enable")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void setBoolean(action, false)}>{t("advanced_menu.disable")}</DropdownMenuItem>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
 
   const savePaths = async () => {
     if (!savePath.trim()) {
-      toast.error("完成保存路径不能为空")
+      toast.error(t("advanced_menu.save_path_required"))
       return
     }
     setBusy(true)
     try {
       await rpc.setTorrentSavePath(ids, savePath.trim())
       await rpc.setTorrentDownloadPath(ids, downloadPath.trim())
-      toast.success("任务路径已更新")
+      toast.success(t("advanced_menu.paths_updated"))
       setPathOpen(false)
       onSuccess?.()
     } catch (error) {
-      toast.error("路径更新失败", { description: error instanceof Error ? error.message : undefined })
+      toast.error(t("advanced_menu.paths_failed"), { description: error instanceof Error ? error.message : undefined })
     } finally {
       setBusy(false)
     }
@@ -111,38 +111,38 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {trigger ?? (
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" title="高级任务操作">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" title={t("advanced_menu.title")}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>高级任务控制</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("advanced_menu.title")}</DropdownMenuLabel>
           {torrent ? (
             <>
-              <DropdownMenuCheckboxItem checked={torrent.forceStart} onCheckedChange={(value) => void setBoolean("force", value)}>强制启动</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={torrent.sequentialDownload} onCheckedChange={() => void run(() => rpc.toggleSequentialDownload(ids), "顺序下载状态已切换")}>顺序下载</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={torrent.firstLastPiecePriority} onCheckedChange={() => void run(() => rpc.toggleFirstLastPiecePriority(ids), "首尾区块优先状态已切换")}>优先下载首尾区块</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={torrent.superSeeding} onCheckedChange={(value) => void setBoolean("super", value)}>超级做种</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={torrent.autoManagement} onCheckedChange={(value) => void setBoolean("auto", value)}>自动种子管理</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={torrent.forceStart} onCheckedChange={(value) => void setBoolean("force", value)}>{t("advanced_menu.force_start")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={torrent.sequentialDownload} onCheckedChange={() => void run(() => rpc.toggleSequentialDownload(ids), t("advanced_menu.sequential_changed"))}>{t("advanced_menu.sequential")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={torrent.firstLastPiecePriority} onCheckedChange={() => void run(() => rpc.toggleFirstLastPiecePriority(ids), t("advanced_menu.first_last_changed"))}>{t("advanced_menu.first_last")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={torrent.superSeeding} onCheckedChange={(value) => void setBoolean("super", value)}>{t("advanced_menu.super_seeding")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={torrent.autoManagement} onCheckedChange={(value) => void setBoolean("auto", value)}>{t("advanced_menu.auto_management")}</DropdownMenuCheckboxItem>
             </>
           ) : (
             <>
-              <BooleanSubmenu label="强制启动" action="force" />
-              <DropdownMenuItem onClick={() => void run(() => rpc.toggleSequentialDownload(ids), "已切换顺序下载状态")}>切换顺序下载</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void run(() => rpc.toggleFirstLastPiecePriority(ids), "已切换首尾区块优先状态")}>切换首尾区块优先</DropdownMenuItem>
-              <BooleanSubmenu label="超级做种" action="super" />
-              <BooleanSubmenu label="自动种子管理" action="auto" />
+              <BooleanSubmenu label={t("advanced_menu.force_start")} action="force" />
+              <DropdownMenuItem onClick={() => void run(() => rpc.toggleSequentialDownload(ids), t("advanced_menu.sequential_changed"))}>{t("advanced_menu.toggle_sequential")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void run(() => rpc.toggleFirstLastPiecePriority(ids), t("advanced_menu.first_last_changed"))}>{t("advanced_menu.toggle_first_last")}</DropdownMenuItem>
+              <BooleanSubmenu label={t("advanced_menu.super_seeding")} action="super" />
+              <BooleanSubmenu label={t("advanced_menu.auto_management")} action="auto" />
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>队列位置</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "top"), "已移至队列顶部")}><ArrowUpToLine />置顶</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "up"), "已在队列中上移")}><ArrowUp />上移</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "down"), "已在队列中下移")}><ArrowDown />下移</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "bottom"), "已移至队列底部")}><ArrowDownToLine />置底</DropdownMenuItem>
+          <DropdownMenuLabel>{t("advanced_menu.queue_position")}</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "top"), t("advanced_menu.moved_top"))}><ArrowUpToLine />{t("advanced_menu.top")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "up"), t("advanced_menu.moved_up"))}><ArrowUp />{t("advanced_menu.up")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "down"), t("advanced_menu.moved_down"))}><ArrowDown />{t("advanced_menu.down")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void run(() => rpc.changeQueuePriority(ids, "bottom"), t("advanced_menu.moved_bottom"))}><ArrowDownToLine />{t("advanced_menu.bottom")}</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setPathOpen(true)}><FolderCog />修改下载与保存路径</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPathOpen(true)}><FolderCog />{t("advanced_menu.edit_paths")}</DropdownMenuItem>
           <DropdownMenuItem disabled={!onExport && (!torrent || ids.length !== 1)} onClick={() => void exportTorrents()}><Upload />{t("export.action", "导出 .torrent 文件")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -150,23 +150,23 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
       <Dialog open={pathOpen} onOpenChange={setPathOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5 text-primary" />任务路径</DialogTitle>
-            <DialogDescription>完成保存路径用于最终文件；下载路径用于未完成文件，留空可关闭临时路径。</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5 text-primary" />{t("advanced_menu.path_title")}</DialogTitle>
+            <DialogDescription>{t("advanced_menu.path_desc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">完成保存路径</label>
+              <label className="text-sm font-medium">{t("advanced_menu.save_path")}</label>
               <LocationInput value={savePath} onChange={setSavePath} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">未完成文件下载路径</label>
-              <LocationInput value={downloadPath} onChange={setDownloadPath} placeholder="留空表示不使用临时下载路径" />
+              <label className="text-sm font-medium">{t("advanced_menu.download_path")}</label>
+              <LocationInput value={downloadPath} onChange={setDownloadPath} placeholder={t("advanced_menu.download_path_placeholder")} />
             </div>
-            {ids.length > 1 && <p className="text-xs text-amber-600 dark:text-amber-400">将把相同路径应用到已选的 {ids.length} 个任务。开启自动种子管理的任务可能由分类规则覆盖路径。</p>}
+            {ids.length > 1 && <p className="text-xs text-amber-600 dark:text-amber-400">{t("advanced_menu.batch_path_warning", { count: ids.length })}</p>}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPathOpen(false)}>取消</Button>
-            <Button disabled={busy} onClick={() => void savePaths()}>{busy ? "正在保存…" : "保存路径"}</Button>
+            <Button variant="ghost" onClick={() => setPathOpen(false)}>{t("common.cancel")}</Button>
+            <Button disabled={busy} onClick={() => void savePaths()}>{busy ? t("advanced_menu.saving") : t("advanced_menu.save_paths")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
 
 export function LanguageSwitcher() {
-  const { locale, setLocale } = useI18n()
+  const { locale, setLocale, t } = useI18n()
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
@@ -24,15 +24,15 @@ export function LanguageSwitcher() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <Button 
-        variant="ghost" 
-        size="icon" 
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-all",
           isOpen && "bg-muted text-primary"
         )}
-        title={locale === "en" ? "Language" : "语言"}
+        title={t("ui.language")}
       >
         <Languages className="h-5 w-5" />
       </Button>
@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 rounded-2xl border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 overflow-hidden backdrop-blur-md bg-background/90">
           <div className="flex flex-col gap-1">
-            <button 
+            <button
               onClick={() => { setLocale("en"); setIsOpen(false); }}
               className={cn(
                 "flex items-center justify-between gap-3 px-3 py-2 text-sm font-medium rounded-xl transition-colors w-full text-left",
@@ -53,7 +53,7 @@ export function LanguageSwitcher() {
               </div>
               {locale === "en" && <Check className="h-3.5 w-3.5" />}
             </button>
-            <button 
+            <button
               onClick={() => { setLocale("zh"); setIsOpen(false); }}
               className={cn(
                 "flex items-center justify-between gap-3 px-3 py-2 text-sm font-medium rounded-xl transition-colors w-full text-left",

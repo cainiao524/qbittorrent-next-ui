@@ -152,6 +152,8 @@
   html {
     @apply font-sans antialiased;
     font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
   }
 
   *:focus-visible {
@@ -202,9 +204,10 @@
 
   [data-slot="dialog-overlay"] {
     opacity: 0;
-    backdrop-filter: blur(0);
-    -webkit-backdrop-filter: blur(0);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     animation: dialog-overlay-out 200ms ease-out forwards;
+    will-change: opacity;
   }
 
   [data-slot="dialog-overlay"][data-state="open"] {
@@ -225,33 +228,65 @@
   }
 
   .selected-toolbar-bg {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     animation: toolbar-bg-in 200ms ease-out forwards;
+    will-change: opacity;
+  }
+
+  .skeleton-gradient {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .skeleton-gradient::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--foreground) 3%, transparent),
+      color-mix(in oklab, var(--foreground) 10%, transparent)
+    );
+    opacity: 0.2;
+    animation: skeleton-gradient 1.6s ease-in-out infinite alternate;
+    will-change: opacity;
+    pointer-events: none;
+  }
+}
+
+@keyframes skeleton-gradient {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-gradient::after {
+    animation: none;
+    opacity: 0.45;
   }
 }
 
 @keyframes dialog-overlay-in {
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
-    -webkit-backdrop-filter: blur(0);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
 }
 
 @keyframes dialog-overlay-out {
   from {
     opacity: 1;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
   to {
     opacity: 0;
-    backdrop-filter: blur(0);
-    -webkit-backdrop-filter: blur(0);
   }
 }
 
@@ -289,12 +324,8 @@
 @keyframes toolbar-bg-in {
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
-    -webkit-backdrop-filter: blur(0);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
   }
 }

@@ -59,9 +59,9 @@ export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentD
               {t('common.edit_torrent_desc', 'Modify torrent name or move its data to a different directory.')}
             </DialogDescription>
           </DialogHeader>
-          
+
           {isFetching ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-4 animate-pulse">
+            <div className="py-20 flex flex-col items-center justify-center gap-4">
               <div className="h-10 w-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
               <p className="text-sm font-medium text-muted-foreground">{t('stats.loading', 'Loading details...')}</p>
             </div>
@@ -76,7 +76,7 @@ export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentD
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 className="h-11 rounded-xl bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary"
-                placeholder="Enter new name"
+                placeholder={t("ui.edit_name_placeholder")}
                 disabled={isLoading}
               />
             </div>
@@ -93,7 +93,7 @@ export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentD
                 menuClassName="w-[280px] sm:w-[350px]"
               />
             </div>
-            <div 
+            <div
               className={`flex items-center gap-3 p-4 rounded-2xl bg-muted/30 border border-muted/50 transition-colors group ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
               onClick={() => !isLoading && toggleField("moveData")}
             >

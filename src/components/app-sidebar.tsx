@@ -174,7 +174,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             to={APP_CONFIG.githubUrl}
             target="_blank"
             className="text-primary/40 hover:text-primary transition-colors cursor-pointer"
-            title="在 GitHub 上查看项目"
+            title={t("ui.github_title")}
           >
             <Github className="h-4 w-4" />
           </Link>
@@ -186,7 +186,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Link
             to={APP_CONFIG.githubUrl}
             target="_blank"
-            title="在 GitHub 上查看项目"
+            title={t("ui.github_title")}
             className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all"
           >
             <Github className="h-4 w-4" />

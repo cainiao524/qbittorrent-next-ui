@@ -38,6 +38,8 @@ import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { type Torrent, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
 import { formatSize, formatSpeed, formatDuration, getStatusLabel, formatDate } from "@/lib/formatters"
+import { getTorrentProgressColor, getTorrentProgressStrokeColor } from "@/lib/torrent-progress"
+import { cn } from "@/lib/utils"
 import { formatPeerRegion, peerCountryFlag } from "@/lib/peer-region"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
 import { toast } from "sonner"
@@ -121,9 +123,9 @@ function TorrentDetailsContent() {
   if (loading && !torrent) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-          <p className="text-muted-foreground font-medium">Loading torrent details...</p>
+          <p className="text-muted-foreground font-medium">{t("ui.loading_torrent")}</p>
         </div>
       </div>
     )
@@ -136,8 +138,8 @@ function TorrentDetailsContent() {
           <Layers className="h-12 w-12 text-muted-foreground" />
         </div>
         <div className="text-center">
-          <h2 className="text-2xl font-bold">Torrent Not Found</h2>
-          <p className="text-muted-foreground max-w-xs mx-auto mt-2">The torrent you're looking for might have been removed or doesn't exist.</p>
+          <h2 className="text-2xl font-bold">{t("ui.torrent_not_found")}</h2>
+          <p className="text-muted-foreground max-w-xs mx-auto mt-2">{t("ui.torrent_not_found_desc")}</p>
         </div>
         <Button onClick={() => navigate("/")} variant="outline" className="rounded-xl px-8">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
@@ -199,7 +201,7 @@ function TorrentDetailsContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-500 ease-out">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-300 ease-out">
       {/* Header Section */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 overflow-hidden">
@@ -228,7 +230,7 @@ function TorrentDetailsContent() {
             </div>
           </div>
           <div className="flex items-center gap-2 w-full lg:w-auto shrink-0">
-            <AdvancedTorrentMenu ids={[tor.id]} torrent={tor} onSuccess={fetchData} trigger={<Button variant="outline" size="sm" className="h-12 rounded-xl px-4">高级控制</Button>} />
+            <AdvancedTorrentMenu ids={[tor.id]} torrent={tor} onSuccess={fetchData} trigger={<Button variant="outline" size="sm" className="h-12 rounded-xl px-4">{t("ui.advanced_control")}</Button>} />
             <Button variant="default" size="sm" className="flex-1 lg:flex-none rounded-xl font-medium h-12 px-6 shadow-lg shadow-primary/20" onClick={handleToggleStatus}>
               {isStopped ? (
                 <><Play className="h-4 w-4 mr-2" /> {t('common.resume', 'Start')}</>
@@ -255,8 +257,15 @@ function TorrentDetailsContent() {
                 <span className="text-2xl md:text-3xl font-medium text-primary">{(tor.percentDone * 100).toFixed(1)}%</span>
                 {!isComplete && <span className="text-[10px] md:text-xs font-medium text-muted-foreground">{formatSize(tor.downloadedEver)} / {formatSize(tor.totalSize)}</span>}
               </div>
-              <div className="w-full bg-muted rounded-full h-1.5 md:h-2 overflow-hidden">
-                <div className="bg-primary h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(var(--primary),0.5)]" style={{ width: `${tor.percentDone * 100}%` }}></div>
+              <div
+                role="progressbar"
+                aria-label={t("common.progress")}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(tor.percentDone * 100)}
+                className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
+              >
+                <div className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", getTorrentProgressColor(tor))} style={{ transform: `scaleX(${Math.min(Math.max(tor.percentDone, 0), 1)})` }}></div>
               </div>
             </CardContent>
           </Card>
@@ -280,7 +289,7 @@ function TorrentDetailsContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="py-4 md:py-6 px-4">
-              <div className="text-2xl md:text-3xl font-medium">{formatDuration(tor.eta)}</div>
+              <div className="text-2xl md:text-3xl font-medium">{formatDuration(tor.eta, locale)}</div>
               <p className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase mt-1">{t('details.estimating_completion')}</p>
             </CardContent>
           </Card>
@@ -438,6 +447,8 @@ function TorrentDetailsContent() {
                 <TorrentFileTree
                   files={tor.files ?? []}
                   updatingFileIds={updatingFileIds}
+                  progressColorClassName={getTorrentProgressColor(tor)}
+                  progressStrokeClassName={getTorrentProgressStrokeColor(tor)}
                   onPriorityChange={handleFilePriorityChange}
                 />
               </div>
@@ -449,8 +460,8 @@ function TorrentDetailsContent() {
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="pl-6 md:pl-8 h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.tracker_url')}</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">Seeds</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest pr-6 md:pr-8 text-right">Peers</TableHead>
+                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">{t("ui.seeds")}</TableHead>
+                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest pr-6 md:pr-8 text-right">{t("ui.peers")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -476,9 +487,9 @@ function TorrentDetailsContent() {
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="pl-6 md:pl-8 h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.address')}</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">国家／地区</TableHead>
+                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t("ui.country_region")}</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest">{t('details.client')}</TableHead>
-                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">Down</TableHead>
+                      <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">{t("ui.down")}</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest text-right">Up</TableHead>
                       <TableHead className="h-12 uppercase font-medium text-[10px] md:text-xs tracking-widest pr-6 md:pr-8 text-right">{t('common.progress')}</TableHead>
                     </TableRow>
@@ -518,12 +529,14 @@ function TorrentDetailsContent() {
 }
 
 export default function TorrentDetailsPage() {
+  const { t } = useI18n()
+
   return (
     <Suspense fallback={
        <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-          <p className="text-muted-foreground font-medium">Loading torrent details...</p>
+          <p className="text-muted-foreground font-medium">{t("ui.loading_torrent")}</p>
         </div>
       </div>
     }>

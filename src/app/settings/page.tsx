@@ -80,7 +80,7 @@ export default function SettingsPage() {
         setPendingChanges({})
         await fetchSession()
       }
-      
+
       toast.success(t('settings.actions.apply_success', 'Success'), {
         description: t('settings.actions.apply_desc', 'Settings updated successfully!'),
       })
@@ -146,7 +146,7 @@ export default function SettingsPage() {
   const Toggle = ({ field, localValue, setLocalValue }: { field?: keyof Session, localValue?: boolean, setLocalValue?: (v: boolean) => void }) => {
     const active = field ? !!getValue(field) : !!localValue
     return (
-      <div 
+      <div
         onClick={() => {
           if (field) handleChange(field, !active)
           else if (setLocalValue) setLocalValue(!active)
@@ -169,9 +169,9 @@ export default function SettingsPage() {
   if (loading && !session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-          <p className="text-muted-foreground font-medium">Loading session settings...</p>
+          <p className="text-muted-foreground font-medium">{t("ui.loading_session")}</p>
         </div>
       </div>
     )
@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out max-w-[1300px] mx-auto pb-32">
+      <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-300 ease-out max-w-[1300px] mx-auto pb-32">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl md:text-3xl font-medium tracking-tight">{t('settings.title')}</h1>
           <p className="text-sm text-muted-foreground italic">{t('settings.desc')}</p>
@@ -194,8 +194,8 @@ export default function SettingsPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-2.5 lg:py-3 rounded-xl text-[10px] lg:text-xs uppercase tracking-widest font-black transition-all duration-300 whitespace-nowrap",
-                  activeTab === tab.id 
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-[1.02]" 
+                  activeTab === tab.id
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-[1.02]"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -207,7 +207,7 @@ export default function SettingsPage() {
 
           {/* Content Area */}
           <div className="flex-1 space-y-6 lg:space-y-8 animate-in slide-in-from-right-4 duration-500">
-            
+
             {activeTab === "general" && (
               <div className="space-y-6">
                 <Card className="border-none shadow-xl bg-card/60 backdrop-blur-md overflow-hidden">
@@ -226,11 +226,11 @@ export default function SettingsPage() {
                           <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.speed.download')} (KB/s)</label>
                           <Toggle field="speed-limit-down-enabled" />
                         </div>
-                        <Input 
-                          type="number" 
-                          value={getValue("speed-limit-down")} 
+                        <Input
+                          type="number"
+                          value={getValue("speed-limit-down")}
                           onChange={(e) => handleChange("speed-limit-down", parseInt(e.target.value) || 0)}
-                          className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                          className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                         />
                       </div>
                       <div className="space-y-3">
@@ -238,11 +238,11 @@ export default function SettingsPage() {
                           <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.speed.upload')} (KB/s)</label>
                           <Toggle field="speed-limit-up-enabled" />
                         </div>
-                        <Input 
-                          type="number" 
-                          value={getValue("speed-limit-up")} 
+                        <Input
+                          type="number"
+                          value={getValue("speed-limit-up")}
                           onChange={(e) => handleChange("speed-limit-up", parseInt(e.target.value) || 0)}
-                          className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                          className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                         />
                       </div>
                     </div>
@@ -262,24 +262,24 @@ export default function SettingsPage() {
                          </div>
                          <Toggle field="alt-speed-enabled" />
                       </div>
-                      
+
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 transition-opacity", !getValue("alt-speed-enabled") && "opacity-50 grayscale pointer-events-none")}>
                         <div className="space-y-2">
                           <label className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-tighter">{t('settings.speed.alt_download')} (KB/s)</label>
-                          <Input 
-                            type="number" 
-                            value={getValue("alt-speed-down")} 
+                          <Input
+                            type="number"
+                            value={getValue("alt-speed-down")}
                             onChange={(e) => handleChange("alt-speed-down", parseInt(e.target.value) || 0)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                           />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-tighter">{t('settings.speed.alt_upload')} (KB/s)</label>
-                          <Input 
-                            type="number" 
-                            value={getValue("alt-speed-up")} 
+                          <Input
+                            type="number"
+                            value={getValue("alt-speed-up")}
                             onChange={(e) => handleChange("alt-speed-up", parseInt(e.target.value) || 0)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                           />
                         </div>
                       </div>
@@ -301,10 +301,10 @@ export default function SettingsPage() {
                      <div className="grid gap-6">
                         <div className="space-y-2">
                           <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70 italic">{t('settings.transfers.default_location')}</label>
-                          <Input 
-                            value={getValue("download-dir")} 
+                          <Input
+                            value={getValue("download-dir")}
                             onChange={(e) => handleChange("download-dir", e.target.value)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold"
                           />
                         </div>
                         <div className="space-y-3">
@@ -315,10 +315,10 @@ export default function SettingsPage() {
                              </div>
                              <Toggle field="incomplete-dir-enabled" />
                           </div>
-                          <Input 
-                            value={getValue("incomplete-dir")} 
+                          <Input
+                            value={getValue("incomplete-dir")}
                             onChange={(e) => handleChange("incomplete-dir", e.target.value)}
-                            className={cn("h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold transition-opacity", !getValue("incomplete-dir-enabled") && "opacity-50")} 
+                            className={cn("h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold transition-opacity", !getValue("incomplete-dir-enabled") && "opacity-50")}
                           />
                         </div>
                      </div>
@@ -331,11 +331,11 @@ export default function SettingsPage() {
                              <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.transfers.download_queue')}</label>
                              <Toggle field="download-queue-enabled" />
                           </div>
-                          <Input 
-                            type="number" 
-                            value={getValue("download-queue-size")} 
+                          <Input
+                            type="number"
+                            value={getValue("download-queue-size")}
                             onChange={(e) => handleChange("download-queue-size", parseInt(e.target.value) || 0)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                           />
                         </div>
                         <div className="space-y-3">
@@ -343,11 +343,11 @@ export default function SettingsPage() {
                              <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.transfers.seed_queue')}</label>
                              <Toggle field="seed-queue-enabled" />
                           </div>
-                          <Input 
-                            type="number" 
-                            value={getValue("seed-queue-size")} 
+                          <Input
+                            type="number"
+                            value={getValue("seed-queue-size")}
                             onChange={(e) => handleChange("seed-queue-size", parseInt(e.target.value) || 0)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                           />
                         </div>
                      </div>
@@ -385,11 +385,11 @@ export default function SettingsPage() {
                       <div className="flex flex-col md:flex-row gap-6 md:gap-8 md:items-end">
                         <div className="space-y-2 flex-1">
                           <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.network.listening_port')}</label>
-                          <Input 
-                            type="number" 
-                            value={getValue("peer-port")} 
+                          <Input
+                            type="number"
+                            value={getValue("peer-port")}
                             onChange={(e) => handleChange("peer-port", parseInt(e.target.value) || 0)}
-                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric" 
+                            className="h-11 md:h-12 rounded-xl bg-muted/40 border-none text-numeric"
                           />
                         </div>
                         <div className="space-y-2 flex-grow">
@@ -397,9 +397,9 @@ export default function SettingsPage() {
                              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{t('settings.network.randomize')}</span>
                              <Toggle field="peer-port-random-on-start" />
                           </div>
-                          <Button 
-                             variant="outline" 
-                             onClick={handlePortTest} 
+                          <Button
+                             variant="outline"
+                             onClick={handlePortTest}
                              disabled={testingPort}
                              className="w-full h-11 md:h-12 rounded-xl text-xs font-bold border-primary/20 hover:bg-primary/10 transition-all gap-2"
                           >
@@ -467,19 +467,19 @@ export default function SettingsPage() {
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                           <p className="text-sm md:text-base font-medium tracking-tight leading-snug">{t('settings.peers.encryption')}</p>
                           <div className="flex p-1 bg-muted/40 rounded-xl gap-1 overflow-x-auto no-scrollbar">
-                             <button 
+                             <button
                                onClick={() => handleChange("encryption", "required")}
                                className={cn("px-4 py-1.5 text-[10px] md:text-xs font-bold whitespace-nowrap rounded-lg shadow-sm transition-all", getValue("encryption") === "required" ? "bg-background text-primary" : "text-muted-foreground")}
                              >
                                {t('settings.peers.required')}
                              </button>
-                             <button 
+                             <button
                                onClick={() => handleChange("encryption", "preferred")}
                                className={cn("px-4 py-1.5 text-[10px] md:text-xs font-bold whitespace-nowrap rounded-lg shadow-sm transition-all", getValue("encryption") === "preferred" ? "bg-background text-primary" : "text-muted-foreground")}
                              >
                                 {t('settings.peers.preferred')}
                              </button>
-                             <button 
+                             <button
                                onClick={() => handleChange("encryption", "tolerated")}
                                className={cn("px-4 py-1.5 text-[10px] md:text-xs font-bold whitespace-nowrap rounded-lg shadow-sm transition-all", getValue("encryption") === "tolerated" ? "bg-background text-primary" : "text-muted-foreground")}
                              >
@@ -505,11 +505,11 @@ export default function SettingsPage() {
                        </div>
                        <Toggle field="blocklist-enabled" />
                      </div>
-                     <Input 
-                        value={getValue("blocklist-url")} 
+                     <Input
+                        value={getValue("blocklist-url")}
                         onChange={(e) => handleChange("blocklist-url", e.target.value)}
-                        placeholder="http://example.com/blocklist.gz" 
-                        className="h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold" 
+                        placeholder="http://example.com/blocklist.gz"
+                        className="h-11 md:h-12 rounded-xl bg-muted/40 border-none font-mono text-xs font-bold"
                      />
                   </CardContent>
                 </Card>
@@ -529,12 +529,12 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent className="p-5 pt-0 space-y-8">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <button 
+                       <button
                          onClick={() => setPendingAutoRefresh(!getAutoRefresh())}
                          className={cn(
                            "p-5 rounded-2xl border transition-all text-left flex flex-col gap-3 group relative overflow-hidden",
-                           getAutoRefresh() 
-                             ? "bg-primary/10 border-primary shadow-sm" 
+                           getAutoRefresh()
+                             ? "bg-primary/10 border-primary shadow-sm"
                              : "bg-muted/30 border-transparent hover:bg-muted/50"
                          )}
                        >
@@ -564,14 +564,14 @@ export default function SettingsPage() {
                            <p className="text-[10px] font-black uppercase tracking-widest">{t('settings.page.refresh_title')}</p>
                          </div>
                          <div className="flex items-center gap-3">
-                           <Input 
-                             type="number" 
+                           <Input
+                             type="number"
                              min={0.5}
                              step={0.5}
                              disabled={!getAutoRefresh()}
-                             value={getRefreshInterval() / 1000} 
+                             value={getRefreshInterval() / 1000}
                              onChange={(e) => setPendingRefreshInterval(Math.round(parseFloat(e.target.value) * 1000) || 0)}
-                             className="h-11 rounded-xl bg-background/50 border-none text-numeric flex-1 font-bold text-lg" 
+                             className="h-11 rounded-xl bg-background/50 border-none text-numeric flex-1 font-bold text-lg"
                            />
                            <div className="bg-background/50 h-11 px-4 rounded-xl flex items-center justify-center font-bold text-xs text-muted-foreground uppercase">
                              {t('settings.page.refresh_unit')}
@@ -601,7 +601,7 @@ export default function SettingsPage() {
                             <span className="text-numeric font-bold">{APP_CONFIG.version}</span>
                          </div>
                          <div className="flex justify-between items-center text-xs md:text-sm">
-                            <span className="font-semibold text-muted-foreground tracking-tight">Web API 版本</span>
+                            <span className="font-semibold text-muted-foreground tracking-tight">{t("ui.web_api_version")}</span>
                             <span className="text-numeric font-bold">{session?.["rpc-version"]} ({session?.["rpc-version-semver"]})</span>
                          </div>
                          <div className="flex justify-between items-center text-xs md:text-sm">
@@ -618,19 +618,19 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      
+
       {/* Floating Action Buttons */}
       {activeTab !== "all" && <div className="fixed bottom-8 right-6 md:right-12 z-50 p-1.5 md:p-2 bg-background/80 backdrop-blur-2xl border border-muted/30 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-8 ring-1 ring-black/5 dark:ring-white/10 w-[calc(100%-3rem)] md:w-auto">
          <div className="flex items-center gap-2">
-            <Button 
+            <Button
               disabled={saving || (Object.keys(pendingChanges).length === 0 && pendingRefreshInterval === null && pendingAutoRefresh === null)}
               onClick={discardChanges}
-              variant="ghost" 
+              variant="ghost"
               className="flex-1 md:flex-none rounded-xl text-[11px] md:text-xs font-bold h-10 md:h-11 px-6 hover:bg-muted/50 transition-colors uppercase tracking-widest"
             >
               {t('settings.actions.discard')}
             </Button>
-            <Button 
+            <Button
               disabled={saving || (Object.keys(pendingChanges).length === 0 && pendingRefreshInterval === null && pendingAutoRefresh === null)}
               onClick={applyChanges}
               className="flex-[2] md:flex-none rounded-xl text-[11px] md:text-xs font-bold h-10 md:h-11 px-8 shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest"

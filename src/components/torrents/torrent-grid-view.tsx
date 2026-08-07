@@ -1,6 +1,6 @@
 "use client"
 
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { formatSpeed, formatDuration, getStatusLabel, formatSizeParts, splitSpeed } from "@/lib/formatters"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
+import { getTorrentProgressColor } from "@/lib/torrent-progress"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 
 interface TorrentGridViewProps {
@@ -30,18 +31,20 @@ export function TorrentGridView({
   onSingleAction,
   onAdvancedSuccess,
 }: TorrentGridViewProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const location = useLocation()
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {paginatedTorrents.map((torrent) => (
+      {paginatedTorrents.map((torrent, index) => (
         <Card
           key={torrent.id}
-          className="group relative shadow-md border-none overflow-hidden hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300 bg-sidebar/30 flex flex-col py-0"
+          className="group relative shadow-md border-none overflow-hidden hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300 bg-sidebar/30 flex flex-col py-0 animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
+          style={{ animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" }}
         >
           <CardHeader className="pb-3 pt-4 border-b border-muted/50 bg-background/50">
             <div className="min-w-0 space-y-1">
-              <Link to={`/torrents/detail?id=${torrent.id}`} className="block group-hover:text-primary transition-colors">
+              <Link to={`/torrents/detail?id=${torrent.id}`} state={{ fromListPath: location.pathname }} className="block group-hover:text-primary transition-colors">
                 <CardTitle className="text-heading-3 truncate pr-2 cursor-pointer leading-tight" title={torrent.name}>
                   {torrent.name}
                 </CardTitle>
@@ -86,10 +89,17 @@ export function TorrentGridView({
                 <span>{t('common.progress')}</span>
                 <span className="text-primary">{(torrent.percentDone * 100).toFixed(1)}%</span>
               </div>
-              <div className="w-full bg-muted/50 rounded-full h-2.5 overflow-hidden">
+              <div
+                role="progressbar"
+                aria-label={t("common.progress")}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(torrent.percentDone * 100)}
+                className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
+              >
                 <div
-                  className="bg-primary h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(var(--primary),0.4)]"
-                  style={{ width: `${torrent.percentDone * 100}%` }}
+                  className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", getTorrentProgressColor(torrent))}
+                  style={{ transform: `scaleX(${Math.min(Math.max(torrent.percentDone, 0), 1)})` }}
                 ></div>
               </div>
             </div>
@@ -132,7 +142,7 @@ export function TorrentGridView({
           <CardFooter className="bg-muted/10 px-4 py-3 border-t border-muted/50 flex justify-between items-center mt-auto">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span className="text-label lowercase">{formatDuration(torrent.eta)}</span>
+              <span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span>
             </div>
             <div className="flex gap-2">
               {torrent.status !== 0 ? (

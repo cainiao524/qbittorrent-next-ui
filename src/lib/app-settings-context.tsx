@@ -10,6 +10,7 @@ interface AppSettings {
   autoRefresh: boolean
   sidebarItems: SidebarItemId[]
   showSpeedChart: boolean
+  animateTorrentSorting: boolean
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -17,15 +18,41 @@ interface AppSettingsContextType extends AppSettings {
   setAutoRefresh: (enabled: boolean) => void
   setSidebarItems: (items: SidebarItemId[]) => void
   setShowSpeedChart: (enabled: boolean) => void
+  setAnimateTorrentSorting: (enabled: boolean) => void
 }
 
 const AppSettingsContext = React.createContext<AppSettingsContextType | undefined>(undefined)
 
+function readStoredNumber(key: string, fallback: number) {
+  const value = localStorage.getItem(key)
+  if (!value) return fallback
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) || parsed < 500 ? fallback : parsed
+}
+
+function readStoredBoolean(key: string, fallback: boolean) {
+  const value = localStorage.getItem(key)
+  return value === null ? fallback : value === "true"
+}
+
+function readStoredSidebarItems() {
+  const value = localStorage.getItem("app_sidebar_items")
+  if (!value) return DEFAULT_SIDEBAR_ITEMS
+
+  try {
+    const parsed = JSON.parse(value) as SidebarItemId[]
+    return Array.isArray(parsed) ? parsed : DEFAULT_SIDEBAR_ITEMS
+  } catch {
+    return DEFAULT_SIDEBAR_ITEMS
+  }
+}
+
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [refreshInterval, setRefreshIntervalState] = React.useState<number>(3000)
-  const [autoRefresh, setAutoRefreshState] = React.useState<boolean>(true)
-  const [sidebarItems, setSidebarItemsState] = React.useState<SidebarItemId[]>(DEFAULT_SIDEBAR_ITEMS)
-  const [showSpeedChart, setShowSpeedChartState] = React.useState(true)
+  const [refreshInterval, setRefreshIntervalState] = React.useState(() => readStoredNumber("app_refresh_interval", 3000))
+  const [autoRefresh, setAutoRefreshState] = React.useState(() => readStoredBoolean("app_auto_refresh", true))
+  const [sidebarItems, setSidebarItemsState] = React.useState(readStoredSidebarItems)
+  const [showSpeedChart, setShowSpeedChartState] = React.useState(() => readStoredBoolean("app_show_speed_chart", true))
+  const [animateTorrentSorting, setAnimateTorrentSortingState] = React.useState(() => readStoredBoolean("app_animate_torrent_sorting", true))
 
   // Load from localStorage on mount
   React.useEffect(() => {
@@ -48,6 +75,8 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     }
     const savedChart = localStorage.getItem("app_show_speed_chart")
     if (savedChart !== null) setShowSpeedChartState(savedChart === "true")
+    const savedSortAnimation = localStorage.getItem("app_animate_torrent_sorting")
+    if (savedSortAnimation !== null) setAnimateTorrentSortingState(savedSortAnimation === "true")
   }, [])
 
   const setRefreshInterval = (val: number) => {
@@ -71,8 +100,13 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     localStorage.setItem("app_show_speed_chart", String(enabled))
   }
 
+  const setAnimateTorrentSorting = (enabled: boolean) => {
+    setAnimateTorrentSortingState(enabled)
+    localStorage.setItem("app_animate_torrent_sorting", String(enabled))
+  }
+
   return (
-    <AppSettingsContext.Provider value={{ refreshInterval, setRefreshInterval, autoRefresh, setAutoRefresh, sidebarItems, setSidebarItems, showSpeedChart, setShowSpeedChart }}>
+    <AppSettingsContext.Provider value={{ refreshInterval, setRefreshInterval, autoRefresh, setAutoRefresh, sidebarItems, setSidebarItems, showSpeedChart, setShowSpeedChart, animateTorrentSorting, setAnimateTorrentSorting }}>
       {children}
     </AppSettingsContext.Provider>
   )

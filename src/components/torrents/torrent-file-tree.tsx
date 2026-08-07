@@ -71,10 +71,12 @@ const MOBILE_ROW_HEIGHT = 49;
 function CircularProgress({
   progress,
   priority,
+  progressStrokeClassName,
   size = 26,
 }: {
   progress: number;
   priority: TorrentFilePriority | null;
+  progressStrokeClassName: string;
   size?: number;
 }) {
   const strokeWidth = 3;
@@ -111,7 +113,7 @@ function CircularProgress({
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           className={
-            priority === 0 ? "stroke-muted-foreground/40" : "stroke-primary"
+            priority === 0 ? "stroke-muted-foreground/40" : progressStrokeClassName
           }
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -141,6 +143,8 @@ interface FileRowProps {
   progress: number;
   isUpdating: boolean;
   selected: boolean | "indeterminate";
+  progressColorClassName: string;
+  progressStrokeClassName: string;
   onToggleFolder: (key: string) => void;
   onToggleSelection: (node: TorrentFileTreeNode) => void;
 }
@@ -170,6 +174,8 @@ const DesktopFileRow = memo(function DesktopFileRow({
   progress,
   isUpdating,
   selected,
+  progressColorClassName,
+  progressStrokeClassName,
   onToggleFolder,
   onToggleSelection,
   onPriorityChange,
@@ -230,13 +236,13 @@ const DesktopFileRow = memo(function DesktopFileRow({
         {formatSize(node.length)}
       </div>
       <div className="flex items-center gap-3 pr-6">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10">
           <div
             className={cn(
-              "h-full rounded-full",
-              node.priority === 0 ? "bg-muted-foreground/35" : "bg-primary",
+              "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out",
+              node.priority === 0 ? "bg-muted-foreground/35" : progressColorClassName,
             )}
-            style={{ width: `${progress}%` }}
+            style={{ transform: `scaleX(${Math.min(Math.max(progress / 100, 0), 1)})` }}
           />
         </div>
         <span className="w-12 text-right text-[11px] font-medium tabular-nums">
@@ -320,6 +326,7 @@ const DesktopFileRow = memo(function DesktopFileRow({
               isExpanded={isExpanded}
               progress={progress}
               isUpdating={isUpdating}
+              progressStrokeClassName={progressStrokeClassName}
               onToggleFolder={onToggleFolder}
               onPriorityChange={onPriorityChange}
               onClose={noop}
@@ -338,6 +345,7 @@ const MobileFileRow = memo(function MobileFileRow({
   progress,
   isUpdating,
   selected,
+  progressStrokeClassName,
   onToggleFolder,
   onToggleSelection,
   onOpenDetails,
@@ -411,7 +419,7 @@ const MobileFileRow = memo(function MobileFileRow({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <CircularProgress progress={progress} priority={node.priority} />
+        <CircularProgress progress={progress} priority={node.priority} progressStrokeClassName={progressStrokeClassName} />
         <Button
           type="button"
           variant="ghost"
@@ -436,6 +444,7 @@ interface FileDetailPanelProps {
   isExpanded: boolean;
   progress: number;
   isUpdating: boolean;
+  progressStrokeClassName: string;
   onToggleFolder: (key: string) => void;
   onPriorityChange: (fileIds: number[], priority: TorrentFilePriority) => void;
   onClose: () => void;
@@ -446,6 +455,7 @@ const FileDetailPanel = memo(function FileDetailPanel({
   isExpanded,
   progress,
   isUpdating,
+  progressStrokeClassName,
   onToggleFolder,
   onPriorityChange,
   onClose,
@@ -476,6 +486,7 @@ const FileDetailPanel = memo(function FileDetailPanel({
             size={64}
             progress={progress}
             priority={node.priority}
+            progressStrokeClassName={progressStrokeClassName}
           />
           <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
@@ -551,6 +562,8 @@ const FileDetailPanel = memo(function FileDetailPanel({
 interface TorrentFileTreeProps {
   files: TorrentFile[];
   updatingFileIds: ReadonlySet<number>;
+  progressColorClassName?: string;
+  progressStrokeClassName?: string;
   onPriorityChange: (fileIds: number[], priority: TorrentFilePriority) => void;
 }
 
@@ -610,6 +623,8 @@ function SortHeader({
 export function TorrentFileTree({
   files,
   updatingFileIds,
+  progressColorClassName = "bg-sky-500/70 dark:bg-sky-400/70",
+  progressStrokeClassName = "stroke-sky-500/70 dark:stroke-sky-400/70",
   onPriorityChange,
 }: TorrentFileTreeProps) {
   const { t } = useI18n();
@@ -1085,6 +1100,8 @@ export function TorrentFileTree({
                       progress={progress}
                       isUpdating={isUpdating}
                       selected={nodeSelection(node)}
+                      progressColorClassName={progressColorClassName}
+                      progressStrokeClassName={progressStrokeClassName}
                       onToggleFolder={toggleFolder}
                       onToggleSelection={toggleNodeSelection}
                       onPriorityChange={handlePriorityChange}
@@ -1130,6 +1147,8 @@ export function TorrentFileTree({
                     progress={progress}
                     isUpdating={isUpdating}
                     selected={nodeSelection(node)}
+                    progressColorClassName={progressColorClassName}
+                    progressStrokeClassName={progressStrokeClassName}
                     onToggleFolder={toggleFolder}
                     onToggleSelection={toggleNodeSelection}
                     onOpenDetails={openDetails}
@@ -1169,6 +1188,7 @@ export function TorrentFileTree({
                     isExpanded={isExpanded}
                     progress={progress}
                     isUpdating={isUpdating}
+                    progressStrokeClassName={progressStrokeClassName}
                     onToggleFolder={toggleFolder}
                     onPriorityChange={handlePriorityChange}
                     onClose={closeDetails}

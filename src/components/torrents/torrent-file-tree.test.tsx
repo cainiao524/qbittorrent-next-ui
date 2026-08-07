@@ -23,7 +23,7 @@ function renderTree(onPriorityChange: (fileIds: number[], priority: TorrentFileP
 
 describe("TorrentFileTree", () => {
   beforeAll(() => {
-    localStorage.removeItem("qbittorrent-next-locale")
+    localStorage.setItem("qbittorrent-next-locale", "zh")
     ;(window as unknown as { getBoundingClientRect: () => DOMRect }).getBoundingClientRect = () => ({
       top: 0,
       bottom: 768,
@@ -38,7 +38,7 @@ describe("TorrentFileTree", () => {
   })
 
   beforeEach(() => {
-    localStorage.removeItem("qbittorrent-next-locale")
+    localStorage.setItem("qbittorrent-next-locale", "zh")
   })
 
   test("勾选文件夹后可通过底部菜单批量设置其下文件优先级", async () => {

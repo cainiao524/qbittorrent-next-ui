@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { LocationInput } from "@/components/location-input"
 import { rpc } from "@/lib/rpc-client"
+import { useI18n } from "@/lib/i18n-context"
 import type { TorrentAddArgs } from "@/lib/rpc-types"
 import { cn } from "@/lib/utils"
 
@@ -41,6 +42,7 @@ function Toggle({ checked, onChange, label, description }: { checked: boolean; o
 }
 
 export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, onOpenChange, initialFiles }: AddTorrentDialogProps) {
+  const { t } = useI18n()
   const [internalOpen, setInternalOpen] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
   const [magnetLink, setMagnetLink] = React.useState("")
@@ -97,7 +99,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
   const addFiles = (input: File[]) => {
     const torrentFiles = input.filter((file) => file.name.toLowerCase().endsWith(".torrent"))
-    if (torrentFiles.length !== input.length) toast.info("已忽略非 .torrent 文件")
+    if (torrentFiles.length !== input.length) toast.info(t("add_dialog.ignored_files"))
     setFiles((current) => [...current, ...torrentFiles])
   }
 
@@ -133,16 +135,16 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
   })
 
   const handleSubmit = async () => {
-    if (!itemCount) return toast.error("请选择种子文件或输入磁力链接")
+    if (!itemCount) return toast.error(t("add_dialog.missing_input"))
     setIsAdding(true)
     try {
       for (const link of links) await rpc.addTorrent({ ...commonArgs(), filename: link })
       for (const file of files) await rpc.addTorrent({ ...commonArgs(), metainfo: await toBase64(file) })
-      toast.success(`已提交 ${itemCount} 个下载任务`)
+      toast.success(t("add_dialog.submitted", { count: itemCount }))
       setOpen(false)
       onSuccess?.()
     } catch (error) {
-      toast.error("添加任务失败", { description: error instanceof Error ? error.message : undefined })
+      toast.error(t("add_dialog.failed"), { description: error instanceof Error ? error.message : undefined })
     } finally {
       setIsAdding(false)
     }
@@ -153,8 +155,8 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col gap-5 overflow-hidden border-none bg-background/95 p-6 shadow-2xl backdrop-blur-xl sm:max-w-3xl">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="text-2xl">添加种子</DialogTitle>
-          <DialogDescription>支持多个种子文件和多个磁力链接，所有选项会应用到本次提交的任务。</DialogDescription>
+          <DialogTitle className="text-2xl">{t("add_dialog.title")}</DialogTitle>
+          <DialogDescription>{t("add_dialog.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-1">
@@ -167,7 +169,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
             className={cn("flex cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-5 transition-colors", isDragging ? "border-green-500 bg-green-500/10" : "border-muted-foreground/20 hover:border-green-500/50")}
           >
             <FileUp className="h-6 w-6 text-green-500" />
-            <div><p className="text-sm font-medium">拖放或选择 .torrent 文件</p><p className="text-xs text-muted-foreground">支持一次选择多个文件</p></div>
+            <div><p className="text-sm font-medium">{t("add_dialog.drop_title")}</p><p className="text-xs text-muted-foreground">{t("add_dialog.drop_desc")}</p></div>
           </div>
           {files.length > 0 && <div className="grid gap-2 sm:grid-cols-2">{files.map((file, index) => (
             <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 p-2.5">
@@ -177,59 +179,59 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
           ))}</div>}
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium"><Link className="h-4 w-4" />磁力链接或种子网址</label>
+            <label className="flex items-center gap-2 text-sm font-medium"><Link className="h-4 w-4" />{t("add_dialog.link_label")}</label>
             <div className="relative">
-              <Textarea value={magnetLink} onChange={(event) => setMagnetLink(event.target.value)} placeholder="每行输入一个链接" className="min-h-24 pr-12 font-mono text-xs" />
+              <Textarea value={magnetLink} onChange={(event) => setMagnetLink(event.target.value)} placeholder={t("add_dialog.link_placeholder")} className="min-h-24 pr-12 font-mono text-xs" />
               <Button variant="ghost" size="icon" className="absolute bottom-2 right-2" onClick={() => void navigator.clipboard.readText().then((text) => setMagnetLink((current) => current ? `${current}\n${text}` : text))}><Clipboard className="h-4 w-4" /></Button>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2"><label className="flex items-center gap-2 text-sm font-medium"><FolderOpen className="h-4 w-4" />完成保存路径</label><LocationInput value={location} onChange={setLocation} /></div>
-            <div className="space-y-2"><label className="text-sm font-medium">分类</label><Input list="torrent-category-list" value={category} onChange={(event) => setCategory(event.target.value)} placeholder="可选择或输入分类" /><datalist id="torrent-category-list">{availableCategories.map((item) => <option key={item} value={item} />)}</datalist></div>
-            <div className="space-y-2"><label className="text-sm font-medium">标签</label><Input value={tags.join(", ")} onChange={(event) => setTags(event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} placeholder="多个标签用逗号分隔" /></div>
+            <div className="space-y-2 sm:col-span-2"><label className="flex items-center gap-2 text-sm font-medium"><FolderOpen className="h-4 w-4" />{t("add_dialog.save_path")}</label><LocationInput value={location} onChange={setLocation} /></div>
+            <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.category")}</label><Input list="torrent-category-list" value={category} onChange={(event) => setCategory(event.target.value)} placeholder={t("add_dialog.category_placeholder")} /><datalist id="torrent-category-list">{availableCategories.map((item) => <option key={item} value={item} />)}</datalist></div>
+            <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.tags")}</label><Input value={tags.join(", ")} onChange={(event) => setTags(event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} placeholder={t("add_dialog.tags_placeholder")} /></div>
           </div>
           {availableTags.length > 0 && <div className="flex flex-wrap gap-2">{availableTags.map((tag) => <Button key={tag} type="button" size="sm" variant={tags.includes(tag) ? "default" : "outline"} className="h-7 rounded-full text-xs" onClick={() => setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])}>{tag}</Button>)}</div>}
 
           <details className="group rounded-2xl border border-border/60 bg-muted/10 p-4">
-            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />高级添加选项<span className="ml-auto text-xs text-muted-foreground group-open:hidden">点击展开</span></summary>
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />{t("add_dialog.advanced")}<span className="ml-auto text-xs text-muted-foreground group-open:hidden">{t("add_dialog.expand")}</span></summary>
             <div className="mt-5 space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Toggle checked={autoTMM} onChange={setAutoTMM} label="自动种子管理" description="路径可能由分类规则接管" />
-                <Toggle checked={addToTop} onChange={setAddToTop} label="添加到队列顶部" />
-                <Toggle checked={skipChecking} onChange={setSkipChecking} label="跳过哈希检查" />
-                <Toggle checked={sequential} onChange={setSequential} label="顺序下载" />
-                <Toggle checked={firstLast} onChange={setFirstLast} label="优先下载首尾区块" />
-                <Toggle checked={forced} onChange={setForced} label="强制启动" description={!startImmediately ? "需同时开启立即开始" : undefined} />
+                <Toggle checked={autoTMM} onChange={setAutoTMM} label={t("add_dialog.auto_management")} description={t("add_dialog.auto_management_desc")} />
+                <Toggle checked={addToTop} onChange={setAddToTop} label={t("add_dialog.queue_top")} />
+                <Toggle checked={skipChecking} onChange={setSkipChecking} label={t("add_dialog.skip_checking")} />
+                <Toggle checked={sequential} onChange={setSequential} label={t("add_dialog.sequential")} />
+                <Toggle checked={firstLast} onChange={setFirstLast} label={t("add_dialog.first_last")} />
+                <Toggle checked={forced} onChange={setForced} label={t("add_dialog.force_start")} description={!startImmediately ? t("add_dialog.force_requires_start") : undefined} />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2"><label className="text-sm font-medium">内容布局</label><select value={contentLayout} onChange={(event) => setContentLayout(event.target.value as TorrentAddArgs["contentLayout"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Original">原始布局</option><option value="Subfolder">创建子文件夹</option><option value="NoSubfolder">不创建子文件夹</option></select></div>
-                <div className="space-y-2"><label className="text-sm font-medium">重命名任务</label><Input value={rename} onChange={(event) => setRename(event.target.value)} disabled={itemCount > 1} placeholder={itemCount > 1 ? "批量添加时不可用" : "留空保留原名称"} /></div>
-                <div className="space-y-2 sm:col-span-2"><Toggle checked={useDownloadPath} onChange={setUseDownloadPath} label="使用临时下载目录" description="下载完成后移动到完成保存路径" />{useDownloadPath && <LocationInput value={downloadPath} onChange={setDownloadPath} disabled={autoTMM} placeholder={autoTMM ? "自动种子管理会接管此路径" : "未完成文件路径"} />}</div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.content_layout")}</label><select value={contentLayout} onChange={(event) => setContentLayout(event.target.value as TorrentAddArgs["contentLayout"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Original">{t("add_dialog.layout_original")}</option><option value="Subfolder">{t("add_dialog.layout_subfolder")}</option><option value="NoSubfolder">{t("add_dialog.layout_no_subfolder")}</option></select></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.rename")}</label><Input value={rename} onChange={(event) => setRename(event.target.value)} disabled={itemCount > 1} placeholder={itemCount > 1 ? t("add_dialog.rename_batch_disabled") : t("add_dialog.rename_placeholder")} /></div>
+                <div className="space-y-2 sm:col-span-2"><Toggle checked={useDownloadPath} onChange={setUseDownloadPath} label={t("add_dialog.temporary_path")} description={t("add_dialog.temporary_path_desc")} />{useDownloadPath && <LocationInput value={downloadPath} onChange={setDownloadPath} disabled={autoTMM} placeholder={autoTMM ? t("add_dialog.auto_path_placeholder") : t("add_dialog.incomplete_path")} />}</div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-2"><label className="text-sm font-medium">下载限速（KiB/s）</label><Input type="number" min="0" value={dlLimit} onChange={(event) => setDlLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">上传限速（KiB/s）</label><Input type="number" min="0" value={upLimit} onChange={(event) => setUpLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">分享率限制</label><Input type="number" min="0" step="0.1" value={ratioLimit} onChange={(event) => setRatioLimit(event.target.value)} placeholder="留空使用全局设置" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">做种时间限制（分钟）</label><Input type="number" min="0" value={seedingTime} onChange={(event) => setSeedingTime(event.target.value)} placeholder="留空使用全局设置" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">非活跃做种限制（分钟）</label><Input type="number" min="0" value={inactiveTime} onChange={(event) => setInactiveTime(event.target.value)} placeholder="留空使用全局设置" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">达到分享限制后</label><select value={shareAction} onChange={(event) => setShareAction(event.target.value as TorrentAddArgs["shareLimitAction"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Default">使用全局设置</option><option value="Stop">停止任务</option><option value="Remove">移除任务</option><option value="RemoveWithContent">移除任务和文件</option><option value="EnableSuperSeeding">启用超级做种</option></select></div>
-                <div className="space-y-2"><label className="text-sm font-medium">停止条件</label><select value={stopCondition} onChange={(event) => setStopCondition(event.target.value as TorrentAddArgs["stopCondition"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="None">无</option><option value="MetadataReceived">收到元数据</option><option value="FilesChecked">文件检查完成</option></select></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.download_limit")}</label><Input type="number" min="0" value={dlLimit} onChange={(event) => setDlLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.upload_limit")}</label><Input type="number" min="0" value={upLimit} onChange={(event) => setUpLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.ratio_limit")}</label><Input type="number" min="0" step="0.1" value={ratioLimit} onChange={(event) => setRatioLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.seeding_time")}</label><Input type="number" min="0" value={seedingTime} onChange={(event) => setSeedingTime(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.inactive_time")}</label><Input type="number" min="0" value={inactiveTime} onChange={(event) => setInactiveTime(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.share_action")}</label><select value={shareAction} onChange={(event) => setShareAction(event.target.value as TorrentAddArgs["shareLimitAction"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Default">{t("add_dialog.global_setting")}</option><option value="Stop">{t("add_dialog.stop_task")}</option><option value="Remove">{t("add_dialog.remove_task")}</option><option value="RemoveWithContent">{t("add_dialog.remove_with_files")}</option><option value="EnableSuperSeeding">{t("add_dialog.enable_super_seeding")}</option></select></div>
+                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.stop_condition")}</label><select value={stopCondition} onChange={(event) => setStopCondition(event.target.value as TorrentAddArgs["stopCondition"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="None">{t("add_dialog.none")}</option><option value="MetadataReceived">{t("add_dialog.metadata_received")}</option><option value="FilesChecked">{t("add_dialog.files_checked")}</option></select></div>
               </div>
 
               <details className="rounded-xl border border-border/50 p-3">
-                <summary className="cursor-pointer text-sm font-medium">SSL 种子参数</summary>
-                <div className="mt-3 grid gap-3"><Textarea value={sslCertificate} onChange={(event) => setSslCertificate(event.target.value)} placeholder="SSL 证书（PEM）" /><Textarea value={sslPrivateKey} onChange={(event) => setSslPrivateKey(event.target.value)} placeholder="SSL 私钥（PEM）" /><Textarea value={sslDhParams} onChange={(event) => setSslDhParams(event.target.value)} placeholder="DH 参数（PEM，可选）" /></div>
+                <summary className="cursor-pointer text-sm font-medium">{t("add_dialog.ssl_parameters")}</summary>
+                <div className="mt-3 grid gap-3"><Textarea value={sslCertificate} onChange={(event) => setSslCertificate(event.target.value)} placeholder={t("add_dialog.ssl_certificate")} /><Textarea value={sslPrivateKey} onChange={(event) => setSslPrivateKey(event.target.value)} placeholder={t("add_dialog.ssl_private_key")} /><Textarea value={sslDhParams} onChange={(event) => setSslDhParams(event.target.value)} placeholder={t("add_dialog.ssl_dh_parameters")} /></div>
               </details>
             </div>
           </details>
         </div>
 
         <DialogFooter className="shrink-0 border-t pt-4 sm:justify-between">
-          <Toggle checked={startImmediately} onChange={setStartImmediately} label="立即开始" />
-          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>取消</Button><Button disabled={isAdding || !itemCount} onClick={() => void handleSubmit()}>{isAdding ? "正在添加…" : <><Plus className="mr-2 h-4 w-4" />添加 {itemCount || ""} 个任务</>}</Button></div>
+          <Toggle checked={startImmediately} onChange={setStartImmediately} label={t("add_dialog.start_immediately")} />
+          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>{t("add_dialog.cancel")}</Button><Button disabled={isAdding || !itemCount} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

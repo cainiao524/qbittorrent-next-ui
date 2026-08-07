@@ -182,7 +182,7 @@ export function BatchEditLabelsDialog({ open, onOpenChange, onSuccess }: BatchEd
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-4 px-2">
                 <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">OLD LABEL</span>
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">{t("common.old_label")}</span>
                   <div className="w-full bg-muted/50 p-3 rounded-2xl border border-muted/50 text-center">
                     <span className="text-xs font-medium break-all line-clamp-2 leading-relaxed" title={oldLabel}>{oldLabel}</span>
                   </div>
@@ -193,7 +193,7 @@ export function BatchEditLabelsDialog({ open, onOpenChange, onSuccess }: BatchEd
                 </div>
 
                 <div className="flex flex-col items-center gap-2 min-w-0 w-full sm:flex-1">
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">NEW LABEL</span>
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-primary/40">{t("common.new_label")}</span>
                   <div className="w-full bg-primary/5 p-3 rounded-2xl border border-primary/20 text-center">
                     <span className="text-xs font-medium text-primary break-all line-clamp-2 leading-relaxed" title={newLabel}>{newLabel}</span>
                   </div>
