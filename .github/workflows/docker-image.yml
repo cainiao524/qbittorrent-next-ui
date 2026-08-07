@@ -1,127 +1,127 @@
-name: Build and publish Docker images
-
-on:
-  workflow_dispatch:
-  push:
-    tags: ["v*", "V*", "beta*"]
-
-permissions:
-  contents: write
-  packages: write
-
-concurrency:
-  group: docker-image
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Resolve version tag
-        id: version
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          CLEAN_TAG=$(printf '%s' "$TAG" | sed 's/⑨/9/g' | tr -c 'a-zA-Z0-9_.-' '-')
-          echo "clean-tag=${CLEAN_TAG}" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Login Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            lowsabishi/qbittorrent-next-ui:latest
-            lowsabishi/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
-      - name: Login GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push GHCR
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/cainiao524/qbittorrent-next-ui:latest
-            ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
-  export:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Resolve version tag
-        id: version
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          CLEAN_TAG=$(printf '%s' "$TAG" | sed 's/⑨/9/g' | tr -c 'a-zA-Z0-9_.-' '-')
-          echo "clean-tag=${CLEAN_TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Login GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull amd64 image
-        run: docker pull --platform linux/amd64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
-      - name: Save amd64 image
-        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
-
-      - name: Pull arm64 image
-        run: docker pull --platform linux/arm64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
-      - name: Save arm64 image
-        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
-
+name: Build and publish Docker images
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*", "V*", "beta*"]
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: docker-image
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve version tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          CLEAN_TAG=$(printf '%s' "$TAG" | sed 's/⑨/9/g' | tr -c 'a-zA-Z0-9_.-' '-')
+          echo "clean-tag=${CLEAN_TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            lowsabishi/qbittorrent-next-ui:latest
+            lowsabishi/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/cainiao524/qbittorrent-next-ui:latest
+            ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
+
+  export:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve version tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          CLEAN_TAG=$(printf '%s' "$TAG" | sed 's/⑨/9/g' | tr -c 'a-zA-Z0-9_.-' '-')
+          echo "clean-tag=${CLEAN_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull amd64 image
+        run: docker pull --platform linux/amd64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
+
+      - name: Save amd64 image
+        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+
+      - name: Pull arm64 image
+        run: docker pull --platform linux/arm64 ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
+
+      - name: Save arm64 image
+        run: docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build multiarch OCI archive
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          outputs: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
-
-      - name: Compress multiarch archive
-        run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
-
-      - name: Upload docker images to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
-            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
-            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar.gz
+      - name: Build multiarch OCI archive
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          outputs: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+
+      - name: Compress multiarch archive
+        run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+
+      - name: Upload docker images to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar.gz
