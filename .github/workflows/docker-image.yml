@@ -89,14 +89,38 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64
           load: true
-          tags: ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-export
+          tags: ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-amd64
 
-      - name: Save docker image tarball
+      - name: Build image (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-arm64
+
+      - name: Save docker image tarballs
         run: |
-          docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-export | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+          docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-amd64 | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+          docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-arm64 | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
 
-      - name: Upload docker image to Release
+      - name: Build multiarch OCI archive
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          output: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+
+      - name: Compress multiarch archive
+        run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+
+      - name: Upload docker images to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+          files: |
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
+            qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar.gz
