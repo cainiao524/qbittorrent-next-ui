@@ -23,7 +23,7 @@
 docker run -d \
   --name qbittorrent-next-ui \
   -p 8088:80 \
-  -e QBITTORRENT_URL=http://host.docker.internal:8080 \
+  -e QBITTORRENT_URL=http://host.docker.internal:8085 \
   --add-host host.docker.internal:host-gateway \   # Linux / NAS 需要；Docker Desktop 可删除
   --restart unless-stopped \
   lowsabishi/qbittorrent-next-ui:latest
@@ -44,13 +44,13 @@ services:
     ports:
       - "8088:80"
     environment:
-      - QBITTORRENT_URL=http://host.docker.internal:8080
+      - QBITTORRENT_URL=http://host.docker.internal:8085
     restart: unless-stopped
 ```
 
 镜像内置 WebUI、Nginx 与 API 代理配置，无需手动配置，开箱即用，无需挂载或管理 `webui` 文件。浏览器访问 `http://<主机>:8088`，登录你的 qBittorrent 账号即可使用。如需修改 WebUI 文件进行调试或自定义，请使用发行版 + Nginx 独立部署（见 GitHub README 安装方式二）。
 
-> `QBITTORRENT_URL` 是 qBittorrent WebUI 的地址。默认值 `http://host.docker.internal:8080` 适用于 Docker Desktop；Linux / 群晖等 NAS 需在 compose 中添加 `extra_hosts: ["host.docker.internal:host-gateway"]`（docker run 加 `--add-host host.docker.internal:host-gateway`）。也可以直接填写宿主机 IP，例如 `http://192.168.1.100:8080`。
+> `QBITTORRENT_URL` 是 qBittorrent WebUI 的地址。默认值 `http://host.docker.internal:8085` 适用于 Docker Desktop；Linux / 群晖等 NAS 需在 compose 中添加 `extra_hosts: ["host.docker.internal:host-gateway"]`（docker run 加 `--add-host host.docker.internal:host-gateway`）。也可以直接填写宿主机 IP，例如 `http://192.168.1.100:8085`。
 
 ## WebUI 目录挂载与实时更新机制
 

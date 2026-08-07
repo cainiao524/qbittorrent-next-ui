@@ -142,7 +142,7 @@ docker compose up -d
 
 ```yaml
 environment:
-  QBITTORRENT_URL: http://qbittorrent:8080
+  QBITTORRENT_URL: http://qbittorrent:8085
 ```
 
 需要锁定当前版本时，将镜像改为：
@@ -282,7 +282,7 @@ server {
     client_max_body_size 100M;
 
     location /api/ {
-        proxy_pass http://qbittorrent:8080;
+        proxy_pass http://qbittorrent:8085;
         proxy_http_version 1.1;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -296,7 +296,7 @@ server {
 }
 ```
 
-这里的 `qbittorrent` 是 qBittorrent 容器名，`8080` 是容器内部 WebUI 端口。如果你的容器名称或内部端口不同，请同步修改 `proxy_pass`。
+这里的 `qbittorrent` 是 qBittorrent 容器名，`8085` 是容器内部 WebUI 端口。如果你的容器名称或内部端口不同，请同步修改 `proxy_pass`。
 
 > `proxy_pass` 不要附加 `/api/` 或 `/api/v2/`。当前写法会原样保留请求路径，例如 `/api/v2/auth/login` 会被正确转发到 qBittorrent。
 
@@ -312,13 +312,13 @@ server {
 然后把 nginx 配置改成宿主机地址：
 
 ```nginx
-proxy_pass http://host.docker.internal:8080;
+proxy_pass http://host.docker.internal:8085;
 ```
 
 qBittorrent 位于另一台设备时，直接使用它的局域网地址，例如：
 
 ```nginx
-proxy_pass http://192.0.2.20:8080;
+proxy_pass http://192.0.2.20:8085;
 ```
 
 `192.0.2.20` 是保留的文档示例地址，请替换成 qBittorrent 设备的真实局域网地址。请确保 qBittorrent WebUI 监听地址允许 nginx 所在设备访问，并且防火墙已放行对应端口。
@@ -477,7 +477,7 @@ dist/
 docker compose up -d
 ```
 
-仓库中的 Compose 配置会把本地 `dist/` 只读挂载到 qBittorrent 容器内的 `/webui`。首次启动后访问 `http://服务器地址:8080`，并在原生界面中把备用网页界面路径设置为 `/webui`。LinuxServer.io 镜像的临时管理员密码可通过以下命令查看：
+仓库中的 Compose 配置会把本地 `dist/` 只读挂载到 qBittorrent 容器内的 `/webui`。首次启动后访问 `http://服务器地址:8085`，并在原生界面中把备用网页界面路径设置为 `/webui`。LinuxServer.io 镜像的临时管理员密码可通过以下命令查看：
 
 ```bash
 docker compose logs qbittorrent
