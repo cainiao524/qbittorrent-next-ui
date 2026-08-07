@@ -175,6 +175,34 @@ docker run -d \
 镜像内置 WebUI，开箱即用。浏览器访问 `http://服务器地址:8088`，使用 qBittorrent WebUI 的账户登录。
 
 
+
+#### WebUI 目录挂载与实时更新机制
+
+镜像默认内置 WebUI。如果你在 compose 中主动挂载 `./webui:/usr/share/nginx/html`，Nginx 会实时读取宿主机目录，替换文件后刷新即可生效，无需重建容器。该机制便于在 NAS 上直接解压发行版、随时切换或调试版本。
+主动挂载的 Compose 写法：
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux / NAS 需要；Docker Desktop 可删除
+    environment:
+      QBITTORRENT_URL: http://host.docker.internal:8085
+    ports:
+      - "8088:80"
+    volumes:
+      - ./webui:/usr/share/nginx/html
+    restart: unless-stopped
+```
+
+需要注意：
+
+- 挂载目录会覆盖镜像内置页面，镜像升级后不会自动同步，需要手动更新 `webui` 目录中的文件。
+- `assets` 静态文件带一年缓存头，切换版本后请强制刷新浏览器（Ctrl+F5）。
+- 希望页面自动跟随镜像更新时，请在 compose 中移除 `volumes` 挂载，使用镜像内置 WebUI。
+
 ### 安装方式二：发行版 + Nginx 独立部署
 
 这是原来的推荐安装方式，现调整为次要方式。它由通用 Nginx 容器提供发行版静态文件，并把同源 `/api/v2/` 请求转发给 qBittorrent。适合希望自行管理 Nginx 配置和 WebUI 文件的用户。

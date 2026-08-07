@@ -52,6 +52,33 @@ services:
 
 > `QBITTORRENT_URL` 是 qBittorrent WebUI 的地址。默认值 `http://host.docker.internal:8080` 适用于 Docker Desktop；Linux / 群晖等 NAS 需在 compose 中添加 `extra_hosts: ["host.docker.internal:host-gateway"]`（docker run 加 `--add-host host.docker.internal:host-gateway`）。也可以直接填写宿主机 IP，例如 `http://192.168.1.100:8080`。
 
+## WebUI 目录挂载与实时更新机制
+
+镜像默认内置 WebUI，开箱即用，无需挂载 `webui` 目录。如果你在 compose 中主动添加 `volumes: - ./webui:/usr/share/nginx/html`，则 Nginx 会实时读取宿主机 `webui` 目录中的文件：替换或解压新版本文件后，刷新浏览器即可立即生效，无需重建容器。
+主动挂载的 Compose 写法：
+
+```yaml
+services:
+  qbittorrent-next-ui:
+    image: lowsabishi/qbittorrent-next-ui:latest
+    container_name: qbittorrent-next-ui
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux / NAS 需要；Docker Desktop 可删除
+    environment:
+      QBITTORRENT_URL: http://host.docker.internal:8085
+    ports:
+      - "8088:80"
+    volumes:
+      - ./webui:/usr/share/nginx/html
+    restart: unless-stopped
+```
+
+需要注意：
+
+- 挂载目录会覆盖镜像内置页面，镜像升级后不会自动同步到挂载目录，需要手动把新版本文件放入 `webui` 目录。
+- `assets` 静态文件带一年缓存头，切换版本后请强制刷新浏览器（Ctrl+F5）。
+- 希望页面自动跟随镜像更新时，请在 compose 中移除 `volumes` 挂载，使用镜像内置 WebUI。
+
 ## 镜像标签
 
 - `latest`：跟随最新稳定版本
