@@ -70,7 +70,7 @@ jobs:
           tags: |
             ghcr.io/cainiao524/qbittorrent-next-ui:latest
             ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
-
+
   export:
     needs: build
     runs-on: ubuntu-latest
@@ -85,37 +85,30 @@ jobs:
           CLEAN_TAG=$(printf '%s' "$TAG" | sed 's/⑨/9/g' | tr -c 'a-zA-Z0-9_.-' '-')
           echo "clean-tag=${CLEAN_TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Build image (amd64)
-        uses: docker/build-push-action@v6
+      - name: Login GHCR
+        uses: docker/login-action@v3
         with:
-          context: .
-          platforms: linux/amd64
-          load: true
-          tags: ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-amd64
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image (arm64)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/arm64
-          load: true
-          tags: ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-arm64
+      - name: Install skopeo
+        run: sudo apt-get update && sudo apt-get install -y skopeo
 
-      - name: Save docker image tarballs
+      - name: Export amd64 image
         run: |
-          docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-amd64 | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
-          docker save ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}-arm64 | gzip > qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
+          skopeo copy --platform linux/amd64 docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar
+          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar
 
-      - name: Build multiarch OCI archive
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          output: type=oci,dest=qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+      - name: Export arm64 image
+        run: |
+          skopeo copy --platform linux/arm64 docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar
+          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar
 
-      - name: Compress multiarch archive
-        run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+      - name: Export multiarch image
+        run: |
+          skopeo copy --all docker://ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }} docker-archive:qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
+          gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
 
       - name: Upload docker images to Release
         uses: softprops/action-gh-release@v2
