@@ -36,13 +36,54 @@ import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
-import { type Torrent, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
+import { type Torrent, type TorrentFile, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
 import { formatSize, formatSpeed, formatDuration, getStatusLabel, formatDate } from "@/lib/formatters"
 import { getTorrentProgressColor, getTorrentProgressStrokeColor } from "@/lib/torrent-progress"
 import { cn } from "@/lib/utils"
 import { formatPeerRegion, peerCountryFlag } from "@/lib/peer-region"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
 import { toast } from "sonner"
+
+const BASE_TORRENT_FIELDS = [
+  "id", "name", "status", "totalSize", "percentDone",
+  "rateDownload", "rateUpload", "eta", "addedDate",
+  "hashString", "downloadDir", "comment", "isPrivate",
+  "creator", "dateCreated", "uploadedEver", "downloadedEver",
+  "uploadRatio", "peersConnected", "peersGettingFromUs",
+  "peersSendingToUs", "labels", "timeElapsed", "seedingTime",
+  "connectionsLimit", "downloadedSession", "uploadedSession",
+  "averageDownloadSpeed", "averageUploadSpeed", "wastedSize",
+  "piecesCount", "pieceSize", "lastSeenComplete",
+  "seedRatioLimit", "seedingTimeLimit", "inactiveSeedingTimeLimit",
+  "shareLimitAction",
+] as const
+
+const TAB_TORRENT_FIELDS: Record<string, readonly string[]> = {
+  files: ["files"],
+  peers: ["peers"],
+  trackers: ["trackers", "trackerStats"],
+}
+
+function mergeTorrentFiles(
+  current: TorrentFile[] | undefined,
+  next: TorrentFile[] | undefined,
+): TorrentFile[] | undefined {
+  if (!next || !current) return next
+  if (current.length !== next.length) return next
+  for (let index = 0; index < next.length; index++) {
+    const left = current[index]
+    const right = next[index]
+    if (
+      left.index !== right.index ||
+      left.name !== right.name ||
+      left.length !== right.length ||
+      left.bytesCompleted !== right.bytesCompleted ||
+      left.priority !== right.priority
+    )
+      return next
+  }
+  return current
+}
 
 function TorrentDetailsContent() {
   const [searchParams] = useSearchParams()
@@ -62,29 +103,32 @@ function TorrentDetailsContent() {
     try {
       const id = idValue
 
-      const torrentsData = await rpc.getTorrents([
-        "id", "name", "status", "totalSize", "percentDone",
-        "rateDownload", "rateUpload", "eta", "addedDate",
-        "hashString", "downloadDir", "comment", "isPrivate",
-        "creator", "dateCreated", "uploadedEver", "downloadedEver",
-        "uploadRatio", "peersConnected", "peersGettingFromUs",
-        "peersSendingToUs", "trackers", "files", "peers", "labels",
-        "trackerStats", "timeElapsed", "seedingTime", "connectionsLimit",
-        "downloadedSession", "uploadedSession", "averageDownloadSpeed",
-        "averageUploadSpeed", "wastedSize", "piecesCount", "pieceSize",
-        "lastSeenComplete", "seedRatioLimit", "seedingTimeLimit",
-        "inactiveSeedingTimeLimit", "shareLimitAction"
-      ], [id])
+      const fields = [
+        ...BASE_TORRENT_FIELDS,
+        ...(TAB_TORRENT_FIELDS[activeTab] ?? []),
+      ] as string[]
+      const torrentsData = await rpc.getTorrents(fields, [id])
 
       if (torrentsData.torrents.length > 0) {
-        setTorrent(torrentsData.torrents[0])
+        const nextTorrent = torrentsData.torrents[0]
+        setTorrent((current) => {
+          if (!current) return nextTorrent
+          const merged: Torrent = { ...nextTorrent }
+          if (nextTorrent.files === undefined) merged.files = current.files
+          if (nextTorrent.peers === undefined) merged.peers = current.peers
+          if (nextTorrent.trackers === undefined) merged.trackers = current.trackers
+          if (nextTorrent.trackerStats === undefined) merged.trackerStats = current.trackerStats
+          if (nextTorrent.files && current.files)
+            merged.files = mergeTorrentFiles(current.files, nextTorrent.files)
+          return merged
+        })
       }
     } catch (err) {
       console.error("Failed to fetch torrent details:", err)
     } finally {
       setLoading(false)
     }
-  }, [idValue])
+  }, [activeTab, idValue])
 
   const { refreshInterval, autoRefresh } = useAppSettings()
 
@@ -92,8 +136,19 @@ function TorrentDetailsContent() {
     fetchData()
     if (!autoRefresh) return
 
-    const timer = setInterval(fetchData, refreshInterval)
-    return () => clearInterval(timer)
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const schedule = () => {
+      timer = setTimeout(async () => {
+        await fetchData()
+        if (!cancelled) schedule()
+      }, refreshInterval)
+    }
+    schedule()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
   }, [fetchData, refreshInterval, autoRefresh])
 
   useEffect(() => {
@@ -360,7 +415,7 @@ function TorrentDetailsContent() {
         <Card className={activeTab === "files" ? "gap-0 overflow-visible rounded-2xl border-none bg-transparent py-0 shadow-none ring-0" : "min-h-[400px] overflow-hidden border-none border border-muted/10 bg-card/60 py-0 shadow-2xl backdrop-blur-lg"}>
           <CardContent className={activeTab === "files" ? "overflow-visible p-0" : "overflow-x-auto p-0 no-scrollbar"}>
             {activeTab === "general" && (
-              <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
+              <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-left-4 duration-500 motion-reduce:animate-none">
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-[10px] md:text-xs font-medium uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2 border-b border-muted/10 pb-2">
@@ -443,7 +498,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "files" && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="animate-in fade-in slide-in-from-right-2 duration-300 motion-reduce:animate-none">
                 <TorrentFileTree
                   files={tor.files ?? []}
                   updatingFileIds={updatingFileIds}
@@ -455,7 +510,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "trackers" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-w-[700px] md:min-w-0">
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-w-[700px] md:min-w-0 motion-reduce:animate-none">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
@@ -482,7 +537,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "peers" && (
-              <div className="animate-in fade-in slide-in-from-top-4 duration-500 min-w-[820px] md:min-w-0">
+              <div className="animate-in fade-in slide-in-from-top-4 duration-500 min-w-[820px] md:min-w-0 motion-reduce:animate-none">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">

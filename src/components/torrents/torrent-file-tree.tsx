@@ -66,7 +66,7 @@ import { cn } from "@/lib/utils";
 
 const PRIORITIES: TorrentFilePriority[] = [0, 1, 6, 7];
 const ROW_HEIGHT = 56;
-const MOBILE_ROW_HEIGHT = 49;
+const MOBILE_ROW_HEIGHT = 48;
 
 function CircularProgress({
   progress,
@@ -572,10 +572,10 @@ function findScrollParent(element: HTMLElement): HTMLElement | Window {
   while (parent) {
     const overflow = getComputedStyle(parent).overflowY;
     if (
-      (overflow === "auto" || overflow === "scroll") &&
+      (overflow === "auto" || overflow === "scroll" || overflow === "clip" || overflow === "hidden") &&
       parent.scrollHeight > parent.clientHeight + 1
     )
-      return parent;
+      return parent === document.documentElement ? window : parent;
     parent = parent.parentElement;
   }
   return window;
@@ -713,28 +713,35 @@ export function TorrentFileTree({
   useEffect(() => {
     const rows = rowsRef.current;
     if (!rows) return;
-    const scrollParent = findScrollParent(rows);
+    let scrollParent = findScrollParent(rows);
     let frame = 0;
     const updateRange = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const rowsRect = rows.getBoundingClientRect();
-        const parentRect =
-          scrollParent instanceof Window
-            ? { top: 0, bottom: window.innerHeight, height: window.innerHeight }
-            : scrollParent.getBoundingClientRect();
-        setScrollTop(Math.max(0, parentRect.top - rowsRect.top));
-        setViewportHeight(Math.max(1, parentRect.height));
+        if (scrollParent === window) {
+          setScrollTop(Math.max(0, 0 - rowsRect.top));
+          setViewportHeight(Math.max(1, window.innerHeight));
+          return;
+        }
+        const elementScrollParent = scrollParent as HTMLElement;
+        const parentRect = elementScrollParent.getBoundingClientRect();
+        setScrollTop(Math.max(0, parentRect.top - rowsRect.top + elementScrollParent.scrollTop));
+        setViewportHeight(Math.max(1, elementScrollParent.clientHeight));
       });
     };
-    scrollParent.addEventListener("scroll", updateRange, { passive: true });
+    const refreshScrollParent = () => {
+      scrollParent = findScrollParent(rows);
+      updateRange();
+    };
+    window.addEventListener("scroll", updateRange, { passive: true, capture: true });
     window.addEventListener("resize", updateRange, { passive: true });
-    const observer = new ResizeObserver(updateRange);
+    const observer = new ResizeObserver(refreshScrollParent);
     observer.observe(rows);
     updateRange();
     return () => {
       cancelAnimationFrame(frame);
-      scrollParent.removeEventListener("scroll", updateRange);
+      window.removeEventListener("scroll", updateRange, { capture: true });
       window.removeEventListener("resize", updateRange);
       observer.disconnect();
     };
@@ -742,6 +749,7 @@ export function TorrentFileTree({
 
   const updateQuery = (value: string) => {
     setQuery(value);
+    setScrollTop(0);
     const keys = getTorrentFileSearchKeys(tree, value);
     if (!keys) return;
     setExpanded((current) => {
@@ -753,12 +761,14 @@ export function TorrentFileTree({
     });
   };
 
-  const updateSort = (key: TorrentFileTreeSortKey) =>
+  const updateSort = (key: TorrentFileTreeSortKey) => {
+    setScrollTop(0);
     setSort((current) => ({
       key,
       direction:
         current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
+  };
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const endIndex = Math.min(
