@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from "react"
 import { rpc } from "@/lib/rpc-client"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { getRequiredRpcFields } from "@/lib/columns"
+import { reuseTorrentReferences } from "@/lib/torrent-reference"
 import type { Torrent, SessionStats } from "@/lib/rpc-types"
 
 export function useTorrentData(
@@ -24,7 +25,7 @@ export function useTorrentData(
         rpc.getSession()
       ])
 
-      setTorrents(torrentsData.torrents)
+      setTorrents((current) => reuseTorrentReferences(current, torrentsData.torrents))
 
       let freeData = null
 
