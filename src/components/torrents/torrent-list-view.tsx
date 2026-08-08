@@ -1,6 +1,7 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import { useWindowVirtualizer } from "@tanstack/react-virtual"
 import { Link } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -42,6 +43,7 @@ type SortKey =
 
 interface TorrentListViewProps {
   enableRowEntrance: boolean
+  listTransitionKey: string
   paginatedTorrents: Torrent[]
   visibleColumns: string[]
   allColumns: Array<ColumnConfig & { label: string }>
@@ -247,6 +249,7 @@ const TorrentRow = memo(function TorrentRow({
 
 export function TorrentListView({
   enableRowEntrance,
+  listTransitionKey,
   paginatedTorrents,
   visibleColumns,
   allColumns,
@@ -272,14 +275,47 @@ export function TorrentListView({
     [visibleColumns, allColumns]
   )
   const rowAnimationKey = animateSortTransitions
-    ? `${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
-    : "stable"
+    ? `${listTransitionKey}-${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
+    : listTransitionKey
   const [previousRowAnimationKey, setPreviousRowAnimationKey] = useState(rowAnimationKey)
   const animateRows = enableRowEntrance || previousRowAnimationKey !== rowAnimationKey
+  const tableBodyRef = useRef<HTMLTableSectionElement>(null)
+  const [scrollMargin, setScrollMargin] = useState(0)
+  const shouldVirtualize = paginatedTorrents.length >= 50
+  const getVirtualRowKey = useCallback(
+    (index: number) => paginatedTorrents[index]?.id ?? index,
+    [paginatedTorrents]
+  )
+  const rowVirtualizer = useWindowVirtualizer({
+    count: paginatedTorrents.length,
+    estimateSize: () => 57,
+    getItemKey: getVirtualRowKey,
+    overscan: 8,
+    scrollMargin,
+    enabled: shouldVirtualize,
+  })
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  const renderedRowIndexes = shouldVirtualize
+    ? virtualRows.map((virtualRow) => virtualRow.index)
+    : paginatedTorrents.map((_, index) => index)
+  const paddingTop = shouldVirtualize && virtualRows.length
+    ? Math.max(0, virtualRows[0].start - scrollMargin)
+    : 0
+  const paddingBottom = shouldVirtualize && virtualRows.length
+    ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - scrollMargin))
+    : 0
+  const tableColumnCount = orderedVisibleColumns.length + 2
 
   useEffect(() => {
     setPreviousRowAnimationKey(rowAnimationKey)
   }, [rowAnimationKey])
+
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !tableBodyRef.current) return
+    const nextScrollMargin = Math.round(tableBodyRef.current.getBoundingClientRect().top + window.scrollY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setScrollMargin((current) => current === nextScrollMargin ? current : nextScrollMargin)
+  })
 
   const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
   const closeEdit = useCallback(() => setEditingTorrent(null), [])
@@ -355,8 +391,15 @@ export function TorrentListView({
               <TableHead className="text-center w-[170px] h-12 pr-6">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {paginatedTorrents.map((torrent, index) => (
+          <TableBody ref={tableBodyRef} data-virtualized={shouldVirtualize ? "true" : "false"}>
+            {paddingTop > 0 && (
+              <tr aria-hidden="true">
+                <td colSpan={tableColumnCount} className="p-0" style={{ height: `${paddingTop}px` }} />
+              </tr>
+            )}
+            {renderedRowIndexes.map((index) => {
+              const torrent = paginatedTorrents[index]
+              return (
               <TorrentRow
                 key={`${rowAnimationKey}-${torrent.id}`}
                 torrent={torrent}
@@ -371,7 +414,13 @@ export function TorrentListView({
                 onOpenEdit={openEdit}
                 onAdvancedSuccess={onAdvancedSuccess}
               />
-            ))}
+              )
+            })}
+            {paddingBottom > 0 && (
+              <tr aria-hidden="true">
+                <td colSpan={tableColumnCount} className="p-0" style={{ height: `${paddingBottom}px` }} />
+              </tr>
+            )}
           </TableBody>
         </Table>
       </CardContent>
