@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -169,6 +169,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   const [initialStatusFilter] = useState(statusFilter)
   const [hasChangedCategory, setHasChangedCategory] = useState(false)
   const enableRowEntrance = !hasChangedCategory && deferredStatusFilter === initialStatusFilter
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const previousDeferredStatusFilterRef = useRef(deferredStatusFilter)
   const wasActive = useRef(isActive)
 
   useEffect(() => {
@@ -182,6 +184,18 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       setHasChangedCategory(true)
     }
   }, [deferredStatusFilter, initialStatusFilter])
+
+  useLayoutEffect(() => {
+    const previousStatusFilter = previousDeferredStatusFilterRef.current
+    previousDeferredStatusFilterRef.current = deferredStatusFilter
+    if (previousStatusFilter === deferredStatusFilter || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
+    const animation = listContainerRef.current?.animate(
+      [{ opacity: 0.88 }, { opacity: 1 }],
+      { duration: 120, easing: "cubic-bezier(0.2,0,0,1)" }
+    )
+    return () => animation?.cancel()
+  }, [deferredStatusFilter])
 
   const {
     trackerFilter,
@@ -519,7 +533,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             ))}
           </div>
         ) : (
-          <div>
+          <div ref={listContainerRef}>
             {viewMode === "list" ? (
               <TorrentListView
                 enableRowEntrance={enableRowEntrance}
