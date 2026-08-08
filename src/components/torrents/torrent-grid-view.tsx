@@ -44,7 +44,7 @@ export function TorrentGridView({
       {paginatedTorrents.map((torrent, index) => (
         <Card
           key={torrent.id}
-          className="group relative shadow-md border-none overflow-hidden hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300 bg-sidebar/30 flex flex-col py-0 animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
+          className="group relative shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0 animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
           style={{ animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" }}
         >
           <CardHeader className="pb-3 pt-4 border-b border-muted/50 bg-background/50">
@@ -149,11 +149,11 @@ export function TorrentGridView({
             </div>
             <div className="flex gap-2">
               {torrent.status !== 0 ? (
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-muted-foreground/20 hover:bg-orange-500/10 hover:text-orange-500 transition-all hover:scale-110" onClick={() => onSingleAction(torrent.id, "stop")}>
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-muted-foreground/20 hover:bg-orange-500/10 hover:text-orange-500" onClick={() => onSingleAction(torrent.id, "stop")}>
                   <Pause className="h-3.5 w-3.5" />
                 </Button>
               ) : (
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-muted-foreground/20 hover:bg-green-500/10 hover:text-green-500 transition-all hover:scale-110" onClick={() => onSingleAction(torrent.id, "start")}>
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-muted-foreground/20 hover:bg-green-500/10 hover:text-green-500" onClick={() => onSingleAction(torrent.id, "start")}>
                   <Play className="h-3.5 w-3.5" />
                 </Button>
               )}

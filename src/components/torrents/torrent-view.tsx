@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -84,11 +84,11 @@ function StatCard({ color, icon, title, value, secondary1, secondary2, isClicked
   const c = COLOR_CLASSES[color]
   return (
     <div
-      className="flex items-center gap-3 p-4 rounded-[2rem] bg-background/40 border border-muted/5 hover:bg-background/60 transition-all group shrink-0 overflow-hidden shadow-none cursor-pointer md:cursor-default"
+      className="flex items-center gap-3 p-4 rounded-[2rem] bg-background/40 border border-muted/5 hover:bg-background/60 transition-colors duration-150 ease-[cubic-bezier(0.2,0,0,1)] group shrink-0 overflow-hidden shadow-none cursor-pointer md:cursor-default"
       onClick={onClick}
     >
       <div className={cn(
-        "h-10 w-10 rounded-2xl flex items-center justify-center transition-all duration-300 shrink-0 shadow-sm group-hover:scale-110 group-hover:text-white",
+        "h-10 w-10 rounded-2xl flex items-center justify-center transition-[color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.2,0,0,1)] shrink-0 shadow-sm group-hover:text-white",
         c.iconBg, c.iconText, c.iconHoverBg, c.iconHoverShadow
       )}>
         {icon}
@@ -165,12 +165,23 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   }, [pageSize])
 
   const { torrents, stats, freeSpace, isInitialLoading, fetchData } = useTorrentData(viewMode, visibleColumns)
+  const deferredStatusFilter = useDeferredValue(statusFilter)
+  const [initialStatusFilter] = useState(statusFilter)
+  const [hasChangedCategory, setHasChangedCategory] = useState(false)
+  const enableRowEntrance = !hasChangedCategory && deferredStatusFilter === initialStatusFilter
   const wasActive = useRef(isActive)
 
   useEffect(() => {
     if (isActive && !wasActive.current) void fetchData()
     wasActive.current = isActive
   }, [fetchData, isActive])
+
+  useEffect(() => {
+    if (deferredStatusFilter !== initialStatusFilter) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHasChangedCategory(true)
+    }
+  }, [deferredStatusFilter, initialStatusFilter])
 
   const {
     trackerFilter,
@@ -184,7 +195,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     downloadDirs,
     availableLabels,
     filteredTorrents,
-  } = useTorrentFilters(torrents, statusFilter, searchQuery)
+  } = useTorrentFilters(torrents, deferredStatusFilter, searchQuery)
 
   const totalDownloadSpeed = useMemo(() =>
     torrents.reduce((acc, tor) => acc + (tor.rateDownload || 0), 0)
@@ -283,7 +294,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
-  }, [statusFilter, searchQuery, trackerFilter, dirFilter, labelFilter, sortConfig])
+  }, [deferredStatusFilter, searchQuery, trackerFilter, dirFilter, labelFilter, sortConfig])
 
   const sortedTorrents = useMemo(() => sortTorrents(filteredTorrents, sortConfig), [filteredTorrents, sortConfig])
   const sortedIdsRef = useRef<TorrentId[]>([])
@@ -511,6 +522,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           <div>
             {viewMode === "list" ? (
               <TorrentListView
+                enableRowEntrance={enableRowEntrance}
                 paginatedTorrents={paginatedTorrents}
                 visibleColumns={visibleColumns}
                 allColumns={allColumns}

@@ -57,7 +57,7 @@ export function FilterPanel({
 
   const triggerButton = (
     <Button variant="ghost" size="icon" className={cn(
-      "h-8 w-8 rounded-lg transition-all duration-200 relative",
+      "h-8 w-8 rounded-lg relative",
       hasActiveFilters ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:bg-muted"
     )}>
       <Filter className="h-4 w-4" />

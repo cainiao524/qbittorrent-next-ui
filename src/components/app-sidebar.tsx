@@ -153,7 +153,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       className={cn(
                         "h-12 [&_svg]:size-5",
                         isActive
-                          ? "text-primary-foreground hover:brightness-95"
+                          ? "text-primary-foreground"
                           : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >
@@ -185,7 +185,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       className={cn(
                         "h-12 [&_svg]:size-5 group/item",
                         isActive
-                          ? "text-primary-foreground hover:brightness-95"
+                          ? "text-primary-foreground"
                           : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >

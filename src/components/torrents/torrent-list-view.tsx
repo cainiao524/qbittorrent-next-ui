@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useMemo, useState, type CSSProperties } from "react"
+import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
 import { Link } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -41,6 +41,7 @@ type SortKey =
   | "labels"
 
 interface TorrentListViewProps {
+  enableRowEntrance: boolean
   paginatedTorrents: Torrent[]
   visibleColumns: string[]
   allColumns: Array<ColumnConfig & { label: string }>
@@ -72,6 +73,7 @@ interface TorrentRowProps {
   locale: string
   columns: Array<ColumnConfig & { label: string }>
   rowAnimationKey: string
+  animateEntrance: boolean
   onToggleSelect: (id: TorrentId, range: boolean) => void
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
   onOpenEdit: (torrent: Torrent) => void
@@ -97,6 +99,7 @@ const TorrentRow = memo(function TorrentRow({
   locale,
   columns,
   rowAnimationKey,
+  animateEntrance,
   onToggleSelect,
   onSingleAction,
   onOpenEdit,
@@ -104,6 +107,7 @@ const TorrentRow = memo(function TorrentRow({
 }: TorrentRowProps) {
   const { t } = useI18n()
   const [animationDelay] = useState(() => Math.min(initialIndex, 6) * 12)
+  const [shouldAnimateEntrance] = useState(animateEntrance)
 
   const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => {
     const column = columns.find(c => c.id === columnId)
@@ -197,10 +201,11 @@ const TorrentRow = memo(function TorrentRow({
     <TableRow
       key={`${rowAnimationKey}-${torrent.id}`}
       className={cn(
-        "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
+        "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row",
+        shouldAnimateEntrance && "animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
         selected && "bg-primary/5 hover:bg-primary/10"
       )}
-      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: "both" }}
+      style={shouldAnimateEntrance ? { animationDelay: `${animationDelay}ms`, animationFillMode: "both" } : undefined}
     >
       <TableCell className="pl-6">
         <div
@@ -241,6 +246,7 @@ const TorrentRow = memo(function TorrentRow({
 }, rowPropsEqual)
 
 export function TorrentListView({
+  enableRowEntrance,
   paginatedTorrents,
   visibleColumns,
   allColumns,
@@ -268,6 +274,12 @@ export function TorrentListView({
   const rowAnimationKey = animateSortTransitions
     ? `${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
     : "stable"
+  const [previousRowAnimationKey, setPreviousRowAnimationKey] = useState(rowAnimationKey)
+  const animateRows = enableRowEntrance || previousRowAnimationKey !== rowAnimationKey
+
+  useEffect(() => {
+    setPreviousRowAnimationKey(rowAnimationKey)
+  }, [rowAnimationKey])
 
   const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
   const closeEdit = useCallback(() => setEditingTorrent(null), [])
@@ -353,6 +365,7 @@ export function TorrentListView({
                 locale={locale}
                 columns={orderedVisibleColumns}
                 rowAnimationKey={rowAnimationKey}
+                animateEntrance={animateRows}
                 onToggleSelect={onToggleSelect}
                 onSingleAction={onSingleAction}
                 onOpenEdit={openEdit}

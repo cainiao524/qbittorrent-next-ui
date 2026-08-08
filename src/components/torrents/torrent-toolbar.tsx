@@ -180,7 +180,7 @@ export function TorrentToolbar({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 rounded-lg transition-all duration-200",
+              "h-8 w-8 rounded-lg",
               viewMode === "list"
                 ? "bg-background shadow-sm text-primary"
                 : "text-muted-foreground hover:bg-muted"
@@ -193,7 +193,7 @@ export function TorrentToolbar({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 rounded-lg transition-all duration-200",
+              "h-8 w-8 rounded-lg",
               viewMode === "grid"
                 ? "bg-background shadow-sm text-primary"
                 : "text-muted-foreground hover:bg-muted"
@@ -220,7 +220,7 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl shrink-0">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted">
                 <Columns className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -293,7 +293,7 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 px-2 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border-none">
+              <Button variant="ghost" className="h-8 px-2 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border-none">
                 <Wrench className="h-3.5 w-3.5" />
                 <span className="hidden md:inline">{t('common.tools')}</span>
                 <ChevronDown className="h-3 w-3 opacity-50 hidden md:inline" />
@@ -347,7 +347,7 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl gap-1 shrink-0">
           <Button
             variant="ghost"
-            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
+            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
             onClick={() => onGlobalAction("start")}
           >
             <Play className="h-3.5 w-3.5" />
@@ -355,7 +355,7 @@ export function TorrentToolbar({
           </Button>
           <Button
             variant="ghost"
-            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
+            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
             onClick={() => onGlobalAction("stop")}
           >
             <Pause className="h-3.5 w-3.5" />
