@@ -87,4 +87,21 @@ describe("TorrentFileTree", () => {
     await user.click(screen.getByText("花絮"))
     expect(screen.getByText("片段.mp4")).toBeTruthy()
   })
+
+  test("移动端视口下正常渲染文件行且行高与常量一致", async () => {
+    const originalWidth = window.innerWidth
+    window.innerWidth = 390
+    try {
+      renderTree()
+      expect(await screen.findByText("正片.mkv")).toBeTruthy()
+      const rows = Array.from(document.querySelectorAll<HTMLElement>("div"))
+        .find((el) => el.style.height && el.style.height !== "")
+      expect(rows).toBeTruthy()
+      const height = Number.parseInt(rows!.style.height, 10)
+      expect(Number.isFinite(height)).toBe(true)
+      expect(height % 48).toBe(0)
+    } finally {
+      window.innerWidth = originalWidth
+    }
+  })
 })

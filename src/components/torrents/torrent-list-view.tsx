@@ -1,7 +1,7 @@
 "use client"
 
-import type { CSSProperties } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { memo, useCallback, useMemo, useState, type CSSProperties } from "react"
+import { Link } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,7 @@ interface TorrentListViewProps {
   visibleColumns: string[]
   allColumns: Array<ColumnConfig & { label: string }>
   selectedIds: TorrentId[]
+  selectedIdSet: Set<TorrentId>
   filteredCount: number
   sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null
   animateSortTransitions: boolean
@@ -64,77 +65,55 @@ function SortIcon({ column, sortConfig }: { column: SortKey; sortConfig: Torrent
     : <ArrowDownCircle className="ml-1 h-3 w-3 text-primary" />;
 }
 
-export function TorrentListView({
-  paginatedTorrents,
-  visibleColumns,
-  allColumns,
-  selectedIds,
-  filteredCount,
-  sortConfig,
-  animateSortTransitions,
-  tableMinWidth,
-  locale,
-  onToggleSelect,
-  onToggleSelectAll,
-  onSort,
-  onSingleAction,
-  onAdvancedSuccess,
-}: TorrentListViewProps) {
-  const { t } = useI18n()
-  const location = useLocation()
-  const orderedVisibleColumns = visibleColumns
-    .map((columnId) => allColumns.find((column) => column.id === columnId))
-    .filter((column): column is ColumnConfig & { label: string } => Boolean(column))
-  const rowAnimationKey = animateSortTransitions
-    ? `${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
-    : "stable"
+interface TorrentRowProps {
+  torrent: Torrent
+  initialIndex: number
+  selected: boolean
+  locale: string
+  columns: Array<ColumnConfig & { label: string }>
+  rowAnimationKey: string
+  onToggleSelect: (id: TorrentId, range: boolean) => void
+  onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
+  onOpenEdit: (torrent: Torrent) => void
+  onAdvancedSuccess?: () => void
+}
 
-  const getColumnStyle = (columnId: ColumnConfig["id"]) => {
-    const column = allColumns.find(c => c.id === columnId)
+function rowPropsEqual(prev: TorrentRowProps, next: TorrentRowProps): boolean {
+  return prev.torrent === next.torrent
+    && prev.selected === next.selected
+    && prev.locale === next.locale
+    && prev.columns === next.columns
+    && prev.rowAnimationKey === next.rowAnimationKey
+    && prev.onToggleSelect === next.onToggleSelect
+    && prev.onSingleAction === next.onSingleAction
+    && prev.onOpenEdit === next.onOpenEdit
+    && prev.onAdvancedSuccess === next.onAdvancedSuccess
+}
+
+const TorrentRow = memo(function TorrentRow({
+  torrent,
+  initialIndex,
+  selected,
+  locale,
+  columns,
+  rowAnimationKey,
+  onToggleSelect,
+  onSingleAction,
+  onOpenEdit,
+  onAdvancedSuccess,
+}: TorrentRowProps) {
+  const { t } = useI18n()
+  const [animationDelay] = useState(() => Math.min(initialIndex, 6) * 12)
+
+  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => {
+    const column = columns.find(c => c.id === columnId)
     return {
       width: column?.width,
       minWidth: column?.minWidth,
     }
   }
 
-  const getHeaderClassName = (column: ColumnConfig) =>
-    cn(
-      "h-12 cursor-pointer hover:text-primary transition-colors",
-      column.align === "right" && "text-right"
-    )
-
-  const renderHeader = (column: ColumnConfig & { label: string }) => {
-    const style = getColumnStyle(column.id)
-
-    switch (column.id) {
-      case "name":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("name")}><div className="flex items-center truncate pr-4">{t("common.name")} <SortIcon column="name" sortConfig={sortConfig} /></div></TableHead>
-      case "status":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("status")}><div className="flex items-center">{t("common.status")} <SortIcon column="status" sortConfig={sortConfig} /></div></TableHead>
-      case "progress":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
-      case "size":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("size")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="size" sortConfig={sortConfig} /></div></TableHead>
-      case "totalSize":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.total_size", "Total Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
-      case "addedDate":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
-      case "editDate":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("editDate")}><div className="flex items-center justify-end">{t("common.edit_date", "Modified Date")} <SortIcon column="editDate" sortConfig={sortConfig} /></div></TableHead>
-      case "uploadedEver":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadedEver")}><div className="flex items-center justify-end">{t("details.total_uploaded", "Uploaded")} <SortIcon column="uploadedEver" sortConfig={sortConfig} /></div></TableHead>
-      case "rateDownload":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateDownload")}><div className="flex items-center justify-end">{t("common.down_speed")} <SortIcon column="rateDownload" sortConfig={sortConfig} /></div></TableHead>
-      case "rateUpload":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateUpload")}><div className="flex items-center justify-end">{t("common.up_speed")} <SortIcon column="rateUpload" sortConfig={sortConfig} /></div></TableHead>
-      case "eta":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("eta")}><div className="flex items-center justify-end">{t("common.eta")} <SortIcon column="eta" sortConfig={sortConfig} /></div></TableHead>
-      case "uploadRatio":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadRatio")}><div className="flex items-center justify-end">{t("details.share_ratio", "Ratio")} <SortIcon column="uploadRatio" sortConfig={sortConfig} /></div></TableHead>
-    }
-  }
-
-  const renderCell = (torrent: Torrent, column: ColumnConfig & { label: string }) => {
+  const renderCell = (column: ColumnConfig & { label: string }) => {
     const style: CSSProperties = {
       width: getColumnStyle(column.id).width,
       minWidth: getColumnStyle(column.id).minWidth,
@@ -144,7 +123,7 @@ export function TorrentListView({
       case "name":
         return (
           <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] truncate" style={style} title={torrent.name}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} state={{ fromListPath: location.pathname }} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
+            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
               {torrent.name}
             </Link>
           </TableCell>
@@ -193,7 +172,7 @@ export function TorrentListView({
           </TableCell>
         )
       }
-            case "size":
+      case "size":
         return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.size)}</TableCell>
       case "totalSize":
         return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.totalSize)}</TableCell>
@@ -211,6 +190,130 @@ export function TorrentListView({
         return <TableCell key={column.id} className="text-right"><div className="flex items-center justify-end gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
       case "uploadRatio":
         return <TableCell key={column.id} className="text-numeric text-right">{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</TableCell>
+    }
+  }
+
+  return (
+    <TableRow
+      key={`${rowAnimationKey}-${torrent.id}`}
+      className={cn(
+        "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
+        selected && "bg-primary/5 hover:bg-primary/10"
+      )}
+      style={{ animationDelay: `${animationDelay}ms`, animationFillMode: "both" }}
+    >
+      <TableCell className="pl-6">
+        <div
+          className="cursor-pointer text-muted-foreground hover:text-primary transition-colors select-none"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => onToggleSelect(torrent.id, event.shiftKey)}
+        >
+          {selected ? (
+            <CheckSquare className="h-4 w-4 text-primary" />
+          ) : (
+            <Square className="h-4 w-4 opacity-40 group-hover/row:opacity-100" />
+          )}
+        </div>
+      </TableCell>
+      {columns.map(renderCell)}
+      <TableCell className="w-[170px] pr-6">
+        <div className="flex items-center justify-center gap-1">
+          <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => onOpenEdit(torrent)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          {torrent.status !== 0 ? (
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-orange-500/10 hover:text-orange-500 transition-colors" onClick={() => onSingleAction(torrent.id, "stop")}>
+              <Pause className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-500/10 hover:text-green-500 transition-colors" onClick={() => onSingleAction(torrent.id, "start")}>
+              <Play className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => onSingleAction(torrent.id, "remove")}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}, rowPropsEqual)
+
+export function TorrentListView({
+  paginatedTorrents,
+  visibleColumns,
+  allColumns,
+  selectedIds,
+  selectedIdSet,
+  filteredCount,
+  sortConfig,
+  animateSortTransitions,
+  tableMinWidth,
+  locale,
+  onToggleSelect,
+  onToggleSelectAll,
+  onSort,
+  onSingleAction,
+  onAdvancedSuccess,
+}: TorrentListViewProps) {
+  const { t } = useI18n()
+  const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
+  const orderedVisibleColumns = useMemo(
+    () => visibleColumns
+      .map((columnId) => allColumns.find((column) => column.id === columnId))
+      .filter((column): column is ColumnConfig & { label: string } => Boolean(column)),
+    [visibleColumns, allColumns]
+  )
+  const rowAnimationKey = animateSortTransitions
+    ? `${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
+    : "stable"
+
+  const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
+  const closeEdit = useCallback(() => setEditingTorrent(null), [])
+
+  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => {
+    const column = allColumns.find(c => c.id === columnId)
+    return {
+      width: column?.width,
+      minWidth: column?.minWidth,
+    }
+  }
+
+  const getHeaderClassName = (column: ColumnConfig) =>
+    cn(
+      "h-12 cursor-pointer hover:text-primary transition-colors",
+      column.align === "right" && "text-right"
+    )
+
+  const renderHeader = (column: ColumnConfig & { label: string }) => {
+    const style = getColumnStyle(column.id)
+
+    switch (column.id) {
+      case "name":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("name")}><div className="flex items-center truncate pr-4">{t("common.name")} <SortIcon column="name" sortConfig={sortConfig} /></div></TableHead>
+      case "status":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("status")}><div className="flex items-center">{t("common.status")} <SortIcon column="status" sortConfig={sortConfig} /></div></TableHead>
+      case "progress":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
+      case "size":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("size")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="size" sortConfig={sortConfig} /></div></TableHead>
+      case "totalSize":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.total_size", "Total Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
+      case "addedDate":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
+      case "editDate":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("editDate")}><div className="flex items-center justify-end">{t("common.edit_date", "Modified Date")} <SortIcon column="editDate" sortConfig={sortConfig} /></div></TableHead>
+      case "uploadedEver":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadedEver")}><div className="flex items-center justify-end">{t("details.total_uploaded", "Uploaded")} <SortIcon column="uploadedEver" sortConfig={sortConfig} /></div></TableHead>
+      case "rateDownload":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateDownload")}><div className="flex items-center justify-end">{t("common.down_speed")} <SortIcon column="rateDownload" sortConfig={sortConfig} /></div></TableHead>
+      case "rateUpload":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateUpload")}><div className="flex items-center justify-end">{t("common.up_speed")} <SortIcon column="rateUpload" sortConfig={sortConfig} /></div></TableHead>
+      case "eta":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("eta")}><div className="flex items-center justify-end">{t("common.eta")} <SortIcon column="eta" sortConfig={sortConfig} /></div></TableHead>
+      case "uploadRatio":
+        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadRatio")}><div className="flex items-center justify-end">{t("details.share_ratio", "Ratio")} <SortIcon column="uploadRatio" sortConfig={sortConfig} /></div></TableHead>
     }
   }
 
@@ -242,55 +345,24 @@ export function TorrentListView({
           </TableHeader>
           <TableBody>
             {paginatedTorrents.map((torrent, index) => (
-              <TableRow
+              <TorrentRow
                 key={`${rowAnimationKey}-${torrent.id}`}
-                className={cn(
-                  "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
-                  selectedIds.includes(torrent.id) && "bg-primary/5 hover:bg-primary/10"
-                )}
-                style={{ animationDelay: `${Math.min(index, 6) * 12}ms`, animationFillMode: "both" }}
-              >
-                <TableCell className="pl-6">
-                  <div
-                    className="cursor-pointer text-muted-foreground hover:text-primary transition-colors select-none"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => onToggleSelect(torrent.id, event.shiftKey)}
-                  >
-                    {selectedIds.includes(torrent.id) ? (
-                      <CheckSquare className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Square className="h-4 w-4 opacity-40 group-hover/row:opacity-100" />
-                    )}
-                  </div>
-                </TableCell>
-                {orderedVisibleColumns.map((column) => renderCell(torrent, column))}
-                <TableCell className="w-[170px] pr-6">
-                  <div className="flex items-center justify-center gap-1">
-                    <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
-                    <EditTorrentDialog torrent={torrent}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </EditTorrentDialog>
-                    {torrent.status !== 0 ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-orange-500/10 hover:text-orange-500 transition-colors" onClick={() => onSingleAction(torrent.id, "stop")}>
-                        <Pause className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-500/10 hover:text-green-500 transition-colors" onClick={() => onSingleAction(torrent.id, "start")}>
-                        <Play className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => onSingleAction(torrent.id, "remove")}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                torrent={torrent}
+                initialIndex={index}
+                selected={selectedIdSet.has(torrent.id)}
+                locale={locale}
+                columns={orderedVisibleColumns}
+                rowAnimationKey={rowAnimationKey}
+                onToggleSelect={onToggleSelect}
+                onSingleAction={onSingleAction}
+                onOpenEdit={openEdit}
+                onAdvancedSuccess={onAdvancedSuccess}
+              />
             ))}
           </TableBody>
         </Table>
       </CardContent>
+      <EditTorrentDialog torrent={editingTorrent} onClose={closeEdit} onSuccess={onAdvancedSuccess} />
     </Card>
   )
 }

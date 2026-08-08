@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,8 +34,12 @@ export function TorrentGridView({
 }: TorrentGridViewProps) {
   const { t, locale } = useI18n()
   const location = useLocation()
+  const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
+  const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
+  const closeEdit = useCallback(() => setEditingTorrent(null), [])
 
   return (
+    <>
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {paginatedTorrents.map((torrent, index) => (
         <Card
@@ -73,11 +78,9 @@ export function TorrentGridView({
             </div>
             <CardAction className="flex gap-1 shrink-0">
               <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
-              <EditTorrentDialog torrent={torrent}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-opacity rounded-full">
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </EditTorrentDialog>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-opacity rounded-full" onClick={() => openEdit(torrent)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-opacity rounded-full" onClick={() => onSingleAction(torrent.id, "remove")}>
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -159,5 +162,7 @@ export function TorrentGridView({
         </Card>
       ))}
     </div>
+    <EditTorrentDialog torrent={editingTorrent} onClose={closeEdit} onSuccess={onAdvancedSuccess} />
+    </>
   )
 }
