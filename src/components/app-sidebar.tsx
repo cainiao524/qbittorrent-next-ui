@@ -85,6 +85,24 @@ const data = {
 
 import { Link } from "react-router-dom"
 
+const SIDEBAR_ROW_HEIGHT = 48
+const SIDEBAR_ROW_GAP = 4
+const SIDEBAR_ROW_PITCH = SIDEBAR_ROW_HEIGHT + SIDEBAR_ROW_GAP
+
+function SidebarActiveIndicator({ index }: { index: number }) {
+  return (
+    <div
+      aria-hidden
+      data-sidebar="active-indicator"
+        className="pointer-events-none absolute top-1 right-3 left-3 z-0 h-10 rounded-lg bg-primary"
+      style={{
+        transform: `translateY(${Math.max(index, 0) * SIDEBAR_ROW_PITCH}px)`,
+        opacity: index >= 0 ? 1 : 0,
+      }}
+    />
+  )
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useLocation()
   const { t } = useI18n()
@@ -102,36 +120,48 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return t(keyMap[title] || title)
   }
 
+  const visibleMain = data.navMain.filter((item) => sidebarItems.includes(item.id))
+  const activeMainIndex = visibleMain.findIndex((item) => pathname === item.url)
+  const visibleSecondary = data.secondary.filter((item) => sidebarItems.includes(item.id))
+  const activeSecondaryIndex = visibleSecondary.findIndex((item) => pathname === item.url)
+
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader className="h-16 flex flex-row items-center px-4 justify-start group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center border-b font-sans">
-        <div className="flex items-center gap-3 font-medium text-lg leading-none group-data-[collapsible=icon]:gap-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-sm font-medium">{APP_CONFIG.name.charAt(0).toUpperCase()}</span>
+      <SidebarHeader className="flex h-16 items-center border-b font-sans flex-row px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">
+        <div className="flex min-w-0 flex-1 items-center transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:pl-1">
+          <div className="flex h-12 w-14 shrink-0 items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="text-sm font-medium">{APP_CONFIG.name.charAt(0).toUpperCase()}</span>
+            </div>
           </div>
-          <span className="truncate group-data-[collapsible=icon]:hidden">{APP_CONFIG.name}</span>
+          <span className="text-lg font-medium leading-none">{APP_CONFIG.name}</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {data.navMain.filter((item) => sidebarItems.includes(item.id)).map((item) => {
+            <SidebarMenu className="relative gap-1 px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">
+              <SidebarActiveIndicator index={activeMainIndex} />
+              {visibleMain.map((item) => {
                 const isActive = pathname === item.url
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.title} className="relative z-10 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-1">
                     <SidebarMenuButton
                       asChild
                       tooltip={getTitle(item.title)}
                       isActive={isActive}
                       className={cn(
-                        "h-11 text-base [&_svg]:size-5 gap-3 transition-all duration-300 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0",
-                        isActive && "bg-primary! text-primary-foreground! shadow-md shadow-primary/20 scale-[1.02] border-none"
+                        "h-12 [&_svg]:size-5",
+                        isActive
+                          ? "text-primary-foreground hover:brightness-95"
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >
-                      <Link to={item.url}>
-                        <item.icon className={cn("transition-transform duration-300", isActive && "scale-110")} />
-                        <span className="font-semibold group-data-[collapsible=icon]:hidden">{getTitle(item.title)}</span>
+                      <Link to={item.url} className="flex w-full items-center">
+                        <span className="flex h-12 w-14 shrink-0 items-center justify-center">
+                          <item.icon />
+                        </span>
+                        <span className="font-semibold">{getTitle(item.title)}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -142,23 +172,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
         <SidebarGroup className="mt-auto border-t border-muted/30 pt-4">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {data.secondary.filter((item) => sidebarItems.includes(item.id)).map((item) => {
+            <SidebarMenu className="relative gap-1 px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">
+              <SidebarActiveIndicator index={activeSecondaryIndex} />
+              {visibleSecondary.map((item) => {
                 const isActive = pathname === item.url
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.title} className="relative z-10 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-1">
                     <SidebarMenuButton
                       asChild
                       tooltip={getTitle(item.title)}
                       isActive={isActive}
                       className={cn(
-                        "h-11 text-base [&_svg]:size-5 gap-3 transition-all duration-300 group/item relative group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0",
-                        isActive && "bg-primary! text-primary-foreground! shadow-md shadow-primary/20 scale-[1.02] border-none"
+                        "h-12 [&_svg]:size-5 group/item",
+                        isActive
+                          ? "text-primary-foreground hover:brightness-95"
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >
-                      <Link to={item.url}>
-                        <item.icon className={cn("transition-transform duration-300", isActive && "scale-110")} />
-                        <span className="font-semibold group-data-[collapsible=icon]:hidden">{getTitle(item.title)}</span>
+                      <Link to={item.url} className="flex w-full items-center">
+                        <span className="flex h-12 w-14 shrink-0 items-center justify-center">
+                          <item.icon />
+                        </span>
+                        <span className="font-semibold">{getTitle(item.title)}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -168,29 +203,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t p-4 flex flex-col items-center justify-center gap-2">
-        <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden justify-center w-full">
+      <SidebarFooter className="flex items-center border-t flex-row px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center">
+        <div className="flex h-12 w-14 shrink-0 items-center justify-center">
+          <Link
+            to={APP_CONFIG.githubUrl}
+            target="_blank"
+            title={t("ui.github_title")}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            <Github className="size-5" />
+          </Link>
+        </div>
+        <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:w-0">
           <Link
             to={APP_CONFIG.githubUrl}
             target="_blank"
             className="text-primary/40 hover:text-primary transition-colors cursor-pointer"
             title={t("ui.github_title")}
           >
-            <Github className="h-4 w-4" />
+            <Github className="size-4" />
           </Link>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-sm font-semibold text-primary/80 tracking-tight">{APP_CONFIG.version}</span>
-          </div>
-        </div>
-        <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center">
-          <Link
-            to={APP_CONFIG.githubUrl}
-            target="_blank"
-            title={t("ui.github_title")}
-            className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all"
-          >
-            <Github className="h-4 w-4" />
-          </Link>
+          <span className="text-sm font-semibold text-primary/80 tracking-tight">{APP_CONFIG.version}</span>
         </div>
       </SidebarFooter>
       <SidebarRail />

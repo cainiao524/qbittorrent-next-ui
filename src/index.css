@@ -47,6 +47,11 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --animate-bounce-slow: bounce 3s infinite;
+  --sidebar-motion-duration: 220ms;
+  --sidebar-selection-duration: 180ms;
+  --sidebar-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --sidebar-label-opacity-duration: 110ms;
+  --sidebar-label-transform-duration: 150ms;
 }
 
 :root {
@@ -156,12 +161,62 @@
     scrollbar-gutter: stable;
   }
 
+  body[data-scroll-locked] {
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+
   *:focus-visible {
     outline: none !important;
   }
 }
 
 @layer components {
+  [data-sidebar="menu-button"] {
+    position: relative;
+    isolation: isolate;
+  }
+
+  [data-sidebar="menu-button"] svg {
+    position: relative;
+    z-index: 1;
+  }
+
+  [data-sidebar="active-indicator"] {
+    transition-property: transform, opacity;
+    transition-duration: var(--sidebar-selection-duration), var(--sidebar-selection-duration);
+    transition-timing-function: var(--sidebar-motion-ease), var(--sidebar-motion-ease);
+  }
+
+  [data-sidebar="menu-button"] > span:last-child,
+  [data-slot="sidebar-header"] > div > span,
+  [data-slot="sidebar-footer"] > div:last-child {
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+    position: relative;
+    z-index: 1;
+    opacity: 1;
+    transform: translateX(0);
+    transition-property: opacity, transform;
+    transition-duration: var(--sidebar-label-opacity-duration), var(--sidebar-label-transform-duration);
+    transition-timing-function: var(--sidebar-motion-ease);
+  }
+
+  .group[data-collapsible="icon"] [data-sidebar="menu-button"] > span:last-child,
+  .group[data-collapsible="icon"] [data-slot="sidebar-header"] > div > span,
+  .group[data-collapsible="icon"] [data-slot="sidebar-footer"] > div:last-child {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition-delay: 0ms;
+  }
+
+  .group[data-collapsible=""] [data-sidebar="menu-button"] > span:last-child,
+  .group[data-collapsible=""] [data-slot="sidebar-header"] > div > span,
+  .group[data-collapsible=""] [data-slot="sidebar-footer"] > div:last-child {
+    transition-delay: 70ms;
+  }
+
   .text-heading-1 {
     @apply text-3xl font-medium tracking-tighter;
   }

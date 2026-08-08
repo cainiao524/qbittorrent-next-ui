@@ -17,7 +17,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <TooltipProvider>
             <SidebarProvider className="bg-slate-50/50">
               <AppSidebar />
-              <SidebarInset className="bg-background shadow-sm border-none md:m-2 md:rounded-xl overflow-clip">
+              <SidebarInset className="bg-background shadow-sm border-none md:mr-2 md:mb-2 md:rounded-xl overflow-visible">
                 <Navbar />
                 <main className="flex-1 overflow-visible p-4 md:p-6 lg:p-8">
                   {children}
