@@ -263,8 +263,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     }
   }
 
-  const handleSingleAction = (id: TorrentId, action: SingleTorrentAction) =>
-    executeTorrentAction([id], action, "single")
+  const handleSingleAction = useCallback((id: TorrentId, action: SingleTorrentAction) =>
+    executeTorrentAction([id], action, "single"), [executeTorrentAction])
 
   const handleSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' | null = 'asc'
@@ -286,6 +286,11 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   }, [statusFilter, searchQuery, trackerFilter, dirFilter, labelFilter, sortConfig])
 
   const sortedTorrents = useMemo(() => sortTorrents(filteredTorrents, sortConfig), [filteredTorrents, sortConfig])
+  const sortedIdsRef = useRef<TorrentId[]>([])
+
+  useEffect(() => {
+    sortedIdsRef.current = sortedTorrents.map((torrent) => torrent.id)
+  }, [sortedTorrents])
 
   const totalPages = Math.ceil(sortedTorrents.length / pageSize)
   const paginatedTorrents = useMemo(() => {
@@ -303,14 +308,14 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     setSelectionAnchorId(null)
   }
 
-  const toggleSelect = (id: TorrentId, range = false) => {
+  const toggleSelect = useCallback((id: TorrentId, range = false) => {
     if (range) {
-      setSelectedIds((current) => selectTorrentRange(sortedTorrents.map((torrent) => torrent.id), current, selectionAnchorId, id))
+      setSelectedIds((current) => selectTorrentRange(sortedIdsRef.current, current, selectionAnchorId, id))
       return
     }
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
     setSelectionAnchorId(id)
-  }
+  }, [selectionAnchorId])
 
   const exportSelectedTorrents = useCallback(async () => {
     let exported = 0
@@ -381,8 +386,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
+
   return (
-    <div key={statusFilter ?? "all"} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {showStats && (
         <div
           key={stats && !isInitialLoading ? "stats-ready" : "stats-loading"}
@@ -501,13 +508,14 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             ))}
           </div>
         ) : (
-          <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "40ms", animationFillMode: "both" }}>
+          <div>
             {viewMode === "list" ? (
               <TorrentListView
                 paginatedTorrents={paginatedTorrents}
                 visibleColumns={visibleColumns}
                 allColumns={allColumns}
                 selectedIds={selectedIds}
+                selectedIdSet={selectedIdSet}
                 filteredCount={filteredTorrents.length}
                 sortConfig={sortConfig}
                 animateSortTransitions={animateTorrentSorting}

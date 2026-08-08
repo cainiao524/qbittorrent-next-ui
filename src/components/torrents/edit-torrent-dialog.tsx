@@ -8,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useI18n } from "@/lib/i18n-context"
@@ -25,19 +24,24 @@ import type { EditTorrentDialogTorrent } from "@/lib/edit-torrent-form"
 import { useEditTorrentForm } from "@/hooks/use-edit-torrent-form"
 
 interface EditTorrentDialogProps {
-  torrent: EditTorrentDialogTorrent
-  children: React.ReactNode
+  torrent: EditTorrentDialogTorrent | null
+  onClose?: () => void
   onSuccess?: () => void
 }
 
 type AdvancedTab = typeof EDIT_TORRENT_ADVANCED_TABS[number]["id"]
+const EMPTY_EDIT_TORRENT: EditTorrentDialogTorrent = { id: "", name: "", downloadDir: "" }
 
-export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentDialogProps) {
+export function EditTorrentDialog({ torrent, onClose, onSuccess }: EditTorrentDialogProps) {
   const { t } = useI18n()
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<AdvancedTab>("speed")
   const { open, setOpen, form, updateField, toggleField, handleSubmit, isLoading, isFetching } =
-    useEditTorrentForm(torrent, onSuccess)
+    useEditTorrentForm(torrent ?? EMPTY_EDIT_TORRENT, onSuccess)
+
+  React.useEffect(() => {
+    setOpen(Boolean(torrent))
+  }, [torrent?.id, torrent?.name, torrent?.downloadDir, setOpen])
 
   React.useEffect(() => {
     if (open) return
@@ -47,10 +51,7 @@ export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentD
   }, [open])
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) onClose?.() }}>
       <DialogContent className="sm:max-w-[540px] rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-xl max-h-[90vh] overflow-y-auto no-scrollbar">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="space-y-3">
@@ -61,7 +62,7 @@ export function EditTorrentDialog({ torrent, children, onSuccess }: EditTorrentD
           </DialogHeader>
 
           {isFetching ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-4">
+            <div className="py-20 flex flex-col items-center justify-center gap-4 animate-pulse">
               <div className="h-10 w-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
               <p className="text-sm font-medium text-muted-foreground">{t('stats.loading', 'Loading details...')}</p>
             </div>
