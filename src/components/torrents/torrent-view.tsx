@@ -160,6 +160,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     tableMinWidth,
     columnWidths,
     setColumnWidth,
+    actionsColumnPinned,
+    setActionsColumnPinned,
   } = useColumnManager()
 
   useEffect(() => {
@@ -496,6 +498,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           toggleColumn={toggleColumn}
           resetVisibleColumns={resetVisibleColumns}
           handleColumnDragEnd={handleColumnDragEnd}
+          actionsColumnPinned={actionsColumnPinned}
+          onActionsColumnPinnedChange={setActionsColumnPinned}
           onBatchReplaceOpen={() => setIsBatchReplaceOpen(true)}
           onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
           onShortcutsOpen={() => setIsShortcutsOpen(true)}
@@ -526,6 +530,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
                 animateSortTransitions={animateTorrentSorting}
                 tableMinWidth={tableMinWidth}
                 columnWidths={columnWidths}
+                actionsColumnPinned={actionsColumnPinned}
                 density={torrentListDensity}
                 locale={locale}
                 onToggleSelect={toggleSelect}

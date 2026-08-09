@@ -45,6 +45,9 @@ export function useColumnManager() {
     return saved ? normalizeVisibleColumns(JSON.parse(saved) as string[]) : DEFAULT_VISIBLE_COLUMNS
   })
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(readColumnWidths)
+  const [actionsColumnPinned, setActionsColumnPinned] = useState(
+    () => localStorage.getItem("torrent-actions-column-pinned") !== "false"
+  )
 
   const columnDnDSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -58,6 +61,10 @@ export function useColumnManager() {
   useEffect(() => {
     localStorage.setItem("torrent-column-widths", JSON.stringify(columnWidths))
   }, [columnWidths])
+
+  useEffect(() => {
+    localStorage.setItem("torrent-actions-column-pinned", String(actionsColumnPinned))
+  }, [actionsColumnPinned])
 
   const setColumnWidth = (id: string, width: number) => {
     if (!TORRENT_COLUMNS.some((column) => column.id === id)) return
@@ -126,5 +133,7 @@ export function useColumnManager() {
     tableMinWidth,
     columnWidths,
     setColumnWidth,
+    actionsColumnPinned,
+    setActionsColumnPinned,
   }
 }

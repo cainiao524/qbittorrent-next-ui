@@ -27,6 +27,7 @@ import {
   RotateCcw,
   FileArchive,
   Keyboard,
+  Pin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -133,6 +134,8 @@ interface TorrentToolbarProps {
   toggleColumn: (id: string) => void
   resetVisibleColumns: () => void
   handleColumnDragEnd: (event: DragEndEvent) => void
+  actionsColumnPinned: boolean
+  onActionsColumnPinnedChange: (pinned: boolean) => void
   // Actions
   onBatchReplaceOpen: () => void
   onBatchMoveOpen: () => void
@@ -162,6 +165,8 @@ export function TorrentToolbar({
   toggleColumn,
   resetVisibleColumns,
   handleColumnDragEnd,
+  actionsColumnPinned,
+  onActionsColumnPinnedChange,
   onBatchReplaceOpen,
   onBatchMoveOpen,
   onShortcutsOpen,
@@ -238,6 +243,16 @@ export function TorrentToolbar({
                   {t('common.reset', 'Reset')}
                 </button>
               </div>
+              <DropdownMenuSeparator className="mx-1 my-1 bg-muted/50" />
+              <DropdownMenuCheckboxItem
+                className="mx-1 rounded-xl py-2.5 cursor-pointer transition-colors focus:bg-muted"
+                checked={actionsColumnPinned}
+                onCheckedChange={(checked) => onActionsColumnPinnedChange(checked === true)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                <Pin className="mr-2 h-4 w-4 text-primary/70" />
+                <span className="text-sm font-medium">{t('common.pin_actions_column', 'Pin actions column')}</span>
+              </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator className="mx-1 my-1 bg-muted/50" />
               <div className="px-2 pb-1">
                 <p className="px-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">

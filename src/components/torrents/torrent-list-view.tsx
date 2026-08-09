@@ -51,6 +51,7 @@ interface TorrentListViewProps {
   animateSortTransitions: boolean
   tableMinWidth: number
   columnWidths: Record<string, number>
+  actionsColumnPinned: boolean
   density: "comfortable" | "compact"
   locale: string
   onToggleSelect: (id: TorrentId, range: boolean) => void
@@ -75,6 +76,7 @@ interface TorrentRowProps {
   locale: string
   columns: Array<ColumnConfig & { label: string }>
   columnWidths: Record<string, number>
+  actionsColumnPinned: boolean
   density: "comfortable" | "compact"
   listPath: string
   rowAnimationKey: string
@@ -91,6 +93,7 @@ function rowPropsEqual(prev: TorrentRowProps, next: TorrentRowProps): boolean {
     && prev.locale === next.locale
     && prev.columns === next.columns
     && prev.columnWidths === next.columnWidths
+    && prev.actionsColumnPinned === next.actionsColumnPinned
     && prev.density === next.density
     && prev.listPath === next.listPath
     && prev.rowAnimationKey === next.rowAnimationKey
@@ -107,6 +110,7 @@ const TorrentRow = memo(function TorrentRow({
   locale,
   columns,
   columnWidths,
+  actionsColumnPinned,
   density,
   listPath,
   rowAnimationKey,
@@ -182,27 +186,27 @@ const TorrentRow = memo(function TorrentRow({
         )
       }
       case "size":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{formatSize(torrent.size)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.size)}</span></TableCell>
       case "totalSize":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{formatSize(torrent.totalSize)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.totalSize)}</span></TableCell>
       case "addedDate":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-muted-foreground text-xs"><span data-column-content>{formatDate(torrent.addedDate, locale)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground text-xs"><span data-column-content>{formatDate(torrent.addedDate, locale)}</span></TableCell>
       case "editDate":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-muted-foreground text-xs"><span data-column-content>{torrent.editDate ? formatDate(torrent.editDate, locale) : "—"}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground text-xs"><span data-column-content>{torrent.editDate ? formatDate(torrent.editDate, locale) : "—"}</span></TableCell>
       case "uploadedEver":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{formatSize(torrent.uploadedEver)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.uploadedEver)}</span></TableCell>
       case "rateDownload":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-green-500 text-right"><span data-column-content>{formatSpeed(torrent.rateDownload)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-green-500 text-left"><span data-column-content>{formatSpeed(torrent.rateDownload)}</span></TableCell>
       case "rateUpload":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-blue-500 text-right"><span data-column-content>{formatSpeed(torrent.rateUpload)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-blue-500 text-left"><span data-column-content>{formatSpeed(torrent.rateUpload)}</span></TableCell>
       case "eta":
-        return <TableCell key={column.id} {...cellProps} className="text-right"><div data-column-content className="flex items-center justify-end gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-left"><div data-column-content className="flex items-center justify-start gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
       case "uploadRatio":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</span></TableCell>
       case "seeds":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{torrent.peersSendingToUs} ({torrent.seedsTotal ?? 0})</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.peersSendingToUs} ({torrent.seedsTotal ?? 0})</span></TableCell>
       case "peers":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{torrent.peersGettingFromUs} ({torrent.peersTotal ?? 0})</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.peersGettingFromUs} ({torrent.peersTotal ?? 0})</span></TableCell>
       case "category":
         return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={torrent.category || undefined}><span data-column-content>{torrent.category || "—"}</span></TableCell>
       case "labels": {
@@ -210,27 +214,27 @@ const TorrentRow = memo(function TorrentRow({
         return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={labels}><span data-column-content>{labels}</span></TableCell>
       }
       case "dateCreated":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.dateCreated ?? 0, locale)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.dateCreated ?? 0, locale)}</span></TableCell>
       case "timeElapsed":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-muted-foreground"><span data-column-content>{formatDuration(torrent.timeElapsed ?? 0, locale)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground"><span data-column-content>{formatDuration(torrent.timeElapsed ?? 0, locale)}</span></TableCell>
       case "lastSeenComplete":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.lastSeenComplete ?? 0, locale)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.lastSeenComplete ?? 0, locale)}</span></TableCell>
       case "availability":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{Number.isFinite(torrent.availability) && (torrent.availability ?? -1) >= 0 ? (torrent.availability ?? 0).toFixed(2) : "—"}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{Number.isFinite(torrent.availability) && (torrent.availability ?? -1) >= 0 ? (torrent.availability ?? 0).toFixed(2) : "—"}</span></TableCell>
       case "tracker": {
         const tracker = torrent.trackers?.[0]?.announce || "—"
         return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={tracker}><span data-column-content>{tracker}</span></TableCell>
       }
       case "downloadedEver":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{formatSize(torrent.downloadedEver)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.downloadedEver)}</span></TableCell>
       case "amountLeft":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{formatSize(torrent.amountLeft ?? 0)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.amountLeft ?? 0)}</span></TableCell>
       case "doneDate":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.doneDate, locale)}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.doneDate, locale)}</span></TableCell>
       case "downloadLimit":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{torrent.downloadLimited ? formatSpeed((torrent.downloadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.downloadLimited ? formatSpeed((torrent.downloadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
       case "uploadLimit":
-        return <TableCell key={column.id} {...cellProps} className="text-numeric text-right"><span data-column-content>{torrent.uploadLimited ? formatSpeed((torrent.uploadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.uploadLimited ? formatSpeed((torrent.uploadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
       case "downloadDir":
         return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={torrent.downloadDir}><span data-column-content>{torrent.downloadDir || "—"}</span></TableCell>
     }
@@ -261,7 +265,13 @@ const TorrentRow = memo(function TorrentRow({
         </div>
       </TableCell>
       {columns.map(renderCell)}
-      <TableCell className="w-[170px] pr-6">
+      <TableCell className={cn(
+        "w-[170px] min-w-[170px] pr-6",
+        actionsColumnPinned && "sticky right-0 z-20 border-l border-border/50 shadow-[-12px_0_20px_-18px_rgba(0,0,0,0.75)]",
+        actionsColumnPinned && (selected
+          ? "bg-primary/5 group-hover/row:bg-primary/10"
+          : "bg-card group-hover/row:bg-muted")
+      )}>
         <div className="flex items-center justify-center gap-1">
           <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
           <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => onOpenEdit(torrent)}>
@@ -298,6 +308,7 @@ export function TorrentListView({
   animateSortTransitions,
   tableMinWidth,
   columnWidths,
+  actionsColumnPinned,
   density,
   locale,
   onToggleSelect,
@@ -439,7 +450,15 @@ export function TorrentListView({
                 </div>
               </TableHead>
               {orderedVisibleColumns.map(renderHeader)}
-              <TableHead className={cn("w-[170px] pr-6 text-center", compact ? "h-9" : "h-12")}>{t('common.actions')}</TableHead>
+              <TableHead
+                className={cn(
+                  "w-[170px] min-w-[170px] pr-6 text-center",
+                  compact ? "h-9" : "h-12",
+                  actionsColumnPinned && "sticky right-0 z-30 border-l border-border/60 bg-muted shadow-[-12px_0_20px_-18px_rgba(0,0,0,0.75)]"
+                )}
+              >
+                {t('common.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody ref={tableBodyRef} data-virtualized={shouldVirtualize ? "true" : "false"}>
@@ -459,6 +478,7 @@ export function TorrentListView({
                 locale={locale}
                 columns={orderedVisibleColumns}
                 columnWidths={columnWidths}
+                actionsColumnPinned={actionsColumnPinned}
                 density={density}
                 listPath={location.pathname}
                 rowAnimationKey={rowAnimationKey}

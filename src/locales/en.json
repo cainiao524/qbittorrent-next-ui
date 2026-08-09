@@ -143,6 +143,7 @@
     "reannounce_success": "Reannounced",
     "reannounce_desc": "Selected torrents reannounced to trackers",
     "display_columns": "Display Columns",
+    "pin_actions_column": "Pin Actions Column",
     "reset": "Reset",
     "visible": "Visible",
     "hidden": "Hidden",
