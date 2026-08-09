@@ -16,9 +16,44 @@ function normalizeVisibleColumns(columns: string[]) {
 const MIN_COLUMN_WIDTH = 72
 const MAX_COLUMN_WIDTH = 720
 
+const COLUMN_MIN_WIDTHS: Record<string, number> = {
+  name: 280,
+  status: 128,
+  progress: 190,
+  size: 140,
+  totalSize: 136,
+  addedDate: 176,
+  editDate: 176,
+  uploadedEver: 144,
+  uploadRatio: 104,
+  rateDownload: 140,
+  rateUpload: 140,
+  eta: 132,
+  seeds: 112,
+  peers: 112,
+  category: 120,
+  labels: 140,
+  dateCreated: 176,
+  timeElapsed: 144,
+  lastSeenComplete: 180,
+  availability: 120,
+  tracker: 180,
+  downloadedEver: 140,
+  amountLeft: 140,
+  doneDate: 176,
+  downloadLimit: 144,
+  uploadLimit: 144,
+  downloadDir: 200,
+}
+
+function minimumColumnWidth(column: ColumnConfig) {
+  return COLUMN_MIN_WIDTHS[column.id] ?? MIN_COLUMN_WIDTH
+}
+
 function defaultColumnWidth(column: ColumnConfig) {
-  if (column.width.endsWith("px")) return Number.parseInt(column.width, 10)
-  return Math.max(Number.parseInt(column.minWidth ?? "0", 10) || 0, column.id === "name" ? 360 : 120)
+  const minimumWidth = minimumColumnWidth(column)
+  if (column.width.endsWith("px")) return Math.max(minimumWidth, Number.parseInt(column.width, 10))
+  return Math.max(minimumWidth, Number.parseInt(column.minWidth ?? "0", 10) || 0, column.id === "name" ? 360 : 120)
 }
 
 function defaultColumnWidths() {
@@ -31,7 +66,7 @@ function readColumnWidths() {
     const saved = JSON.parse(localStorage.getItem("torrent-column-widths") ?? "{}") as Record<string, number>
     for (const column of TORRENT_COLUMNS) {
       const value = saved[column.id]
-      if (Number.isFinite(value)) defaults[column.id] = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(value)))
+      if (Number.isFinite(value)) defaults[column.id] = Math.min(MAX_COLUMN_WIDTH, Math.max(minimumColumnWidth(column), Math.round(value)))
     }
   } catch { /* 使用默认列宽 */ }
   return defaults
@@ -67,8 +102,9 @@ export function useColumnManager() {
   }, [actionsColumnPinned])
 
   const setColumnWidth = (id: string, width: number) => {
-    if (!TORRENT_COLUMNS.some((column) => column.id === id)) return
-    const nextWidth = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)))
+    const column = TORRENT_COLUMNS.find((item) => item.id === id)
+    if (!column) return
+    const nextWidth = Math.min(MAX_COLUMN_WIDTH, Math.max(minimumColumnWidth(column), Math.round(width)))
     setColumnWidths((current) => current[id] === nextWidth ? current : { ...current, [id]: nextWidth })
   }
 
