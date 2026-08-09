@@ -39,6 +39,13 @@ const torrents: Torrent[] = [
     peersConnected: 1,
     peersSendingToUs: 0,
     peersGettingFromUs: 1,
+    seedsTotal: 10,
+    peersTotal: 2,
+    category: "Linux",
+    dateCreated: 50,
+    timeElapsed: 500,
+    lastSeenComplete: 450,
+    availability: 4,
     trackerStats: [{ announce: "a", host: "ubuntu.example", seederCount: 1, leecherCount: 1, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: false }],
   },
   {
@@ -69,6 +76,13 @@ const torrents: Torrent[] = [
     peersConnected: 5,
     peersSendingToUs: 3,
     peersGettingFromUs: 1,
+    seedsTotal: 8,
+    peersTotal: 6,
+    category: "Movies",
+    dateCreated: 60,
+    timeElapsed: 300,
+    lastSeenComplete: 250,
+    availability: 2,
     trackerStats: [{ announce: "b", host: "movies.example", seederCount: 1, leecherCount: 1, lastAnnounceSucceeded: true, lastAnnounceResult: "Success", isBackup: false }],
   },
   {
@@ -99,6 +113,13 @@ const torrents: Torrent[] = [
     peersConnected: 0,
     peersSendingToUs: 0,
     peersGettingFromUs: 0,
+    seedsTotal: 0,
+    peersTotal: 0,
+    category: "Archive",
+    dateCreated: 40,
+    timeElapsed: 100,
+    lastSeenComplete: 0,
+    availability: 0,
     trackerStats: [{ announce: "c", host: "archive.example", seederCount: 1, leecherCount: 1, lastAnnounceSucceeded: false, lastAnnounceResult: "Timeout", isBackup: false }],
   },
 ]
@@ -131,6 +152,9 @@ test("sortTorrents sorts by regular and derived fields", () => {
   expect(sortTorrents(torrents, { key: "addedDate", direction: "asc" }).map(({ id }) => id)).toEqual(["1", "3", "2"])
   expect(sortTorrents(torrents, { key: "labels", direction: "asc" }).map(({ id }) => id)).toEqual(["3", "1", "2"])
   expect(getTorrentSortValue(torrents[0], "labels")).toBe("Linux\u0000ISO")
+  expect(sortTorrents(torrents, { key: "seeds", direction: "desc" }).map(({ id }) => id)).toEqual(["2", "1", "3"])
+  expect(sortTorrents(torrents, { key: "category", direction: "asc" }).map(({ id }) => id)).toEqual(["3", "1", "2"])
+  expect(sortTorrents(torrents, { key: "availability", direction: "desc" }).map(({ id }) => id)).toEqual(["1", "2", "3"])
 })
 
 test("selectTorrentRange adds the inclusive range while preserving earlier selections", () => {
