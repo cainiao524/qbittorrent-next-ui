@@ -63,7 +63,7 @@ interface TorrentListViewProps {
 }
 
 function SortIcon({ column, sortConfig }: { column: SortKey; sortConfig: TorrentListViewProps['sortConfig'] }) {
-  if (sortConfig?.key !== column) return <ArrowDownCircle className="ml-1 h-3 w-3 opacity-0 transition-opacity group-hover/header:opacity-25" />;
+  if (sortConfig?.key !== column) return <ArrowDownCircle className="ml-1 h-3 w-3 opacity-20" />;
   return sortConfig.direction === 'asc'
     ? <ArrowUpCircle className="ml-1 h-3 w-3 text-primary" />
     : <ArrowDownCircle className="ml-1 h-3 w-3 text-primary" />;
@@ -125,11 +125,7 @@ const TorrentRow = memo(function TorrentRow({
   const [shouldAnimateEntrance] = useState(animateEntrance)
   const compact = density === "compact"
 
-  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => ({
-    width: columnWidths[columnId],
-    paddingLeft: 12,
-    paddingRight: 12,
-  })
+  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => ({ width: columnWidths[columnId] })
 
   const renderCell = (column: ColumnConfig & { label: string }) => {
     const style = getColumnStyle(column.id)

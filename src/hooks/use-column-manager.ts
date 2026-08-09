@@ -16,10 +16,7 @@ function normalizeVisibleColumns(columns: string[]) {
 const MIN_COLUMN_WIDTH = 72
 const MAX_COLUMN_WIDTH = 720
 
-const COLUMN_MIN_WIDTHS: Record<string, number> = {
-  name: 280,
-  status: 128,
-  progress: 190,
+const EXPANDED_COLUMN_WIDTHS: Record<string, number> = {
   size: 140,
   totalSize: 136,
   addedDate: 176,
@@ -31,29 +28,19 @@ const COLUMN_MIN_WIDTHS: Record<string, number> = {
   eta: 132,
   seeds: 112,
   peers: 112,
-  category: 120,
-  labels: 140,
   dateCreated: 176,
   timeElapsed: 144,
-  lastSeenComplete: 180,
   availability: 120,
-  tracker: 180,
   downloadedEver: 140,
   amountLeft: 140,
   doneDate: 176,
   downloadLimit: 144,
   uploadLimit: 144,
-  downloadDir: 200,
-}
-
-function minimumColumnWidth(column: ColumnConfig) {
-  return COLUMN_MIN_WIDTHS[column.id] ?? MIN_COLUMN_WIDTH
 }
 
 function defaultColumnWidth(column: ColumnConfig) {
-  const minimumWidth = minimumColumnWidth(column)
-  if (column.width.endsWith("px")) return Math.max(minimumWidth, Number.parseInt(column.width, 10))
-  return Math.max(minimumWidth, Number.parseInt(column.minWidth ?? "0", 10) || 0, column.id === "name" ? 360 : 120)
+  if (column.width.endsWith("px")) return Number.parseInt(column.width, 10)
+  return Math.max(Number.parseInt(column.minWidth ?? "0", 10) || 0, column.id === "name" ? 360 : 120)
 }
 
 function defaultColumnWidths() {
@@ -64,9 +51,17 @@ function readColumnWidths() {
   const defaults = defaultColumnWidths()
   try {
     const saved = JSON.parse(localStorage.getItem("torrent-column-widths") ?? "{}") as Record<string, number>
+    const rollbackKey = "torrent-column-widths-header-expansion-rollback-v1"
+    if (localStorage.getItem(rollbackKey) !== "done") {
+      for (const [id, expandedWidth] of Object.entries(EXPANDED_COLUMN_WIDTHS)) {
+        if (saved[id] === expandedWidth && defaults[id] < expandedWidth) saved[id] = defaults[id]
+      }
+      localStorage.setItem("torrent-column-widths", JSON.stringify(saved))
+      localStorage.setItem(rollbackKey, "done")
+    }
     for (const column of TORRENT_COLUMNS) {
       const value = saved[column.id]
-      if (Number.isFinite(value)) defaults[column.id] = Math.min(MAX_COLUMN_WIDTH, Math.max(minimumColumnWidth(column), Math.round(value)))
+      if (Number.isFinite(value)) defaults[column.id] = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(value)))
     }
   } catch { /* 使用默认列宽 */ }
   return defaults
@@ -102,9 +97,8 @@ export function useColumnManager() {
   }, [actionsColumnPinned])
 
   const setColumnWidth = (id: string, width: number) => {
-    const column = TORRENT_COLUMNS.find((item) => item.id === id)
-    if (!column) return
-    const nextWidth = Math.min(MAX_COLUMN_WIDTH, Math.max(minimumColumnWidth(column), Math.round(width)))
+    if (!TORRENT_COLUMNS.some((column) => column.id === id)) return
+    const nextWidth = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)))
     setColumnWidths((current) => current[id] === nextWidth ? current : { ...current, [id]: nextWidth })
   }
 
