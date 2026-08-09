@@ -267,10 +267,10 @@ const TorrentRow = memo(function TorrentRow({
       {columns.map(renderCell)}
       <TableCell className={cn(
         "w-[170px] min-w-[170px] pr-6",
-        actionsColumnPinned && "sticky right-0 z-20 bg-card/95 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-card/95",
+        actionsColumnPinned && "sticky right-0 z-20 bg-card before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-card",
         actionsColumnPinned && (selected
-          ? "bg-primary/5 group-hover/row:bg-primary/10 before:to-primary/5 group-hover/row:before:to-primary/10"
-          : "group-hover/row:bg-muted/30 group-hover/row:before:to-muted/30")
+          ? "bg-[color-mix(in_oklab,var(--primary)_5%,var(--card))] group-hover/row:bg-[color-mix(in_oklab,var(--primary)_10%,var(--card))] before:to-[color-mix(in_oklab,var(--primary)_5%,var(--card))] group-hover/row:before:to-[color-mix(in_oklab,var(--primary)_10%,var(--card))]"
+          : "group-hover/row:bg-[color-mix(in_oklab,var(--muted)_30%,var(--card))] group-hover/row:before:to-[color-mix(in_oklab,var(--muted)_30%,var(--card))]")
       )}>
         <div className="flex items-center justify-center gap-1">
           <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
@@ -454,7 +454,7 @@ export function TorrentListView({
                 className={cn(
                   "w-[170px] min-w-[170px] pr-6 text-center",
                   compact ? "h-9" : "h-12",
-                  actionsColumnPinned && "sticky right-0 z-30 bg-muted/80 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-muted/80"
+                  actionsColumnPinned && "sticky right-0 z-30 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-[color-mix(in_oklab,var(--muted)_50%,var(--card))]"
                 )}
               >
                 {t('common.actions')}
