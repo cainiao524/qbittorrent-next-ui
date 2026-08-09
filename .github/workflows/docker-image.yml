@@ -71,6 +71,12 @@ jobs:
             ghcr.io/cainiao524/qbittorrent-next-ui:latest
             ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
 
+  update-description:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
+    needs: build
+    uses: ./.github/workflows/update-dockerhub-description.yml
+    secrets: inherit
+
   export:
     needs: build
     runs-on: ubuntu-latest

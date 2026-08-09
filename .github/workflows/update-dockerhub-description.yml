@@ -1,6 +1,7 @@
 name: Update Docker Hub description
 
 on:
+  workflow_call:
   workflow_dispatch:
 
 permissions:
