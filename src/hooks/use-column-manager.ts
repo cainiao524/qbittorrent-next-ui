@@ -13,6 +13,60 @@ function normalizeVisibleColumns(columns: string[]) {
   return ["name", ...uniqueColumns]
 }
 
+const MIN_COLUMN_WIDTH = 72
+const MAX_COLUMN_WIDTH = 720
+
+const EXPANDED_COLUMN_WIDTHS: Record<string, number> = {
+  size: 140,
+  totalSize: 136,
+  addedDate: 176,
+  editDate: 176,
+  uploadedEver: 144,
+  uploadRatio: 104,
+  rateDownload: 140,
+  rateUpload: 140,
+  eta: 132,
+  seeds: 112,
+  peers: 112,
+  dateCreated: 176,
+  timeElapsed: 144,
+  availability: 120,
+  downloadedEver: 140,
+  amountLeft: 140,
+  doneDate: 176,
+  downloadLimit: 144,
+  uploadLimit: 144,
+}
+
+function defaultColumnWidth(column: ColumnConfig) {
+  if (column.width.endsWith("px")) return Number.parseInt(column.width, 10)
+  return Math.max(Number.parseInt(column.minWidth ?? "0", 10) || 0, column.id === "name" ? 360 : 120)
+}
+
+function defaultColumnWidths() {
+  return Object.fromEntries(TORRENT_COLUMNS.map((column) => [column.id, defaultColumnWidth(column)]))
+}
+
+function readColumnWidths() {
+  const defaults = defaultColumnWidths()
+  try {
+    const saved = JSON.parse(localStorage.getItem("torrent-column-widths") ?? "{}") as Record<string, number>
+    const rollbackKey = "torrent-column-widths-header-expansion-rollback-v1"
+    if (localStorage.getItem(rollbackKey) !== "done") {
+      for (const [id, expandedWidth] of Object.entries(EXPANDED_COLUMN_WIDTHS)) {
+        if (saved[id] === expandedWidth && defaults[id] < expandedWidth) saved[id] = defaults[id]
+      }
+      localStorage.setItem("torrent-column-widths", JSON.stringify(saved))
+      localStorage.setItem(rollbackKey, "done")
+    }
+    for (const column of TORRENT_COLUMNS) {
+      const value = saved[column.id]
+      if (Number.isFinite(value)) defaults[column.id] = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(value)))
+    }
+  } catch { /* 使用默认列宽 */ }
+  return defaults
+}
+
 export function useColumnManager() {
   const { t } = useI18n()
 
@@ -20,6 +74,10 @@ export function useColumnManager() {
     const saved = localStorage.getItem('torrent-visible-columns')
     return saved ? normalizeVisibleColumns(JSON.parse(saved) as string[]) : DEFAULT_VISIBLE_COLUMNS
   })
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(readColumnWidths)
+  const [actionsColumnPinned, setActionsColumnPinned] = useState(
+    () => localStorage.getItem("torrent-actions-column-pinned") !== "false"
+  )
 
   const columnDnDSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -29,6 +87,20 @@ export function useColumnManager() {
   useEffect(() => {
     localStorage.setItem('torrent-visible-columns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
+
+  useEffect(() => {
+    localStorage.setItem("torrent-column-widths", JSON.stringify(columnWidths))
+  }, [columnWidths])
+
+  useEffect(() => {
+    localStorage.setItem("torrent-actions-column-pinned", String(actionsColumnPinned))
+  }, [actionsColumnPinned])
+
+  const setColumnWidth = (id: string, width: number) => {
+    if (!TORRENT_COLUMNS.some((column) => column.id === id)) return
+    const nextWidth = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)))
+    setColumnWidths((current) => current[id] === nextWidth ? current : { ...current, [id]: nextWidth })
+  }
 
   const toggleColumn = (id: string) => {
     if (id === "name") return
@@ -74,15 +146,10 @@ export function useColumnManager() {
   )
 
   const tableMinWidth = useMemo(() => {
-    const fixedWidths = 180
-    const columnsWidth = visibleColumns.reduce((acc, id) => {
-      const col = TORRENT_COLUMNS.find(c => c.id === id)
-      if (!col) return acc
-      const w = col.minWidth || col.width
-      return acc + (w.includes('%') ? 250 : parseInt(w))
-    }, 0)
+    const fixedWidths = 220
+    const columnsWidth = visibleColumns.reduce((acc, id) => acc + (columnWidths[id] ?? MIN_COLUMN_WIDTH), 0)
     return fixedWidths + columnsWidth
-  }, [visibleColumns])
+  }, [columnWidths, visibleColumns])
 
   return {
     visibleColumns,
@@ -94,5 +161,9 @@ export function useColumnManager() {
     hiddenColumns,
     orderedVisibleColumnConfigs,
     tableMinWidth,
+    columnWidths,
+    setColumnWidth,
+    actionsColumnPinned,
+    setActionsColumnPinned,
   }
 }

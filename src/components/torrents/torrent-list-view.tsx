@@ -1,8 +1,8 @@
 "use client"
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -25,21 +25,20 @@ import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { getTorrentProgressColor } from "@/lib/torrent-progress"
+import type { SortKey } from "@/lib/torrent-list-utils"
+import { parseTorrentLabel } from "@/lib/torrent-labels"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
-type SortKey =
-  | "name"
-  | "status"
-  | "percentDone"
-  | "size"
-  | "totalSize"
-  | "addedDate"
-  | "editDate"
-  | "uploadedEver"
-  | "rateDownload"
-  | "rateUpload"
-  | "eta"
-  | "uploadRatio"
-  | "labels"
+const COLUMN_SORT_KEYS: Record<string, SortKey> = {
+  name: "name", status: "status", progress: "percentDone", size: "size", totalSize: "totalSize",
+  addedDate: "addedDate", editDate: "editDate", uploadedEver: "uploadedEver", rateDownload: "rateDownload",
+  rateUpload: "rateUpload", eta: "eta", uploadRatio: "uploadRatio", seeds: "seeds", peers: "peers",
+  category: "category", labels: "labels", dateCreated: "dateCreated", timeElapsed: "timeElapsed",
+  lastSeenComplete: "lastSeenComplete", availability: "availability",
+  tracker: "tracker", downloadedEver: "downloadedEver", amountLeft: "amountLeft", doneDate: "doneDate",
+  downloadLimit: "downloadLimit", uploadLimit: "uploadLimit", downloadDir: "downloadDir",
+}
 
 interface TorrentListViewProps {
   enableRowEntrance: boolean
@@ -53,10 +52,14 @@ interface TorrentListViewProps {
   sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null
   animateSortTransitions: boolean
   tableMinWidth: number
+  columnWidths: Record<string, number>
+  actionsColumnPinned: boolean
+  density: "comfortable" | "compact"
   locale: string
   onToggleSelect: (id: TorrentId, range: boolean) => void
   onToggleSelectAll: () => void
   onSort: (key: SortKey) => void
+  onColumnWidthChange: (id: string, width: number) => void
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
   onAdvancedSuccess?: () => void
 }
@@ -74,12 +77,17 @@ interface TorrentRowProps {
   selected: boolean
   locale: string
   columns: Array<ColumnConfig & { label: string }>
+  columnWidths: Record<string, number>
+  actionsColumnPinned: boolean
+  density: "comfortable" | "compact"
+  listPath: string
   rowAnimationKey: string
   animateEntrance: boolean
   onToggleSelect: (id: TorrentId, range: boolean) => void
   onSingleAction: (id: TorrentId, action: "start" | "stop" | "remove") => void
   onOpenEdit: (torrent: Torrent) => void
   onAdvancedSuccess?: () => void
+  isMobile: boolean
 }
 
 function rowPropsEqual(prev: TorrentRowProps, next: TorrentRowProps): boolean {
@@ -87,11 +95,16 @@ function rowPropsEqual(prev: TorrentRowProps, next: TorrentRowProps): boolean {
     && prev.selected === next.selected
     && prev.locale === next.locale
     && prev.columns === next.columns
+    && prev.columnWidths === next.columnWidths
+    && prev.actionsColumnPinned === next.actionsColumnPinned
+    && prev.density === next.density
+    && prev.listPath === next.listPath
     && prev.rowAnimationKey === next.rowAnimationKey
     && prev.onToggleSelect === next.onToggleSelect
     && prev.onSingleAction === next.onSingleAction
     && prev.onOpenEdit === next.onOpenEdit
     && prev.onAdvancedSuccess === next.onAdvancedSuccess
+    && prev.isMobile === next.isMobile
 }
 
 const TorrentRow = memo(function TorrentRow({
@@ -100,45 +113,44 @@ const TorrentRow = memo(function TorrentRow({
   selected,
   locale,
   columns,
+  columnWidths,
+  actionsColumnPinned,
+  density,
+  listPath,
   rowAnimationKey,
   animateEntrance,
   onToggleSelect,
   onSingleAction,
   onOpenEdit,
   onAdvancedSuccess,
+  isMobile,
 }: TorrentRowProps) {
   const { t } = useI18n()
   const [animationDelay] = useState(() => Math.min(initialIndex, 6) * 12)
   const [shouldAnimateEntrance] = useState(animateEntrance)
+  const compact = density === "compact"
 
-  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => {
-    const column = columns.find(c => c.id === columnId)
-    return {
-      width: column?.width,
-      minWidth: column?.minWidth,
-    }
-  }
+  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => ({ width: columnWidths[columnId] })
 
   const renderCell = (column: ColumnConfig & { label: string }) => {
-    const style: CSSProperties = {
-      width: getColumnStyle(column.id).width,
-      minWidth: getColumnStyle(column.id).minWidth,
-    }
+    const style = getColumnStyle(column.id)
+    const cellProps = { "data-column-id": column.id, style }
 
     switch (column.id) {
       case "name":
         return (
-          <TableCell key={column.id} className="text-heading-3 max-w-[350px] lg:max-w-[500px] truncate" style={style} title={torrent.name}>
-            <Link to={`/torrents/detail?id=${torrent.id}`} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
+          <TableCell key={column.id} {...cellProps} className="text-heading-3 truncate" title={torrent.name}>
+            <Link data-column-content to={`/torrents/detail?id=${torrent.id}`} state={{ fromListPath: listPath }} className="hover:text-primary transition-colors cursor-pointer block w-full min-w-0 truncate">
               {torrent.name}
             </Link>
           </TableCell>
         )
       case "status":
         return (
-          <TableCell key={column.id}>
-            <span className={cn(
-              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider transition-colors",
+          <TableCell key={column.id} {...cellProps}>
+            <span data-column-content className={cn(
+              "inline-flex items-center rounded-full px-2.5 text-xs font-medium uppercase tracking-wider transition-colors",
+              compact ? "py-0" : "py-0.5",
               torrent.status === 4 ? "bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400" :
                 torrent.status === 6 ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400" :
                   torrent.status === 0 ? "bg-muted text-muted-foreground/70" :
@@ -157,8 +169,8 @@ const TorrentRow = memo(function TorrentRow({
           ? "bg-fuchsia-500/65 dark:bg-fuchsia-400/65"
           : getTorrentProgressColor(torrent)
         return (
-          <TableCell key={column.id}>
-            <div className="flex h-10 min-w-0 items-center">
+          <TableCell key={column.id} {...cellProps}>
+            <div data-column-content className={cn("flex min-w-0 items-center", compact ? "h-7" : "h-10")}>
               <div className="flex w-full min-w-0 items-center gap-2.5">
                 <div
                   role="progressbar"
@@ -179,23 +191,57 @@ const TorrentRow = memo(function TorrentRow({
         )
       }
       case "size":
-        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.size)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.size)}</span></TableCell>
       case "totalSize":
-        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.totalSize)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.totalSize)}</span></TableCell>
       case "addedDate":
-        return <TableCell key={column.id} className="text-numeric text-right text-muted-foreground text-xs">{formatDate(torrent.addedDate, locale)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground text-xs"><span data-column-content>{formatDate(torrent.addedDate, locale)}</span></TableCell>
       case "editDate":
-        return <TableCell key={column.id} className="text-numeric text-right text-muted-foreground text-xs">{torrent.editDate ? formatDate(torrent.editDate, locale) : "—"}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground text-xs"><span data-column-content>{torrent.editDate ? formatDate(torrent.editDate, locale) : "—"}</span></TableCell>
       case "uploadedEver":
-        return <TableCell key={column.id} className="text-numeric text-right">{formatSize(torrent.uploadedEver)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.uploadedEver)}</span></TableCell>
       case "rateDownload":
-        return <TableCell key={column.id} className="text-numeric text-green-500 text-right">{formatSpeed(torrent.rateDownload)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-green-500 text-left"><span data-column-content>{formatSpeed(torrent.rateDownload)}</span></TableCell>
       case "rateUpload":
-        return <TableCell key={column.id} className="text-numeric text-blue-500 text-right">{formatSpeed(torrent.rateUpload)}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-blue-500 text-left"><span data-column-content>{formatSpeed(torrent.rateUpload)}</span></TableCell>
       case "eta":
-        return <TableCell key={column.id} className="text-right"><div className="flex items-center justify-end gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-left"><div data-column-content className="flex items-center justify-start gap-1.5 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span className="text-label lowercase">{formatDuration(torrent.eta, locale)}</span></div></TableCell>
       case "uploadRatio":
-        return <TableCell key={column.id} className="text-numeric text-right">{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</TableCell>
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.uploadRatio >= 0 ? torrent.uploadRatio.toFixed(2) : "0.00"}</span></TableCell>
+      case "seeds":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.peersSendingToUs} ({torrent.seedsTotal ?? 0})</span></TableCell>
+      case "peers":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.peersGettingFromUs} ({torrent.peersTotal ?? 0})</span></TableCell>
+      case "category":
+        return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={torrent.category || undefined}><span data-column-content>{torrent.category || "—"}</span></TableCell>
+      case "labels": {
+        const labels = torrent.labels?.map(parseTorrentLabel).filter(Boolean).join(", ") || "—"
+        return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={labels}><span data-column-content>{labels}</span></TableCell>
+      }
+      case "dateCreated":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.dateCreated ?? 0, locale)}</span></TableCell>
+      case "timeElapsed":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-muted-foreground"><span data-column-content>{formatDuration(torrent.timeElapsed ?? 0, locale)}</span></TableCell>
+      case "lastSeenComplete":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.lastSeenComplete ?? 0, locale)}</span></TableCell>
+      case "availability":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{Number.isFinite(torrent.availability) && (torrent.availability ?? -1) >= 0 ? (torrent.availability ?? 0).toFixed(2) : "—"}</span></TableCell>
+      case "tracker": {
+        const tracker = torrent.trackers?.[0]?.announce || "—"
+        return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={tracker}><span data-column-content>{tracker}</span></TableCell>
+      }
+      case "downloadedEver":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.downloadedEver)}</span></TableCell>
+      case "amountLeft":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{formatSize(torrent.amountLeft ?? 0)}</span></TableCell>
+      case "doneDate":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left text-xs text-muted-foreground"><span data-column-content>{formatDate(torrent.doneDate, locale)}</span></TableCell>
+      case "downloadLimit":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.downloadLimited ? formatSpeed((torrent.downloadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
+      case "uploadLimit":
+        return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{torrent.uploadLimited ? formatSpeed((torrent.uploadLimit ?? 0) * 1024) : t("common.mode_unlimited")}</span></TableCell>
+      case "downloadDir":
+        return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={torrent.downloadDir}><span data-column-content>{torrent.downloadDir || "—"}</span></TableCell>
     }
   }
 
@@ -205,11 +251,12 @@ const TorrentRow = memo(function TorrentRow({
       className={cn(
         "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row",
         shouldAnimateEntrance && "animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none",
-        selected && "bg-primary/5 hover:bg-primary/10"
+        selected && "bg-primary/5 hover:bg-primary/10",
+        compact && "[&>td]:py-1"
       )}
       style={shouldAnimateEntrance ? { animationDelay: `${animationDelay}ms`, animationFillMode: "both" } : undefined}
     >
-      <TableCell className="pl-6">
+      <TableCell className="pl-3 md:pl-6">
         <div
           className="cursor-pointer text-muted-foreground hover:text-primary transition-colors select-none"
           onMouseDown={(event) => event.preventDefault()}
@@ -223,25 +270,54 @@ const TorrentRow = memo(function TorrentRow({
         </div>
       </TableCell>
       {columns.map(renderCell)}
-      <TableCell className="w-[170px] pr-6">
-        <div className="flex items-center justify-center gap-1">
-          <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => onOpenEdit(torrent)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          {torrent.status !== 0 ? (
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-orange-500/10 hover:text-orange-500 transition-colors" onClick={() => onSingleAction(torrent.id, "stop")}>
-              <Pause className="h-4 w-4" />
+      <TableCell className={cn(
+        isMobile ? "w-14 min-w-14 px-1" : "w-[170px] min-w-[170px] pr-6",
+        actionsColumnPinned && "sticky right-0 z-20 bg-card before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-card",
+        actionsColumnPinned && (selected
+          ? "bg-[color-mix(in_oklab,var(--primary)_5%,var(--card))] group-hover/row:bg-[color-mix(in_oklab,var(--primary)_10%,var(--card))] before:to-[color-mix(in_oklab,var(--primary)_5%,var(--card))] group-hover/row:before:to-[color-mix(in_oklab,var(--primary)_10%,var(--card))]"
+          : "group-hover/row:bg-[color-mix(in_oklab,var(--muted)_30%,var(--card))] group-hover/row:before:to-[color-mix(in_oklab,var(--muted)_30%,var(--card))]")
+      )}>
+        {isMobile ? (
+          <div className="flex items-center justify-center">
+            <AdvancedTorrentMenu
+              ids={[torrent.id]}
+              torrent={torrent}
+              onSuccess={onAdvancedSuccess}
+              primaryActions
+              onPrimaryAction={(action) => onSingleAction(torrent.id, action)}
+              editAction={(
+                <DropdownMenuItem onSelect={() => onOpenEdit(torrent)}>
+                  <Pencil />
+                  {t("common.edit_torrent")}
+                </DropdownMenuItem>
+              )}
+              trigger={(
+                <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl hover:bg-primary/10 hover:text-primary" aria-label={t("common.actions")}>
+                  <span className="text-lg leading-none">•••</span>
+                </Button>
+              )}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1">
+            <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => onOpenEdit(torrent)} aria-label={t("common.edit_torrent")}>
+              <Pencil className="h-4 w-4" />
             </Button>
-          ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-500/10 hover:text-green-500 transition-colors" onClick={() => onSingleAction(torrent.id, "start")}>
-              <Play className="h-4 w-4" />
+            {torrent.status !== 0 ? (
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-orange-500/10 hover:text-orange-500 transition-colors" onClick={() => onSingleAction(torrent.id, "stop")} aria-label={t("common.pause", "暂停")}>
+                <Pause className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-500/10 hover:text-green-500 transition-colors" onClick={() => onSingleAction(torrent.id, "start")} aria-label={t("common.resume", "开始")}>
+                <Play className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => onSingleAction(torrent.id, "remove")} aria-label={t("common.remove", "删除")}>
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => onSingleAction(torrent.id, "remove")}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+          </div>
+        )}
       </TableCell>
     </TableRow>
   )
@@ -259,14 +335,22 @@ export function TorrentListView({
   sortConfig,
   animateSortTransitions,
   tableMinWidth,
+  columnWidths,
+  actionsColumnPinned,
+  density,
   locale,
   onToggleSelect,
   onToggleSelectAll,
   onSort,
+  onColumnWidthChange,
   onSingleAction,
   onAdvancedSuccess,
 }: TorrentListViewProps) {
   const { t } = useI18n()
+  const isMobile = useIsMobile()
+  const location = useLocation()
+  const tableRef = useRef<HTMLTableElement>(null)
+  const compact = density === "compact"
   const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
   const orderedVisibleColumns = useMemo(
     () => visibleColumns
@@ -288,7 +372,7 @@ export function TorrentListView({
   )
   const rowVirtualizer = useWindowVirtualizer({
     count: paginatedTorrents.length,
-    estimateSize: () => 57,
+    estimateSize: () => compact ? 41 : 57,
     getItemKey: getVirtualRowKey,
     overscan: 8,
     scrollMargin,
@@ -313,65 +397,72 @@ export function TorrentListView({
   useLayoutEffect(() => {
     if (!shouldVirtualize || !tableBodyRef.current) return
     const nextScrollMargin = Math.round(tableBodyRef.current.getBoundingClientRect().top + window.scrollY)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setScrollMargin((current) => current === nextScrollMargin ? current : nextScrollMargin)
-  })
+  }, [shouldVirtualize])
+
+  useLayoutEffect(() => {
+    if (shouldVirtualize) rowVirtualizer.measure()
+  }, [compact, rowVirtualizer, shouldVirtualize])
 
   const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
   const closeEdit = useCallback(() => setEditingTorrent(null), [])
 
-  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => {
-    const column = allColumns.find(c => c.id === columnId)
-    return {
-      width: column?.width,
-      minWidth: column?.minWidth,
-    }
-  }
+  const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => ({ width: columnWidths[columnId] })
 
-  const getHeaderClassName = (column: ColumnConfig) =>
-    cn(
-      "h-12 cursor-pointer hover:text-primary transition-colors",
-      column.align === "right" && "text-right"
-    )
+  const getHeaderClassName = (column: ColumnConfig) => cn(
+    "group/header relative cursor-pointer select-none hover:text-primary transition-colors",
+    compact ? "h-9" : "h-12",
+    column.align === "right" && "text-right"
+  )
+
+  const startResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, columnId: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = columnWidths[columnId]
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const onPointerMove = (pointerEvent: PointerEvent) => onColumnWidthChange(columnId, startWidth + pointerEvent.clientX - startX)
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp, { once: true })
+  }, [columnWidths, onColumnWidthChange])
+
+  const autoFitColumn = useCallback((columnId: string) => {
+    const cells = tableRef.current?.querySelectorAll<HTMLElement>(`[data-column-id="${columnId}"]`)
+    if (!cells?.length) return
+    const contentWidth = Math.max(...Array.from(cells).map((cell) => {
+      const content = cell.querySelector<HTMLElement>("[data-column-content]")
+      return (content?.scrollWidth ?? cell.scrollWidth) + 24
+    }))
+    onColumnWidthChange(columnId, contentWidth)
+  }, [onColumnWidthChange])
 
   const renderHeader = (column: ColumnConfig & { label: string }) => {
-    const style = getColumnStyle(column.id)
-
-    switch (column.id) {
-      case "name":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("name")}><div className="flex items-center truncate pr-4">{t("common.name")} <SortIcon column="name" sortConfig={sortConfig} /></div></TableHead>
-      case "status":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("status")}><div className="flex items-center">{t("common.status")} <SortIcon column="status" sortConfig={sortConfig} /></div></TableHead>
-      case "progress":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("percentDone")}><div className="flex items-center">{t("common.progress")} <SortIcon column="percentDone" sortConfig={sortConfig} /></div></TableHead>
-      case "size":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("size")}><div className="flex items-center justify-end">{t("common.size", "Size")} <SortIcon column="size" sortConfig={sortConfig} /></div></TableHead>
-      case "totalSize":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("totalSize")}><div className="flex items-center justify-end">{t("common.total_size", "Total Size")} <SortIcon column="totalSize" sortConfig={sortConfig} /></div></TableHead>
-      case "addedDate":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("addedDate")}><div className="flex items-center justify-end">{t("common.added_date", "Added Date")} <SortIcon column="addedDate" sortConfig={sortConfig} /></div></TableHead>
-      case "editDate":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("editDate")}><div className="flex items-center justify-end">{t("common.edit_date", "Modified Date")} <SortIcon column="editDate" sortConfig={sortConfig} /></div></TableHead>
-      case "uploadedEver":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadedEver")}><div className="flex items-center justify-end">{t("details.total_uploaded", "Uploaded")} <SortIcon column="uploadedEver" sortConfig={sortConfig} /></div></TableHead>
-      case "rateDownload":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateDownload")}><div className="flex items-center justify-end">{t("common.down_speed")} <SortIcon column="rateDownload" sortConfig={sortConfig} /></div></TableHead>
-      case "rateUpload":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("rateUpload")}><div className="flex items-center justify-end">{t("common.up_speed")} <SortIcon column="rateUpload" sortConfig={sortConfig} /></div></TableHead>
-      case "eta":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("eta")}><div className="flex items-center justify-end">{t("common.eta")} <SortIcon column="eta" sortConfig={sortConfig} /></div></TableHead>
-      case "uploadRatio":
-        return <TableHead key={column.id} className={getHeaderClassName(column)} style={style} onClick={() => onSort("uploadRatio")}><div className="flex items-center justify-end">{t("details.share_ratio", "Ratio")} <SortIcon column="uploadRatio" sortConfig={sortConfig} /></div></TableHead>
-    }
+    const sortKey = COLUMN_SORT_KEYS[column.id]
+    return (
+      <TableHead key={column.id} data-column-id={column.id} className={getHeaderClassName(column)} style={getColumnStyle(column.id)} onClick={() => onSort(sortKey)}>
+        <div data-column-content className={cn("flex min-w-0 items-center truncate pr-3", column.align === "right" && "justify-end")}>
+          <span className="truncate">{column.label}</span><SortIcon column={sortKey} sortConfig={sortConfig} />
+        </div>
+        {!isMobile && <div role="separator" aria-orientation="vertical" aria-label={`${column.label} ${t("common.resize_column", "调整列宽")}`} className="absolute right-0 top-1/2 z-10 h-2/3 w-2 -translate-y-1/2 cursor-col-resize touch-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border/50 hover:after:w-0.5 hover:after:bg-primary" onPointerDown={(event) => startResize(event, column.id)} onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); autoFitColumn(column.id) }} />}
+      </TableHead>
+    )
   }
 
   return (
     <Card className="shadow-md border-none overflow-hidden py-0">
       <CardContent className="p-0 overflow-hidden">
-        <Table className="table-fixed" style={{ minWidth: `${tableMinWidth}px` }}>
+        <Table ref={tableRef} className="table-fixed" style={{ minWidth: `${tableMinWidth - (isMobile ? 114 : 0)}px` }}>
           <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent border-none">
-              <TableHead className="w-[50px] pl-6 h-12">
+              <TableHead className={cn("w-[50px] pl-3 md:pl-6", compact ? "h-9" : "h-12")}>
                 <div
                   className="cursor-pointer text-muted-foreground hover:text-primary transition-colors"
                   onClick={onToggleSelectAll}
@@ -388,7 +479,15 @@ export function TorrentListView({
                 </div>
               </TableHead>
               {orderedVisibleColumns.map(renderHeader)}
-              <TableHead className="text-center w-[170px] h-12 pr-6">{t('common.actions')}</TableHead>
+              <TableHead
+                className={cn(
+                  isMobile ? "w-14 min-w-14 px-1 text-center" : "w-[170px] min-w-[170px] pr-6 text-center",
+                  compact ? "h-9" : "h-12",
+                  actionsColumnPinned && "sticky right-0 z-30 bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))] before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-[color-mix(in_oklab,var(--muted)_50%,var(--card))]"
+                )}
+              >
+                <span className={cn(isMobile && "sr-only")}>{t('common.actions')}</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody ref={tableBodyRef} data-virtualized={shouldVirtualize ? "true" : "false"}>
@@ -407,12 +506,17 @@ export function TorrentListView({
                 selected={selectedIdSet.has(torrent.id)}
                 locale={locale}
                 columns={orderedVisibleColumns}
+                columnWidths={columnWidths}
+                actionsColumnPinned={actionsColumnPinned}
+                density={density}
+                listPath={location.pathname}
                 rowAnimationKey={rowAnimationKey}
                 animateEntrance={animateRows}
                 onToggleSelect={onToggleSelect}
                 onSingleAction={onSingleAction}
                 onOpenEdit={openEdit}
                 onAdvancedSuccess={onAdvancedSuccess}
+                isMobile={isMobile}
               />
               )
             })}

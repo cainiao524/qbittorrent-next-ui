@@ -16,6 +16,20 @@ export type SortKey =
   | "eta"
   | "uploadRatio"
   | "labels"
+  | "seeds"
+  | "peers"
+  | "category"
+  | "dateCreated"
+  | "timeElapsed"
+  | "lastSeenComplete"
+  | "availability"
+  | "tracker"
+  | "downloadedEver"
+  | "amountLeft"
+  | "doneDate"
+  | "downloadLimit"
+  | "uploadLimit"
+  | "downloadDir"
 
 export type SortConfig = { key: SortKey; direction: "asc" | "desc" }
 
@@ -105,8 +119,16 @@ export function getTorrentSortValue(torrent: Torrent, key: SortKey): number | st
       return getTorrentLabelsSortValue(torrent.labels)
     case "editDate":
       return torrent.editDate ?? 0
-    default:
-      return torrent[key] ?? 0
+    case "seeds":
+      return torrent.peersSendingToUs
+    case "peers":
+      return torrent.peersGettingFromUs
+    case "tracker":
+      return torrent.trackers?.[0]?.announce ?? ""
+    default: {
+      const value = torrent[key as keyof Torrent]
+      return (typeof value === "number" || typeof value === "string") ? value : 0
+    }
   }
 }
 

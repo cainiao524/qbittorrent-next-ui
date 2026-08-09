@@ -26,16 +26,14 @@ function AppRoutes() {
   const currentListRoute = TORRENT_ROUTE_CONFIGS[location.pathname]
   const isDetailRoute = location.pathname === "/torrents/detail"
   const navigationState = location.state as { fromListPath?: string } | null
-  const lastListPath = useRef("/")
   const detailListRoute = navigationState?.fromListPath
     ? TORRENT_ROUTE_CONFIGS[navigationState.fromListPath]
-    : TORRENT_ROUTE_CONFIGS[lastListPath.current]
+    : TORRENT_ROUTE_CONFIGS["/"]
   const listScrollPosition = useRef(0)
   const wasDetailRoute = useRef(false)
 
   useEffect(() => {
     if (isDetailRoute) return
-    lastListPath.current = location.pathname
     const saveScrollPosition = () => { listScrollPosition.current = window.scrollY }
     saveScrollPosition()
     window.addEventListener("scroll", saveScrollPosition, { passive: true })

@@ -129,7 +129,7 @@ interface TorrentViewProps {
 export function TorrentView({ statusFilter, showStats = true, isActive = true }: TorrentViewProps) {
   const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
-  const { showSpeedChart, animateTorrentSorting } = useAppSettings()
+  const { showSpeedChart, animateTorrentSorting, torrentListDensity } = useAppSettings()
   const [selectedIds, setSelectedIds] = useState<TorrentId[]>([])
   const [selectionAnchorId, setSelectionAnchorId] = useState<TorrentId | null>(null)
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: "addedDate", direction: "desc" })
@@ -158,6 +158,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     hiddenColumns,
     orderedVisibleColumnConfigs,
     tableMinWidth,
+    columnWidths,
+    setColumnWidth,
+    actionsColumnPinned,
+    setActionsColumnPinned,
   } = useColumnManager()
 
   useEffect(() => {
@@ -390,7 +394,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div key={statusFilter ?? "all"} className="flex flex-col gap-4 md:gap-6">
       {showStats && (
         <div
           key={stats && !isInitialLoading ? "stats-ready" : "stats-loading"}
@@ -401,7 +405,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           style={stats && !isInitialLoading ? { animationFillMode: "both" } : undefined}
         >
           {stats && !isInitialLoading ? (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
             <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
               <StatCard
                 color="green"
@@ -456,7 +460,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             )}
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 animate-in fade-in duration-200 motion-reduce:animate-none">
+          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4 animate-in fade-in duration-200 motion-reduce:animate-none">
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="skeleton-gradient h-20 rounded-[2rem] bg-muted/30" />
             ))}
@@ -494,6 +498,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           toggleColumn={toggleColumn}
           resetVisibleColumns={resetVisibleColumns}
           handleColumnDragEnd={handleColumnDragEnd}
+          actionsColumnPinned={actionsColumnPinned}
+          onActionsColumnPinnedChange={setActionsColumnPinned}
           onBatchReplaceOpen={() => setIsBatchReplaceOpen(true)}
           onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
           onShortcutsOpen={() => setIsShortcutsOpen(true)}
@@ -523,10 +529,14 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
                 sortConfig={sortConfig}
                 animateSortTransitions={animateTorrentSorting}
                 tableMinWidth={tableMinWidth}
+                columnWidths={columnWidths}
+                actionsColumnPinned={actionsColumnPinned}
+                density={torrentListDensity}
                 locale={locale}
                 onToggleSelect={toggleSelect}
                 onToggleSelectAll={toggleSelectAll}
                 onSort={handleSort}
+                onColumnWidthChange={setColumnWidth}
                 onSingleAction={handleSingleAction}
                 onAdvancedSuccess={fetchData}
               />

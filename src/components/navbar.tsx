@@ -72,8 +72,8 @@ export function Navbar() {
   }, [newVersion, latestTag, t, locale])
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-background px-6">
-      <div className="flex items-center gap-4 flex-1">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-background px-3 sm:gap-4 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mx-2 h-8 hidden md:block" />
         <div className="relative w-full max-w-[400px]">
@@ -107,7 +107,7 @@ export function Navbar() {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[320px] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-0 mt-2 overflow-hidden">
+          <DropdownMenuContent align="end" collisionPadding={8} className="w-[min(320px,calc(100vw-1rem))] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-0 mt-2 overflow-hidden">
             <div className="px-4 py-4 bg-muted/20 border-b border-muted/50 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-80">{t('common.notifications', 'Notifications')}</span>
               {messages.length > 0 && (

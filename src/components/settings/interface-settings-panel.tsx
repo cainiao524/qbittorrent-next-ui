@@ -1,12 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUpDown, Download, History, LayoutPanelLeft, RotateCcw, Upload } from "lucide-react"
+import { AlignJustify, ArrowUpDown, Download, History, LayoutPanelLeft, RotateCcw, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { rpc } from "@/lib/rpc-client"
+import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n-context"
 import { DEFAULT_SIDEBAR_ITEMS, useAppSettings, type SidebarItemId } from "@/lib/app-settings-context"
 import type { ApplicationPreferences } from "@/lib/rpc-types"
@@ -22,6 +23,7 @@ interface SettingsBackup {
     sidebarItems: SidebarItemId[]
     showSpeedChart: boolean
     animateTorrentSorting?: boolean
+    torrentListDensity?: "comfortable" | "compact"
   }
 }
 
@@ -52,6 +54,7 @@ export function InterfaceSettingsPanel() {
       sidebarItems: settings.sidebarItems,
       showSpeedChart: settings.showSpeedChart,
       animateTorrentSorting: settings.animateTorrentSorting,
+      torrentListDensity: settings.torrentListDensity,
     },
   })
 
@@ -63,6 +66,7 @@ export function InterfaceSettingsPanel() {
     settings.setSidebarItems(backup.interface.sidebarItems)
     settings.setShowSpeedChart(backup.interface.showSpeedChart)
     settings.setAnimateTorrentSorting(backup.interface.animateTorrentSorting ?? true)
+    settings.setTorrentListDensity(backup.interface.torrentListDensity ?? "comfortable")
   }
 
   const exportSettings = async () => {
@@ -140,7 +144,17 @@ export function InterfaceSettingsPanel() {
             <span><span className="flex items-center gap-2 text-sm font-medium"><ArrowUpDown className="h-4 w-4 text-blue-500" />{t("interface_settings.sort_animation")}</span><span className="mt-1 block text-xs text-muted-foreground">{t("interface_settings.sort_animation_desc")}</span></span>
             <input type="checkbox" className="h-5 w-5 accent-green-500" checked={settings.animateTorrentSorting} onChange={(event) => settings.setAnimateTorrentSorting(event.target.checked)} />
           </label>
-          <Button variant="outline" size="sm" onClick={() => { settings.setSidebarItems(DEFAULT_SIDEBAR_ITEMS); settings.setShowSpeedChart(true); settings.setAnimateTorrentSorting(true) }}><RotateCcw className="mr-2 h-4 w-4" />{t("interface_settings.reset_interface")}</Button>
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+            <span><span className="flex items-center gap-2 text-sm font-medium"><AlignJustify className="h-4 w-4 text-violet-500" />{t("interface_settings.density_title")}</span><span className="mt-1 block text-xs text-muted-foreground">{t("interface_settings.density_desc")}</span></span>
+            <div className="flex shrink-0 rounded-xl bg-muted/60 p-1">
+              {(["comfortable", "compact"] as const).map((density) => (
+                <Button key={density} type="button" variant="ghost" size="sm" className={cn("h-8 rounded-lg px-3 text-xs", settings.torrentListDensity === density && "bg-background text-primary shadow-sm")} onClick={() => settings.setTorrentListDensity(density)}>
+                  {t(`interface_settings.density_${density}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => { settings.setSidebarItems(DEFAULT_SIDEBAR_ITEMS); settings.setShowSpeedChart(true); settings.setAnimateTorrentSorting(true); settings.setTorrentListDensity("comfortable") }}><RotateCcw className="mr-2 h-4 w-4" />{t("interface_settings.reset_interface")}</Button>
         </CardContent>
       </Card>
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, FolderCog, MoreHorizontal, Settings2, Upload } from "lucide-react"
+import { ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, FolderCog, MoreHorizontal, Pause, Play, Settings2, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -30,11 +30,14 @@ interface AdvancedTorrentMenuProps {
   onSuccess?: () => void
   onExport?: () => Promise<void> | void
   trigger?: React.ReactNode
+  primaryActions?: boolean
+  editAction?: React.ReactNode
+  onPrimaryAction?: (action: "start" | "stop" | "remove") => void
 }
 
 type BooleanAction = "force" | "super" | "auto"
 
-export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger }: AdvancedTorrentMenuProps) {
+export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger, primaryActions = false, editAction, onPrimaryAction }: AdvancedTorrentMenuProps) {
   const { t } = useI18n()
   const [pathOpen, setPathOpen] = React.useState(false)
   const [savePath, setSavePath] = React.useState(torrent?.downloadDir ?? "")
@@ -117,6 +120,21 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          {primaryActions && torrent && onPrimaryAction && (
+            <>
+              <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
+              {editAction}
+              <DropdownMenuItem onClick={() => onPrimaryAction(torrent.status === 0 ? "start" : "stop")}>
+                {torrent.status === 0 ? <Play /> : <Pause />}
+                {torrent.status === 0 ? t("common.resume", "开始") : t("common.pause", "暂停")}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onPrimaryAction("remove")}>
+                <Trash2 />
+                {t("common.remove", "删除")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuLabel>{t("advanced_menu.title")}</DropdownMenuLabel>
           {torrent ? (
             <>

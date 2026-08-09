@@ -38,8 +38,8 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
   },
   {
     id: "size",
-    labelKey: "common.size",
-    defaultLabel: "Size",
+    labelKey: "common.selected_size",
+    defaultLabel: "Selected Size",
     width: "100px",
     rpcFields: ["size"],
     align: "right"
@@ -62,8 +62,8 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
   },
   {
     id: "editDate",
-    labelKey: "common.edit_date",
-    defaultLabel: "Modified Date",
+    labelKey: "common.last_activity",
+    defaultLabel: "Last Activity",
     width: "160px",
     rpcFields: ["editDate"],
     align: "right"
@@ -107,6 +107,126 @@ export const TORRENT_COLUMNS: ColumnConfig[] = [
     width: "100px",
     rpcFields: ["eta"],
     align: "right"
+  },
+  {
+    id: "seeds",
+    labelKey: "common.seeds",
+    defaultLabel: "Seeds",
+    width: "100px",
+    rpcFields: ["peersSendingToUs", "seedsTotal"],
+    align: "right"
+  },
+  {
+    id: "peers",
+    labelKey: "common.peers",
+    defaultLabel: "Peers",
+    width: "100px",
+    rpcFields: ["peersGettingFromUs", "peersTotal"],
+    align: "right"
+  },
+  {
+    id: "category",
+    labelKey: "common.category",
+    defaultLabel: "Category",
+    width: "140px",
+    rpcFields: ["category"],
+    align: "left"
+  },
+  {
+    id: "labels",
+    labelKey: "common.tags",
+    defaultLabel: "Tags",
+    width: "180px",
+    rpcFields: ["labels"],
+    align: "left"
+  },
+  {
+    id: "dateCreated",
+    labelKey: "common.created_on",
+    defaultLabel: "Created On",
+    width: "160px",
+    rpcFields: ["dateCreated"],
+    align: "right"
+  },
+  {
+    id: "timeElapsed",
+    labelKey: "common.time_active",
+    defaultLabel: "Time Active",
+    width: "130px",
+    rpcFields: ["timeElapsed"],
+    align: "right"
+  },
+  {
+    id: "lastSeenComplete",
+    labelKey: "common.last_seen_complete",
+    defaultLabel: "Last Seen Complete",
+    width: "180px",
+    rpcFields: ["lastSeenComplete"],
+    align: "right"
+  },
+  {
+    id: "availability",
+    labelKey: "common.availability",
+    defaultLabel: "Availability",
+    width: "110px",
+    rpcFields: ["availability"],
+    align: "right"
+  },
+  {
+    id: "tracker",
+    labelKey: "common.tracker",
+    defaultLabel: "Tracker",
+    width: "220px",
+    rpcFields: ["trackerStats"],
+    align: "left"
+  },
+  {
+    id: "downloadedEver",
+    labelKey: "common.downloaded",
+    defaultLabel: "Downloaded",
+    width: "120px",
+    rpcFields: ["downloadedEver"],
+    align: "right"
+  },
+  {
+    id: "amountLeft",
+    labelKey: "common.remaining",
+    defaultLabel: "Remaining",
+    width: "120px",
+    rpcFields: ["amountLeft"],
+    align: "right"
+  },
+  {
+    id: "doneDate",
+    labelKey: "common.completed_on",
+    defaultLabel: "Completed On",
+    width: "160px",
+    rpcFields: ["doneDate"],
+    align: "right"
+  },
+  {
+    id: "downloadLimit",
+    labelKey: "common.download_limit_column",
+    defaultLabel: "Down Limit",
+    width: "120px",
+    rpcFields: ["downloadLimit", "downloadLimited"],
+    align: "right"
+  },
+  {
+    id: "uploadLimit",
+    labelKey: "common.upload_limit_column",
+    defaultLabel: "Up Limit",
+    width: "120px",
+    rpcFields: ["uploadLimit", "uploadLimited"],
+    align: "right"
+  },
+  {
+    id: "downloadDir",
+    labelKey: "common.save_path",
+    defaultLabel: "Save Path",
+    width: "260px",
+    rpcFields: ["downloadDir"],
+    align: "left"
   }
 ]
 

@@ -28,10 +28,16 @@ interface QbtTorrentInfo {
   upspeed: number
   eta: number
   added_on: number
+  creation_date?: number
   completion_on: number
   last_activity: number
+  time_active?: number
+  seen_complete?: number
+  availability?: number
   save_path: string
   amount_left: number
+  dl_limit?: number
+  up_limit?: number
   uploaded: number
   downloaded: number
   ratio: number
@@ -140,11 +146,20 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
     addedDate: raw.added_on ?? 0,
     doneDate: raw.completion_on ?? 0,
     editDate: raw.last_activity ?? 0,
+    dateCreated: raw.creation_date ?? 0,
+    timeElapsed: raw.time_active ?? 0,
+    lastSeenComplete: raw.seen_complete ?? 0,
+    availability: raw.availability ?? 0,
     downloadDir: raw.save_path ?? "",
     error: raw.state === "error" || raw.state === "missingFiles" ? 1 : 0,
     errorString: raw.state === "missingFiles" ? "Missing files" : raw.state === "error" ? "qBittorrent reported an error" : "",
     uploadedEver: raw.uploaded ?? 0,
     downloadedEver: raw.downloaded ?? 0,
+    amountLeft: raw.amount_left ?? 0,
+    downloadLimit: Math.max(0, Math.round((raw.dl_limit ?? 0) / 1024)),
+    downloadLimited: (raw.dl_limit ?? 0) > 0,
+    uploadLimit: Math.max(0, Math.round((raw.up_limit ?? 0) / 1024)),
+    uploadLimited: (raw.up_limit ?? 0) > 0,
     uploadRatio: raw.ratio ?? 0,
     labels: raw.tags ? raw.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
     category: raw.category || "",
@@ -168,6 +183,8 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
     peersConnected: (raw.num_leechs ?? 0) + (raw.num_seeds ?? 0),
     peersSendingToUs: raw.num_seeds ?? 0,
     peersGettingFromUs: raw.num_leechs ?? 0,
+    seedsTotal: raw.num_complete ?? 0,
+    peersTotal: raw.num_incomplete ?? 0,
     trackers: tracker ? [{ id: 0, tier: 0, announce: tracker, scrape: "", sitename: trackerHost(tracker) }] : [],
     trackerStats: tracker ? [{ announce: tracker, host: trackerHost(tracker), seederCount: raw.num_complete ?? 0, leecherCount: raw.num_incomplete ?? 0, lastAnnounceSucceeded: true, lastAnnounceResult: "", isBackup: false }] : [],
   }

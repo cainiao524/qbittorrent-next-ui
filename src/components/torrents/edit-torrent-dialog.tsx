@@ -40,8 +40,8 @@ export function EditTorrentDialog({ torrent, onClose, onSuccess }: EditTorrentDi
     useEditTorrentForm(torrent ?? EMPTY_EDIT_TORRENT, onSuccess)
 
   React.useEffect(() => {
-    setOpen(Boolean(torrent))
-  }, [torrent?.id, torrent?.name, torrent?.downloadDir, setOpen])
+    setOpen(Boolean(torrent?.id))
+  }, [torrent?.id, setOpen])
 
   React.useEffect(() => {
     if (open) return

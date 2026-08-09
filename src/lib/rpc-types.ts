@@ -34,6 +34,7 @@ export interface Torrent {
   errorString: string
   uploadedEver: number
   downloadedEver: number
+  amountLeft?: number
   uploadRatio: number
   labels?: string[]
   queuePosition: number

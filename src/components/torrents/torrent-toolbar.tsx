@@ -27,6 +27,7 @@ import {
   RotateCcw,
   FileArchive,
   Keyboard,
+  Pin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -133,6 +134,8 @@ interface TorrentToolbarProps {
   toggleColumn: (id: string) => void
   resetVisibleColumns: () => void
   handleColumnDragEnd: (event: DragEndEvent) => void
+  actionsColumnPinned: boolean
+  onActionsColumnPinnedChange: (pinned: boolean) => void
   // Actions
   onBatchReplaceOpen: () => void
   onBatchMoveOpen: () => void
@@ -162,6 +165,8 @@ export function TorrentToolbar({
   toggleColumn,
   resetVisibleColumns,
   handleColumnDragEnd,
+  actionsColumnPinned,
+  onActionsColumnPinnedChange,
   onBatchReplaceOpen,
   onBatchMoveOpen,
   onShortcutsOpen,
@@ -171,7 +176,7 @@ export function TorrentToolbar({
   const { t } = useI18n()
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 flex-wrap">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4 flex-wrap">
       <div className="flex items-center gap-2 md:gap-4 flex-wrap pb-1 sm:pb-0">
         <h2 className="text-xl font-bold tracking-tight whitespace-nowrap mr-2">{t('common.torrents')}</h2>
 
@@ -180,12 +185,13 @@ export function TorrentToolbar({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 rounded-lg",
+              "h-10 w-10 rounded-lg transition-all duration-200 md:h-8 md:w-8",
               viewMode === "list"
                 ? "bg-background shadow-sm text-primary"
                 : "text-muted-foreground hover:bg-muted"
             )}
             onClick={() => onViewModeChange("list")}
+            aria-label={t("common.list_view", "列表视图")}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -193,12 +199,13 @@ export function TorrentToolbar({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 rounded-lg",
+              "h-10 w-10 rounded-lg transition-all duration-200 md:h-8 md:w-8",
               viewMode === "grid"
                 ? "bg-background shadow-sm text-primary"
                 : "text-muted-foreground hover:bg-muted"
             )}
             onClick={() => onViewModeChange("grid")}
+            aria-label={t("common.grid_view", "卡片视图")}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -220,11 +227,11 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl shrink-0">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted">
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted md:h-8 md:w-8" aria-label={t('common.display_columns', '显示列')}>
                 <Columns className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[320px] max-h-[min(80vh,36rem)] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-2 mt-2 overflow-y-auto">
+            <DropdownMenuContent align="end" collisionPadding={8} className="w-[min(320px,calc(100vw-1rem))] max-h-[min(80dvh,36rem)] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-2 mt-2 overflow-y-auto">
               <div className="flex items-center justify-between px-3 py-2">
                 <DropdownMenuLabel className="p-0 text-[10px] font-bold text-muted-foreground/50 tracking-wider uppercase">
                   {t('common.display_columns', 'Display Columns')}
@@ -238,6 +245,16 @@ export function TorrentToolbar({
                   {t('common.reset', 'Reset')}
                 </button>
               </div>
+              <DropdownMenuSeparator className="mx-1 my-1 bg-muted/50" />
+              <DropdownMenuCheckboxItem
+                className="mx-1 rounded-xl py-2.5 cursor-pointer transition-colors focus:bg-muted"
+                checked={actionsColumnPinned}
+                onCheckedChange={(checked) => onActionsColumnPinnedChange(checked === true)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                <Pin className="mr-2 h-4 w-4 text-primary/70" />
+                <span className="text-sm font-medium">{t('common.pin_actions_column', 'Pin actions column')}</span>
+              </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator className="mx-1 my-1 bg-muted/50" />
               <div className="px-2 pb-1">
                 <p className="px-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
@@ -293,7 +310,7 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 px-2 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border-none">
+              <Button variant="ghost" className="h-10 min-w-10 px-3 md:h-8 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 border-none" aria-label={t('common.tools')}>
                 <Wrench className="h-3.5 w-3.5" />
                 <span className="hidden md:inline">{t('common.tools')}</span>
                 <ChevronDown className="h-3 w-3 opacity-50 hidden md:inline" />
@@ -337,7 +354,7 @@ export function TorrentToolbar({
 
         <div className="flex items-center bg-muted/60 p-1 rounded-xl shrink-0">
           <AddTorrentDialog onSuccess={fetchData}>
-            <Button variant="default" className="h-8 px-2 md:px-4 rounded-lg font-medium gap-2 shadow-md shadow-primary/10 text-xs border-none">
+            <Button variant="default" className="h-10 min-w-10 px-3 md:h-8 md:px-4 rounded-lg font-medium gap-2 shadow-md shadow-primary/10 text-xs border-none" aria-label={t('common.add_torrent')}>
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden md:inline">{t('common.add_torrent')}</span>
             </Button>
@@ -347,16 +364,18 @@ export function TorrentToolbar({
         <div className="flex items-center bg-muted/60 p-1 rounded-xl gap-1 shrink-0">
           <Button
             variant="ghost"
-            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
+            className="h-10 min-w-10 px-3 md:h-8 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
             onClick={() => onGlobalAction("start")}
+            aria-label={t('common.resume_all')}
           >
             <Play className="h-3.5 w-3.5" />
             <span className="hidden md:inline">{t('common.resume_all')}</span>
           </Button>
           <Button
             variant="ghost"
-            className="h-8 px-3.5 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
+            className="h-10 min-w-10 px-3 md:h-8 md:px-3.5 rounded-lg font-medium bg-background/60 hover:bg-background hover:shadow-sm transition-all text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5"
             onClick={() => onGlobalAction("stop")}
+            aria-label={t('common.pause_all')}
           >
             <Pause className="h-3.5 w-3.5" />
             <span className="hidden md:inline">{t('common.pause_all')}</span>
