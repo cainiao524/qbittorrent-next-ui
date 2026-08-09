@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.15.1-funky9
+
+### 构建 / 发布
+
+- Docker 镜像构建成功后自动同步 Docker Hub 简介与完整介绍
+- 正式 `v*` / `V*` 标签自动更新说明，测试版标签不覆盖稳定版介绍
+- 保留 Docker Hub 说明手动补跑入口
+- 基于 v1.15.0，仅更新发布流程与版本元数据，不改变 UI、路由及 Torrent 数据逻辑
+- README 与 DOCKERHUB 镜像标签同步至 v1.15.1-funky9
+
 ## v1.15.0-funky9
 
 ### 性能
