@@ -267,10 +267,10 @@ const TorrentRow = memo(function TorrentRow({
       {columns.map(renderCell)}
       <TableCell className={cn(
         "w-[170px] min-w-[170px] pr-6",
-        actionsColumnPinned && "sticky right-0 z-20 border-l border-border/50 shadow-[-12px_0_20px_-18px_rgba(0,0,0,0.75)]",
+        actionsColumnPinned && "sticky right-0 z-20 bg-card/95 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-card/95",
         actionsColumnPinned && (selected
-          ? "bg-primary/5 group-hover/row:bg-primary/10"
-          : "bg-card group-hover/row:bg-muted")
+          ? "bg-primary/5 group-hover/row:bg-primary/10 before:to-primary/5 group-hover/row:before:to-primary/10"
+          : "group-hover/row:bg-muted/30 group-hover/row:before:to-muted/30")
       )}>
         <div className="flex items-center justify-center gap-1">
           <AdvancedTorrentMenu ids={[torrent.id]} torrent={torrent} onSuccess={onAdvancedSuccess} />
@@ -454,7 +454,7 @@ export function TorrentListView({
                 className={cn(
                   "w-[170px] min-w-[170px] pr-6 text-center",
                   compact ? "h-9" : "h-12",
-                  actionsColumnPinned && "sticky right-0 z-30 border-l border-border/60 bg-muted shadow-[-12px_0_20px_-18px_rgba(0,0,0,0.75)]"
+                  actionsColumnPinned && "sticky right-0 z-30 bg-muted/80 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-r before:from-transparent before:to-muted/80"
                 )}
               >
                 {t('common.actions')}
