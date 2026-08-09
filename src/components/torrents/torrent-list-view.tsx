@@ -148,11 +148,11 @@ const TorrentRow = memo(function TorrentRow({
         return (
           <TableCell key={column.id} {...cellProps}>
             <span data-column-content className={cn(
-              "inline-flex items-center rounded-full px-2.5 text-xs font-medium uppercase tracking-wider transition-colors",
+              "inline-flex min-w-[92px] items-center justify-center rounded-full px-3 text-xs font-medium tracking-normal transition-colors",
               compact ? "py-0" : "py-0.5",
               torrent.status === 4 ? "bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400" :
                 torrent.status === 6 ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400" :
-                  torrent.status === 0 ? "bg-muted text-muted-foreground/70" :
+                  torrent.status === 0 ? "bg-slate-500/15 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300" :
                     "bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
             )}>
               {t(getStatusLabel(torrent.status))}
