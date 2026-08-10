@@ -30,19 +30,27 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, tarfile
+
+          def read_blob(t, digest):
+              h = digest.split(':')[1]
+              with tarfile.open('/tmp/multiarch.tar') as tf:
+                  return json.load(tf.extractfile('blobs/sha256/' + h))
+
+          def walk(node, depth=0):
+              mt = node.get('mediaType', '')
+              if 'index' in mt:
+                  for m in node.get('manifests', []):
+                      print('  ' * depth + 'INDEX entry:', json.dumps(m.get('platform')))
+                      sub = read_blob(None, m['digest'])
+                      walk(sub, depth + 1)
+              else:
+                  cfg = read_blob(None, node.get('config', {}).get('digest', ''))
+                  print('  ' * depth + 'MANIFEST arch:', cfg.get('architecture'), 'os:', cfg.get('os'), 'digest:', node.get('digest', '')[:19])
+
           with tarfile.open('/tmp/multiarch.tar') as t:
               index = json.load(t.extractfile('index.json'))
           print('index.mediaType =', index.get('mediaType'))
-          for m in index['manifests']:
-              print('manifest:', json.dumps(m))
-          # 解析每个架构 manifest 的 config 架构字段
-          for m in index['manifests']:
-              digest = m['digest'].split(':')[1]
-              # OCI tar 中 blob 路径形如 blobs/sha256/<hex>
-              with tarfile.open('/tmp/multiarch.tar') as t:
-                  data = json.load(t.extractfile('blobs/sha256/' + digest))
-              cfg = data.get('config', {})
-              print('config arch =', cfg.get('architecture'), 'os =', cfg.get('os'), 'for digest', m['digest'][:19])
+          walk(index)
           PY
 
       - name: Upload OCI artifact
