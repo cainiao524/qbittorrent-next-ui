@@ -1008,12 +1008,12 @@ export function TorrentFileTree({
           {!isMobile && (
             <div
               ref={headerScrollRef}
-              className="overflow-x-auto overscroll-x-contain touch-auto no-scrollbar md:overflow-visible"
+              className="overflow-x-auto overscroll-x-contain touch-auto no-scrollbar"
               onScroll={(event) =>
                 syncHorizontalScroll(event.currentTarget, rowsScrollRef.current)
               }
             >
-              <div className="grid h-12 min-w-[900px] grid-cols-[44px_minmax(320px,1fr)_120px_minmax(180px,260px)_150px_48px] items-center border-b border-muted/30 bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:min-w-0 md:text-xs">
+              <div className="grid h-12 min-w-[900px] grid-cols-[44px_minmax(320px,1fr)_120px_minmax(180px,260px)_150px_48px] items-center border-b border-muted/30 bg-muted/30 text-[10px] font-medium uppercase tracking-widest text-muted-foreground md:text-xs">
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={
@@ -1073,12 +1073,12 @@ export function TorrentFileTree({
       {!isMobile && (
         <div
           ref={rowsScrollRef}
-          className="overflow-x-auto overscroll-x-contain rounded-b-2xl touch-auto no-scrollbar md:overflow-visible"
+          className="overflow-x-auto overscroll-x-contain rounded-b-2xl touch-auto no-scrollbar"
           onScroll={(event) =>
             syncHorizontalScroll(event.currentTarget, headerScrollRef.current)
           }
         >
-          <div className="min-w-[900px] md:min-w-0">
+          <div className="min-w-[900px]">
             <div
               ref={rowsRef}
               className="relative"
