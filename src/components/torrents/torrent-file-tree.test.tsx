@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -103,5 +103,48 @@ describe("TorrentFileTree", () => {
     } finally {
       window.innerWidth = originalWidth
     }
+  })
+
+  test("排序大量文件时保持当前虚拟列表位置", async () => {
+    const largeFiles = Array.from({ length: 400 }, (_, index): TorrentFile => ({
+      index,
+      name: `file-${String(index).padStart(3, "0")}.bin`,
+      length: 400 - index,
+      bytesCompleted: 0,
+      priority: 1,
+    }))
+
+    render(
+      <I18nProvider>
+        <TorrentFileTree files={largeFiles} updatingFileIds={new Set()} onPriorityChange={vi.fn()} />
+      </I18nProvider>
+    )
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("div"))
+      .find((element) => element.style.height === `${largeFiles.length * 56}px`)
+    expect(rows).toBeTruthy()
+
+    vi.spyOn(rows!, "getBoundingClientRect").mockReturnValue({
+      top: -5600,
+      bottom: 16800,
+      height: 22400,
+      left: 0,
+      right: 1024,
+      width: 1024,
+      x: 0,
+      y: -5600,
+      toJSON: () => ({}),
+    } as DOMRect)
+    window.dispatchEvent(new Event("scroll"))
+
+    const renderedRows = rows!.firstElementChild as HTMLElement
+    await waitFor(() => expect(renderedRows.style.transform).not.toBe("translateY(0px)"))
+    const transformBeforeSort = renderedRows.style.transform
+    const contentBeforeSort = renderedRows.textContent
+
+    await userEvent.click(screen.getByRole("button", { name: "大小" }))
+
+    await waitFor(() => expect(renderedRows.textContent).not.toBe(contentBeforeSort))
+    expect(renderedRows.style.transform).toBe(transformBeforeSort)
   })
 })

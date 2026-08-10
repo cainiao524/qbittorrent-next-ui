@@ -762,7 +762,6 @@ export function TorrentFileTree({
   };
 
   const updateSort = (key: TorrentFileTreeSortKey) => {
-    setScrollTop(0);
     setSort((current) => ({
       key,
       direction:
