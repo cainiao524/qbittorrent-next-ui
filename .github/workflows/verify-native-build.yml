@@ -32,8 +32,17 @@ jobs:
           import json, tarfile
           with tarfile.open('/tmp/multiarch.tar') as t:
               index = json.load(t.extractfile('index.json'))
+          print('index.mediaType =', index.get('mediaType'))
           for m in index['manifests']:
-              print('platform =', m.get('platform'))
+              print('manifest:', json.dumps(m))
+          # 解析每个架构 manifest 的 config 架构字段
+          for m in index['manifests']:
+              digest = m['digest'].split(':')[1]
+              # OCI tar 中 blob 路径形如 blobs/sha256/<hex>
+              with tarfile.open('/tmp/multiarch.tar') as t:
+                  data = json.load(t.extractfile('blobs/sha256/' + digest))
+              cfg = data.get('config', {})
+              print('config arch =', cfg.get('architecture'), 'os =', cfg.get('os'), 'for digest', m['digest'][:19])
           PY
 
       - name: Upload OCI artifact
