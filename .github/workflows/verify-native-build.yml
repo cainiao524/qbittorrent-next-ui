@@ -1,0 +1,44 @@
+name: Verify native-platform frontend build (temporary)
+
+on:
+  push:
+    branches: [fix/native-platform-frontend-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  multiarch-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build multiarch OCI (no push, no login)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          outputs: type=oci,dest=/tmp/multiarch.tar
+
+      - name: Inspect OCI index platforms
+        run: |
+          python3 - <<'PY'
+          import json, tarfile
+          with tarfile.open('/tmp/multiarch.tar') as t:
+              index = json.load(t.extractfile('index.json'))
+          for m in index['manifests']:
+              print('platform =', m.get('platform'))
+          PY
+
+      - name: Upload OCI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiarch-oci
+          path: /tmp/multiarch.tar
+          retention-days: 3
