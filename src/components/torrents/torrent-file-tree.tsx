@@ -301,7 +301,7 @@ const DesktopFileRow = memo(function DesktopFileRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="pr-3">
+      <div className="flex items-center justify-center">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -1061,8 +1061,8 @@ export function TorrentFileTree({
                     onSort={updateSort}
                   />
                 </div>
-                <div className="pr-3 text-right">
-                  <Info className="ml-auto size-3.5 opacity-40" />
+                <div className="flex items-center justify-center">
+                  <Info className="size-3.5 opacity-40" />
                   <span className="sr-only">{t("details.view_details")}</span>
                 </div>
               </div>

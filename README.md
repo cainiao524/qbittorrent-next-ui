@@ -76,7 +76,7 @@ qBittorrent Next UI 构建后是一组纯静态网页文件，不需要在服务
 
 ### 推荐安装方式一：Docker Hub 镜像（推荐）
 
-镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.17.0-funky9`。
+镜像地址：[lowsabishi/qbittorrent-next-ui](https://hub.docker.com/r/lowsabishi/qbittorrent-next-ui)（Docker Hub，首选），备用镜像为 [ghcr.io/cainiao524/qbittorrent-next-ui](https://github.com/users/cainiao524/packages/container/package/qbittorrent-next-ui)（GHCR），均支持 `linux/amd64` 与 `linux/arm64`。`latest` 跟随最新稳定镜像，也可以使用固定版本标签 `v1.17.1-funky9`。
 
 > 镜像内置 WebUI，开箱即用。如需修改 WebUI 文件进行调试或自定义，请使用「安装方式二：发行版 + Nginx 独立部署」。
 
@@ -148,13 +148,13 @@ environment:
 需要锁定当前版本时，将镜像改为：
 
 ```yaml
-image: lowsabishi/qbittorrent-next-ui:v1.17.0-funky9
+image: lowsabishi/qbittorrent-next-ui:v1.17.1-funky9
 ```
 
 如果从 Docker Hub 拉取受限，可以把镜像地址换成 GHCR：
 
 ```yaml
-image: ghcr.io/cainiao524/qbittorrent-next-ui:v1.17.0-funky9
+image: ghcr.io/cainiao524/qbittorrent-next-ui:v1.17.1-funky9
 ```
 
 #### 写法 C：docker run 快速启动
