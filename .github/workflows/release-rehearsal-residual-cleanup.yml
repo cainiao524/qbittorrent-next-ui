@@ -67,6 +67,18 @@ jobs:
       - name: 四重 guard + DELETE + read-back
         run: |
           set -euo pipefail
+          # GitHub Packages DELETE 失败响应统一 parser（顶层写入，避免嵌套 heredoc/多行 python -c 缩进问题）
+          cat > /tmp/ghcr-del-parse.py <<'PYEOF'
+          import json, sys
+          try:
+              d = json.load(open(sys.argv[1]))
+              print("  message:", str(d.get("message", ""))[:300])
+              print("  documentation_url:", str(d.get("documentation_url", ""))[:300])
+              print("  status:", str(d.get("status", ""))[:100])
+          except Exception:
+              raw = open(sys.argv[1], "rb").read()[:2048]
+              print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+          PYEOF
           CANDIDATE="${CANDIDATE}"
           EXPECTED_DIGEST="${EXPECTED_DIGEST}"
           EXPECTED_VERSION_ID="${EXPECTED_VERSION_ID}"
@@ -135,7 +147,7 @@ jobs:
           echo "DELETE HTTP: ${DEL_CODE}"
           if [ "${DEL_CODE}" != "204" ]; then
             echo "::error::RESIDUAL_CLEANUP_FAILED (HTTP ${DEL_CODE})"
-            python3 -c "import json; d=json.load(open('/tmp/ghcr-residual-del.json')); print('  message:', str(d.get('message',''))[:300]); print('  status:', str(d.get('status',''))[:100])" 2>/dev/null || true
+            python3 /tmp/ghcr-del-parse.py /tmp/ghcr-residual-del.json 2>/dev/null || true
             exit 1
           fi
 

@@ -1050,9 +1050,15 @@ jobs:
                           results.append(("ghcr_final_delete", "failed"))
                           try:
                               db = json.load(open("/tmp/ghcr-final-del.json"))
-                              print("  DELETE body message:", str(db.get("message", ""))[:200])
+                              print("  DELETE message:", str(db.get("message", ""))[:300])
+                              print("  DELETE documentation_url:", str(db.get("documentation_url", ""))[:300])
+                              print("  DELETE status:", str(db.get("status", ""))[:100])
                           except Exception:
-                              pass
+                              try:
+                                  raw = open("/tmp/ghcr-final-del.json", "rb").read()[:2048]
+                                  print("  DELETE raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+                              except Exception:
+                                  pass
                       else:
                           # DELETE 后 read-back：ABSENT_CONFIRMED → ok；FOUND → failed；UNKNOWN → failed
                           st2 = ghcr_version_gone("qbittorrent-next-ui", cur)
@@ -1185,6 +1191,18 @@ jobs:
       - name: Best-effort staging cleanup（guard 校验，失败仅警告）
         run: |
           set +e
+          # GitHub Packages DELETE 失败响应统一 parser（顶层写入）
+          cat > /tmp/ghcr-del-parse.py <<'PYEOF'
+          import json, sys
+          try:
+              d = json.load(open(sys.argv[1]))
+              print("  message:", str(d.get("message", ""))[:300])
+              print("  documentation_url:", str(d.get("documentation_url", ""))[:300])
+              print("  status:", str(d.get("status", ""))[:100])
+          except Exception:
+              raw = open(sys.argv[1], "rb").read()[:2048]
+              print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+          PYEOF
           CANDIDATE="${CANDIDATE}"
           SNAP_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['dh_candidate_digest'])" 2>/dev/null)
           echo "candidate=${CANDIDATE} snapshot digest=${SNAP_DGST:0:19}"
@@ -1246,7 +1264,7 @@ jobs:
               "https://api.github.com/user/packages/container/qb-release-staging/versions/${CLEAN_ID}")
             echo "GHCR staging candidate delete: HTTP ${CODE}"
             if [ "${CODE}" != "204" ]; then
-              python3 -c "import json; d=json.load(open('/tmp/ghcr-cleanup-del.json')); print('  message:', str(d.get('message',''))[:200])" 2>/dev/null || true
+              python3 /tmp/ghcr-del-parse.py /tmp/ghcr-cleanup-del.json 2>/dev/null || true
             fi
           else
             echo "GHCR staging candidate delete SKIPPED (guard not matched or UNKNOWN)"
