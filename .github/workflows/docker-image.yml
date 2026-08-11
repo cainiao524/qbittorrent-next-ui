@@ -165,20 +165,36 @@ jobs:
           fi
           DH_REPO_JSON=$(curl -s -H "Authorization: JWT ${DH_JWT}" \
             "https://hub.docker.com/v2/namespaces/lowsabishi/repositories/qbittorrent-next-ui")
-          python3 - "$DH_REPO_JSON" <<'PYEOF'
-          import json, os, sys
-          d = json.loads(sys.argv[1])
-          its = d.get("immutable_tags_settings") or {}
-          enabled = bool(its.get("enabled"))
-          rules = its.get("rules") or []
-          print(f"dh_immutable_enabled={enabled}")
-          print(f"dh_immutable_rules={json.dumps(rules)}")
-          with open(os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
-              f.write(f"DH_IMMUTABLE_ENABLED={str(enabled).lower()}\n")
-              f.write(f"DH_IMMUTABLE_RULES={json.dumps(rules)}\n")
+          # 严格 schema 校验 + stdout 捕获（不写 GITHUB_ENV，避免同 step 回读失效）
+          IMM_OUT=$(python3 - "$DH_REPO_JSON" <<'PYEOF'
+          import json, sys
+          try:
+              d = json.loads(sys.argv[1])
+          except Exception:
+              print("UNKNOWN_PARSE", file=sys.stderr)
+              sys.exit(1)
+          its = d.get("immutable_tags_settings")
+          if not isinstance(its, dict):
+              print("UNKNOWN_SCHEMA: immutable_tags_settings not object", file=sys.stderr)
+              sys.exit(1)
+          enabled = its.get("enabled")
+          rules = its.get("rules")
+          if not isinstance(enabled, bool):
+              print(f"UNKNOWN_SCHEMA: enabled type={type(enabled).__name__}", file=sys.stderr)
+              sys.exit(1)
+          if not isinstance(rules, list):
+              print(f"UNKNOWN_SCHEMA: rules type={type(rules).__name__}", file=sys.stderr)
+              sys.exit(1)
+          print(f"ENABLED={str(enabled).lower()}")
+          print(f"RULES={json.dumps(rules)}")
           PYEOF
-          DH_IMMUTABLE_ENABLED="${DH_IMMUTABLE_ENABLED:-false}"
-          DH_IMMUTABLE_RULES="${DH_IMMUTABLE_RULES:-[]}"
+          ) || { echo "::error::DH immutable settings UNKNOWN (parse/schema); PRE-FLIGHT FAIL"; exit 1; }
+          DH_IMMUTABLE_ENABLED=$(echo "${IMM_OUT}" | grep '^ENABLED=' | cut -d= -f2)
+          DH_IMMUTABLE_RULES=$(echo "${IMM_OUT}" | grep '^RULES=' | cut -d= -f2-)
+          if [ -z "${DH_IMMUTABLE_ENABLED}" ] || [ -z "${DH_IMMUTABLE_RULES}" ]; then
+            echo "::error::DH immutable settings extraction failed; PRE-FLIGHT FAIL"
+            exit 1
+          fi
           if [ "${FULL_TRANSACTION_REQUIRED}" = "true" ] && [ "${DH_IMMUTABLE_ENABLED}" = "true" ]; then
             echo "::error::DH immutable_tags_settings.enabled=true; final tag cannot be created/deleted safely; PRE-FLIGHT FAIL"
             exit 1
