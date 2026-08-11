@@ -14,18 +14,16 @@ concurrency:
 jobs:
   # ============================================================
   # rehearsal-guard：任何 registry 写操作前必须通过
+  # 不输出任何 job outputs（避免 secret 检测丢弃 staging repo）
   # ============================================================
   rehearsal-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    outputs:
-      candidate: ${{ steps.vars.outputs.candidate }}
-      dh_staging_repo: ${{ steps.vars.outputs.dh_staging_repo }}
-      ghcr_staging_repo: ${{ steps.vars.outputs.ghcr_staging_repo }}
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CANDIDATE: qb-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v5
 
@@ -50,17 +48,14 @@ jobs:
           fi
           echo "HEAD == origin/main: ${LOCAL_HEAD}"
 
-      - name: Resolve rehearsal variables
-        id: vars
+      - name: 校验 candidate 格式
         run: |
-          CANDIDATE="qb-rehearsal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
           if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
             echo "::error::candidate 格式非法: ${CANDIDATE}"
             exit 1
           fi
-          echo "candidate=${CANDIDATE}" >> "$GITHUB_OUTPUT"
-          echo "dh_staging_repo=lowsabishi/release-staging" >> "$GITHUB_OUTPUT"
-          echo "ghcr_staging_repo=ghcr.io/cainiao524/qb-release-staging" >> "$GITHUB_OUTPUT"
           echo "candidate=${CANDIDATE}"
 
       - name: Docker Hub credentials preflight
@@ -75,9 +70,7 @@ jobs:
       - name: Candidate preexists 检查（fail-closed）
         run: |
           set -euo pipefail
-          CANDIDATE="${{ steps.vars.outputs.candidate }}"
-          DH_STAGING_REPO="${{ steps.vars.outputs.dh_staging_repo }}"
-          GHCR_STAGING_REPO="${{ steps.vars.outputs.ghcr_staging_repo }}"
+          CANDIDATE="${CANDIDATE}"
 
           # Docker Hub API JWT
           DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
@@ -86,7 +79,7 @@ jobs:
 
           # DH candidate：200→fail / 404→continue / 其他→fail
           DH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
-            "https://hub.docker.com/v2/repositories/${DH_STAGING_REPO}/tags/${CANDIDATE}")
+            "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
           case "${DH_CODE}" in
             200) echo "::error::DH candidate ${CANDIDATE} already exists; ownership collision"; exit 1;;
             404) echo "DH candidate absent (404)";;
@@ -182,9 +175,9 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
-      DH_STAGING_REPO: ${{ needs.rehearsal-guard.outputs.dh_staging_repo }}
-      GHCR_STAGING_REPO: ${{ needs.rehearsal-guard.outputs.ghcr_staging_repo }}
+      CANDIDATE: qb-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+      DH_STAGING_REPO: lowsabishi/release-staging
+      GHCR_STAGING_REPO: ghcr.io/cainiao524/qb-release-staging
     steps:
       - uses: actions/checkout@v5
 
@@ -206,31 +199,18 @@ jobs:
       - name: Runtime staging ref assertion（写操作前）
         run: |
           set -euo pipefail
-          assert_staging_ref() {
-            # $1 = 完整镜像 ref；仅允许 DH/GHCR staging repo
-            local ref="$1"
-            case "${ref}" in
-              "lowsabishi/release-staging:"*|"ghcr.io/cainiao524/qb-release-staging:"*) return 0;;
-              *) echo "::error::write ref 不在 staging 白名单: ${ref}"; exit 1;;
-            esac
-          }
-          echo "assert_staging_ref() 已定义（后续 push/delete/imagetools create 前调用）"
-
-      - name: ONE BUILDKIT SOLVE → dual staging candidate + OCI artifact
-        run: |
-          set -euo pipefail
           CANDIDATE="${CANDIDATE}"
-          # 写目标白名单断言（与 production staging-build 配置一致）
+          DH_STAGING_REPO="${DH_STAGING_REPO}"
+          GHCR_STAGING_REPO="${GHCR_STAGING_REPO}"
           case "${DH_STAGING_REPO}:${CANDIDATE}" in
             "lowsabishi/release-staging:qb-rehearsal-"*) ;;
-            *) echo "::error::DH write ref 非法"; exit 1;;
+            *) echo "::error::DH write ref 非法: ${DH_STAGING_REPO}:${CANDIDATE}"; exit 1;;
           esac
           case "${GHCR_STAGING_REPO}:${CANDIDATE}" in
             "ghcr.io/cainiao524/qb-release-staging:qb-rehearsal-"*) ;;
-            *) echo "::error::GHCR write ref 非法"; exit 1;;
+            *) echo "::error::GHCR write ref 非法: ${GHCR_STAGING_REPO}:${CANDIDATE}"; exit 1;;
           esac
           echo "write refs asserted: ${DH_STAGING_REPO}:${CANDIDATE} + ${GHCR_STAGING_REPO}:${CANDIDATE}"
-        # 注意：build-push-action 的 tags/outputs 在下方 action 中配置（与 production 相同）
 
       - name: Build and push staging（ONE BUILDKIT SOLVE）
         uses: docker/build-push-action@v6
@@ -241,8 +221,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            lowsabishi/release-staging:${{ needs.rehearsal-guard.outputs.candidate }}
-            ghcr.io/cainiao524/qb-release-staging:${{ needs.rehearsal-guard.outputs.candidate }}
+            lowsabishi/release-staging:${{ env.CANDIDATE }}
+            ghcr.io/cainiao524/qb-release-staging:${{ env.CANDIDATE }}
           outputs: type=oci,dest=qbittorrent-next-ui-rehearsal-multiarch.tar
 
       - name: Upload OCI multiarch artifact
@@ -257,19 +237,16 @@ jobs:
         run: |
           set -euo pipefail
           CANDIDATE="${CANDIDATE}"
-          DH_STAGING_REPO="${DH_STAGING_REPO}"
-          GHCR_STAGING_REPO="${GHCR_STAGING_REPO}"
-          DH_DGST=$(docker buildx imagetools inspect "${DH_STAGING_REPO}:${CANDIDATE}" --format '{{.Manifest.Digest}}')
-          GHCR_DGST=$(docker buildx imagetools inspect "${GHCR_STAGING_REPO}:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          DH_DGST=$(docker buildx imagetools inspect "lowsabishi/release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          GHCR_DGST=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
           echo "DH_STAGING_DIGEST=${DH_DGST}"
           echo "GHCR_STAGING_DIGEST=${GHCR_DGST}"
-          for ref in "${DH_STAGING_REPO}:${CANDIDATE}" "${GHCR_STAGING_REPO}:${CANDIDATE}"; do
+          for ref in "lowsabishi/release-staging:${CANDIDATE}" "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}"; do
             archs=$(docker buildx imagetools inspect "${ref}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
             echo "${ref}: ${archs}"
             echo "${archs}" | grep -q "linux/amd64" || { echo "::error::${ref} 缺 amd64"; exit 1; }
             echo "${archs}" | grep -q "linux/arm64" || { echo "::error::${ref} 缺 arm64"; exit 1; }
           done
-          # 跨 registry digest 相等：仅记录，不作失败条件
           if [ "${DH_DGST}" = "${GHCR_DGST}" ]; then
             echo "cross-registry digest equal = true"
           else
@@ -310,7 +287,7 @@ jobs:
             *) echo "::error::staging versions UNKNOWN (HTTP ${STG_VER_CODE}); fail-closed"; exit 1;;
           esac
 
-          VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
+          VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 -c '
           import json, os
           try:
               versions = json.load(open("/tmp/ghcr-versions.json"))
@@ -318,8 +295,8 @@ jobs:
               print("UNKNOWN_PARSE"); raise SystemExit(0)
           if not isinstance(versions, list):
               print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
-          dgst = os.environ["GHCR_DGST"]
-          cand = os.environ["CANDIDATE"]
+          dgst = os.environ.get("GHCR_DGST", "")
+          cand = os.environ.get("CANDIDATE", "")
           found = False
           for v in versions:
               if not isinstance(v, dict) or not isinstance(v.get("name"), str):
@@ -330,8 +307,7 @@ jobs:
                   if isinstance(tags, list) and tags == [cand]:
                       print(v["id"]); raise SystemExit(0)
           print("ABSENT_TAG_MISMATCH" if found else "ABSENT_CONFIRMED")
-          PYEOF
-          )
+          ')
           case "${VID}" in
             ABSENT_CONFIRMED|ABSENT_TAG_MISMATCH)
               echo "::error::GHCR version 匹配失败 (${VID}); fail-closed"; exit 1;;
@@ -342,7 +318,6 @@ jobs:
           esac
           echo "matched version id: ${VID}"
 
-          # 真实 DELETE
           DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
@@ -351,7 +326,6 @@ jobs:
             echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE})"; exit 1
           fi
 
-          # read-back：ABSENT_CONFIRMED 才成功
           sleep 3
           RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
           if echo "${RB_OUT}" | grep -q "sha256:"; then
@@ -366,7 +340,6 @@ jobs:
           set -euo pipefail
           CANDIDATE="${CANDIDATE}"
           DH_DGST=$(docker buildx imagetools inspect "lowsabishi/release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
-          # 写目标白名单断言
           case "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" in
             "ghcr.io/cainiao524/qb-release-staging:qb-rehearsal-"*) ;;
             *) echo "::error::恢复写目标非法"; exit 1;;
@@ -379,7 +352,6 @@ jobs:
           echo "restored GHCR candidate: ${NEW_DGST} archs=${archs}"
           echo "${archs}" | grep -q "linux/amd64"
           echo "${archs}" | grep -q "linux/arm64"
-          # 记录恢复后真实 digest（cleanup 必须用它删除恢复后的 version）
           python3 - "$NEW_DGST" <<'PYEOF'
           import json, sys
           with open("rehearsal-digests.json", "r") as f:
@@ -407,7 +379,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
+      CANDIDATE: qb-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v5
 
@@ -476,6 +448,7 @@ jobs:
 
   # ============================================================
   # cleanup：always() 执行，完整 guard，输出最终状态
+  # 脚本内所有行统一缩进（YAML 剥离公共缩进后顶格，heredoc 安全）
   # ============================================================
   cleanup:
     if: always()
@@ -486,7 +459,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
+      CANDIDATE: qb-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v5
 
@@ -499,7 +472,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 下载 digests
+      - name: 下载 digests（可能不存在，continue-on-error）
         uses: actions/download-artifact@v4
         with:
           name: rehearsal-digests
@@ -512,7 +485,35 @@ jobs:
           CANDIDATE="${CANDIDATE}"
           DH_OK=false; GHCR_OK=false; DH_LEFTOVER=""; GHCR_LEFTOVER=""
 
-          # P1-1：入口重新验证 candidate（guard 失败时 output 可能为空）
+          # GHCR REST version mapping 脚本（顶层写入，避免嵌套 heredoc 缩进问题）
+          cat > /tmp/ghcr-map.py <<'PYEOF'
+          import json, os
+          try:
+              versions = json.load(open("/tmp/ghcr-cleanup.json"))
+          except Exception:
+              print("UNKNOWN_PARSE"); raise SystemExit(0)
+          if not isinstance(versions, list):
+              print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+          dgst = os.environ.get("GHCR_TARGET", "")
+          cand = os.environ.get("CANDIDATE", "")
+          tag_mismatch = False
+          for v in versions:
+              if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                  print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+              if v.get("name") == dgst:
+                  tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+                  if not isinstance(tags, list):
+                      print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+                  if tags == [cand]:
+                      print("VID:" + v["id"]); raise SystemExit(0)
+                  tag_mismatch = True
+          if tag_mismatch:
+              print("TAG_SET_MISMATCH")
+          else:
+              print("UNKNOWN_VERSION_MAPPING")
+          PYEOF
+
+          # 入口重新验证 candidate（guard 失败时无 outputs 可依赖，必须自行校验）
           if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
             echo "::error::candidate 非法或为空: '${CANDIDATE}'；不执行任何 DELETE"
             echo "## REHEARSAL_PARTIAL" >> "$GITHUB_STEP_SUMMARY"
@@ -522,13 +523,12 @@ jobs:
             exit 1
           fi
 
-          # 计算前置 job 是否全部成功
           PRE_OK=true
           if [ "${{ needs.webui-build.result }}" != "success" ] || [ "${{ needs.staging-build.result }}" != "success" ] || [ "${{ needs.export.result }}" != "success" ]; then
             PRE_OK=false
           fi
 
-          # 读取 digest artifact（统一文件名 rehearsal-digests.json，P0-1）
+          # 读取 digest artifact（若存在）
           DH_SNAP=""; GHCR_INITIAL=""; GHCR_RESTORED=""
           if [ -f rehearsal-digests.json ]; then
             DH_SNAP=$(python3 -c "import json; print(json.load(open('rehearsal-digests.json'))['dh_candidate_digest'])" 2>/dev/null || true)
@@ -536,7 +536,7 @@ jobs:
             GHCR_RESTORED=$(python3 -c "import json; print(json.load(open('rehearsal-digests.json'))['ghcr_restored_digest'])" 2>/dev/null || true)
           fi
 
-          # --- DH candidate cleanup：三态 fail-closed（P1：外部调用显式捕获）---
+          # --- DH candidate cleanup：exact read-back 三态（404→OK 不依赖 digest）---
           DH_JWT=""
           if ! DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
@@ -550,14 +550,14 @@ jobs:
               "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" 2>/dev/null || echo "000")
             case "${DH_STATE}" in
               404)
-                DH_OK=true  # ABSENT_CONFIRMED
+                DH_OK=true
                 ;;
               200)
                 CUR_DGST=$(python3 -c "import json; print(json.load(open('/tmp/dh-tag.json')).get('digest',''))" 2>/dev/null || true)
                 if [ -z "${CUR_DGST}" ]; then
                   DH_LEFTOVER="tag 200 但 digest 解析失败 (UNKNOWN)"
                 elif [ -z "${DH_SNAP}" ]; then
-                  DH_LEFTOVER="digest artifact 缺失，无法校验 (UNKNOWN)"
+                  DH_LEFTOVER="PRESENT 但无 snapshot digest; 禁止删除 (UNKNOWN)"
                 elif [ "${CUR_DGST}" != "${DH_SNAP}" ]; then
                   DH_LEFTOVER="digest mismatch cur=${CUR_DGST:0:19} snap=${DH_SNAP:0:19} (guard 拒绝)"
                 else
@@ -579,92 +579,62 @@ jobs:
             esac
           fi
 
-          # --- GHCR candidate cleanup（P0-B 两阶段）：---
-          # 阶段 1：exact candidate authenticated registry read-back（cleanup 已显式 GHCR login）
-          GHCR_TARGET="${GHCR_RESTORED:-${GHCR_INITIAL}}"
-          if [ -z "${GHCR_TARGET}" ]; then
-            GHCR_LEFTOVER="无 GHCR digest 记录（restore/initial 均缺失），无法精确清理 (UNKNOWN)"
-          else
-            RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
-            if echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest"; then
-              GHCR_OK=true  # ABSENT_CONFIRMED
-            elif echo "${RB_OUT}" | grep -q "sha256:"; then
-              CURRENT_GHCR_DIGEST=$(echo "${RB_OUT}" | grep -o "sha256:[a-f0-9]*" | head -1)
-              echo "GHCR candidate PRESENT: ${CURRENT_GHCR_DIGEST:0:19}"
-              if [ "${CURRENT_GHCR_DIGEST}" != "${GHCR_TARGET}" ]; then
-                GHCR_LEFTOVER="PRESENT_DIGEST_MISMATCH cur=${CURRENT_GHCR_DIGEST:0:19} target=${GHCR_TARGET:0:19}; 禁止删除"
-              else
-                # 阶段 2：digest 一致后才允许 REST version mapping
-                VER_CODE=$(curl -s -o /tmp/ghcr-cleanup.json -w "%{http_code}" \
-                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                  "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" 2>/dev/null || echo "000")
-                if [ "${VER_CODE}" != "200" ]; then
-                  GHCR_LEFTOVER="REST versions HTTP ${VER_CODE} (UNKNOWN; registry 已证明 PRESENT，禁止删除)"
-                else
-                  MAP_RESULT=$(GHCR_TARGET="${GHCR_TARGET}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
-                  import json, os
-                  try:
-                      versions = json.load(open("/tmp/ghcr-cleanup.json"))
-                  except Exception:
-                      print("UNKNOWN_PARSE"); raise SystemExit(0)
-                  if not isinstance(versions, list):
-                      print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
-                  dgst = os.environ.get("GHCR_TARGET", "")
-                  cand = os.environ.get("CANDIDATE", "")
-                  tag_mismatch = False
-                  for v in versions:
-                      if not isinstance(v, dict) or not isinstance(v.get("name"), str):
-                          print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
-                      if v.get("name") == dgst:
-                          tags = v.get("metadata", {}).get("container", {}).get("tags", [])
-                          if not isinstance(tags, list):
-                              print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
-                          if tags == [cand]:
-                              print("VID:" + v["id"]); raise SystemExit(0)
-                          tag_mismatch = True
-                  if tag_mismatch:
-                      print("TAG_SET_MISMATCH")
-                  else:
-                      print("UNKNOWN_VERSION_MAPPING")
-                  PYEOF
-                  )
-                  case "${MAP_RESULT}" in
-                    VID:*)
-                      VID="${MAP_RESULT#VID:}"
-                      DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                        "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" 2>/dev/null || echo "000")
-                      if [ "${DEL_CODE}" = "204" ]; then
-                        sleep 3
-                        RB2=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
-                        if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
-                          GHCR_OK=true
-                        elif echo "${RB2}" | grep -q "sha256:"; then
-                          GHCR_LEFTOVER="post-delete 仍可见 (PRESENT)"
-                        else
-                          GHCR_LEFTOVER="post-delete read-back UNKNOWN: ${RB2}"
-                        fi
-                      else
-                        GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
-                      fi
-                      ;;
-                    TAG_SET_MISMATCH)
-                      GHCR_LEFTOVER="TAG_SET_MISMATCH: 同 digest 但 tags != [${CANDIDATE}]; 禁止删除"
-                      ;;
-                    UNKNOWN_VERSION_MAPPING)
-                      GHCR_LEFTOVER="UNKNOWN_VERSION_MAPPING: registry PRESENT 但 REST 无 exact version; 禁止删除"
-                      ;;
-                    UNKNOWN_PARSE|UNKNOWN_STRUCTURE)
-                      GHCR_LEFTOVER="REST versions 响应异常 (${MAP_RESULT}); 禁止删除"
-                      ;;
-                    *)
-                      GHCR_LEFTOVER="mapping 结果异常: ${MAP_RESULT}"
-                      ;;
-                  esac
-                fi
-              fi
+          # --- GHCR candidate cleanup（Bug3 顺序）：先 exact candidate read-back，再 digest ---
+          RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest"; then
+            GHCR_OK=true
+          elif echo "${RB_OUT}" | grep -q "sha256:"; then
+            CURRENT_GHCR_DIGEST=$(echo "${RB_OUT}" | grep -o "sha256:[a-f0-9]*" | head -1)
+            echo "GHCR candidate PRESENT: ${CURRENT_GHCR_DIGEST:0:19}"
+            GHCR_TARGET="${GHCR_RESTORED:-${GHCR_INITIAL}}"
+            if [ -z "${GHCR_TARGET}" ]; then
+              GHCR_LEFTOVER="PRESENT 但无可信 digest（restored/initial 缺失）; 禁止删除 (UNKNOWN)"
+            elif [ "${CURRENT_GHCR_DIGEST}" != "${GHCR_TARGET}" ]; then
+              GHCR_LEFTOVER="PRESENT_DIGEST_MISMATCH cur=${CURRENT_GHCR_DIGEST:0:19} target=${GHCR_TARGET:0:19}; 禁止删除"
             else
-              GHCR_LEFTOVER="exact candidate read-back UNKNOWN: ${RB_OUT}; 禁止删除"
+              VER_CODE=$(curl -s -o /tmp/ghcr-cleanup.json -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" 2>/dev/null || echo "000")
+              if [ "${VER_CODE}" != "200" ]; then
+                GHCR_LEFTOVER="REST versions HTTP ${VER_CODE} (UNKNOWN; 禁止删除)"
+              else
+                MAP_RESULT=$(GHCR_TARGET="${GHCR_TARGET}" CANDIDATE="${CANDIDATE}" python3 /tmp/ghcr-map.py)
+                case "${MAP_RESULT}" in
+                  VID:*)
+                    VID="${MAP_RESULT#VID:}"
+                    DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                      "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" 2>/dev/null || echo "000")
+                    if [ "${DEL_CODE}" = "204" ]; then
+                      sleep 3
+                      RB2=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+                      if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
+                        GHCR_OK=true
+                      elif echo "${RB2}" | grep -q "sha256:"; then
+                        GHCR_LEFTOVER="post-delete 仍可见 (PRESENT)"
+                      else
+                        GHCR_LEFTOVER="post-delete read-back UNKNOWN: ${RB2}"
+                      fi
+                    else
+                      GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
+                    fi
+                    ;;
+                  TAG_SET_MISMATCH)
+                    GHCR_LEFTOVER="TAG_SET_MISMATCH: 同 digest 但 tags != [${CANDIDATE}]; 禁止删除"
+                    ;;
+                  UNKNOWN_VERSION_MAPPING)
+                    GHCR_LEFTOVER="UNKNOWN_VERSION_MAPPING: registry PRESENT 但 REST 无 exact version; 禁止删除"
+                    ;;
+                  UNKNOWN_PARSE|UNKNOWN_STRUCTURE)
+                    GHCR_LEFTOVER="REST versions 响应异常 (${MAP_RESULT}); 禁止删除"
+                    ;;
+                  *)
+                    GHCR_LEFTOVER="mapping 结果异常: ${MAP_RESULT}"
+                    ;;
+                esac
+              fi
             fi
+          else
+            GHCR_LEFTOVER="exact candidate read-back UNKNOWN: ${RB_OUT}; 禁止删除"
           fi
 
           # --- 最终状态输出（P0-5：PARTIAL 必须 exit 1）---
