@@ -3,12 +3,11 @@ name: 验证与构建
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -17,40 +16,6 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
-
-      - name: Release Guard
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          # 1) tag 格式：仅接受 vX.Y.Z-funky9
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-funky9$ ]]; then
-            echo "::error::Invalid release tag '${TAG}' (expected vX.Y.Z-funky9)"
-            exit 1
-          fi
-          VERSION="${TAG#v}"
-          VERSION="${VERSION%-funky9}"
-          # 2) package.json version == X.Y.Z
-          PKG_VERSION=$(grep -m1 '"version"' package.json | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-          if [ "${PKG_VERSION}" != "${VERSION}" ]; then
-            echo "::error::package.json version '${PKG_VERSION}' != tag version '${VERSION}'"
-            exit 1
-          fi
-          # 3) APP_CONFIG.version == vX.Y.Z-funky⑨
-          EXPECTED="v${VERSION}-funky⑨"
-          if ! grep -q "version: \"${EXPECTED}\"" src/lib/config.ts; then
-            echo "::error::APP_CONFIG.version != '${EXPECTED}'"
-            exit 1
-          fi
-          # 4) tag commit == origin/main HEAD
-          git fetch origin main --quiet
-          TAG_COMMIT="$(git rev-parse HEAD)"
-          MAIN_HEAD="$(git rev-parse origin/main)"
-          if [ "${TAG_COMMIT}" != "${MAIN_HEAD}" ]; then
-            echo "::error::tag commit ${TAG_COMMIT} != origin/main HEAD ${MAIN_HEAD}"
-            exit 1
-          fi
-          echo "Release guard passed for ${TAG}"
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v5
@@ -77,14 +42,3 @@ jobs:
 
       - name: 构建
         run: pnpm build
-
-      - name: 打包
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: cd dist && zip -r ../qbittorrent-next-ui.zip .
-
-      - name: 上传发行包
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: qbittorrent-next-ui.zip
-          generate_release_notes: true
