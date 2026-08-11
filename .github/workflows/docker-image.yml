@@ -30,6 +30,7 @@ jobs:
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -111,13 +112,17 @@ jobs:
             exit 1
           fi
 
-          # 2) GHCR final 是否已存在（registry API）
-          GHCR_TOK=$(curl -s "https://ghcr.io/token?scope=repository:cainiao524/qbittorrent-next-ui:pull&service=ghcr.io" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
-          GHCR_FINAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${GHCR_TOK}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            "https://ghcr.io/v2/cainiao524/qbittorrent-next-ui/manifests/${CLEAN_TAG}")
+          # 2) GHCR final 是否已存在（GITHUB_TOKEN 认证的 registry token 流）
+          GHCR_TOK=$(curl -s -u "oauth2:${GITHUB_TOKEN}" \
+            "https://ghcr.io/token?scope=repository:cainiao524/qbittorrent-next-ui:pull&service=ghcr.io" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))")
+          GHCR_FINAL_CODE=000
+          if [ -n "${GHCR_TOK}" ]; then
+            GHCR_FINAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer ${GHCR_TOK}" \
+              -H "Accept: application/vnd.oci.image.index.v1+json" \
+              "https://ghcr.io/v2/cainiao524/qbittorrent-next-ui/manifests/${CLEAN_TAG}")
+          fi
           if [ "${GHCR_FINAL_CODE}" = "200" ]; then
             echo "::error::GHCR final tag ${CLEAN_TAG} already exists; refusing release"
             exit 1
@@ -144,25 +149,42 @@ jobs:
             "https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/")
           DH_IMMUTABLE=$(echo "${DH_REPO_JSON}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('immutable_tags') if d.get('immutable_tags') is not None else False)")
 
-          # 5) GHCR previous latest digest
+          # 5) GHCR previous latest digest（GITHUB_TOKEN 认证）
           GHCR_LATEST_EXISTS=false; GHCR_PREV_LATEST=""
-          GHCR_LATEST_DGST=$(curl -s -o /dev/null -D - \
-            -H "Authorization: Bearer ${GHCR_TOK}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            "https://ghcr.io/v2/cainiao524/qbittorrent-next-ui/manifests/latest" \
-            | grep -i "docker-content-digest" | tr -d '\r' | awk '{print $2}')
-          if [ -n "${GHCR_LATEST_DGST}" ]; then
-            GHCR_LATEST_EXISTS=true
-            GHCR_PREV_LATEST="${GHCR_LATEST_DGST}"
+          if [ -n "${GHCR_TOK}" ]; then
+            GHCR_LATEST_DGST=$(curl -s -o /dev/null -D - \
+              -H "Authorization: Bearer ${GHCR_TOK}" \
+              -H "Accept: application/vnd.oci.image.index.v1+json" \
+              "https://ghcr.io/v2/cainiao524/qbittorrent-next-ui/manifests/latest" \
+              | grep -i "docker-content-digest" | tr -d '\r' | awk '{print $2}')
+            if [ -n "${GHCR_LATEST_DGST}" ]; then
+              GHCR_LATEST_EXISTS=true
+              GHCR_PREV_LATEST="${GHCR_LATEST_DGST}"
+            fi
           fi
 
-          # 6) staging candidate 是否已存在（理论隔离，仅记录）
+          # 6) staging candidate 是否已存在（GITHUB_TOKEN 认证检查，真实结果）
           DH_STAGING_CAND_PRE=false
           if curl -s -H "Authorization: JWT ${DH_JWT}" \
               "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" | grep -q '"digest"'; then
             DH_STAGING_CAND_PRE=true
           fi
-          GHCR_STAGING_CAND_PRE=false
+          # GHCR staging：GITHUB_TOKEN 认证；包不存在(404) → false；token 无效 → not_checked
+          GHCR_STAGING_CAND_PRE="not_checked"
+          STG_TOK=$(curl -s -u "oauth2:${GITHUB_TOKEN}" \
+            "https://ghcr.io/token?scope=repository:cainiao524/qb-release-staging:pull&service=ghcr.io" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" 2>/dev/null || true)
+          if [ -n "${STG_TOK}" ]; then
+            STG_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${STG_TOK}" \
+              "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list")
+            if [ "${STG_CODE}" = "200" ]; then
+              GHCR_STAGING_CAND_PRE=false
+              if curl -s -H "Authorization: Bearer ${STG_TOK}" \
+                  "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list" | grep -q "${CANDIDATE}"; then
+                GHCR_STAGING_CAND_PRE=true
+              fi
+            fi
+          fi
 
           python3 - "$TAG" "$MAIN_SHA" "$CANDIDATE" "$CLEAN_TAG" \
             "$DH_STAGING_CAND_PRE" "$GHCR_STAGING_CAND_PRE" \
@@ -170,7 +192,8 @@ jobs:
             "$DH_IMMUTABLE" <<'PYEOF'
           import json, os, sys
           tag, main_sha, candidate, clean = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-          dh_sc_pre, ghcr_sc_pre = sys.argv[5] == "true", sys.argv[6] == "true"
+          dh_sc_pre = sys.argv[5] == "true"
+          ghcr_sc_pre = sys.argv[6]
           dh_lat_ex, dh_prev = sys.argv[7] == "true", sys.argv[8]
           ghcr_lat_ex, ghcr_prev = sys.argv[9] == "true", sys.argv[10]
           dh_imm = sys.argv[11] == "True" or sys.argv[11] == "true"
@@ -190,7 +213,7 @@ jobs:
               json.dump(snapshot, f, indent=2)
           print("snapshot written:", json.dumps(snapshot)[:400])
           PYEOF
-          echo "::notice::snapshot.json saved (previous latest: DH=${DH_PREV_LATEST:0:19} GHCR=${GHCR_PREV_LATEST:0:19})"
+          echo "::notice::snapshot.json saved (GHCR staging cand preexists=${GHCR_STAGING_CAND_PRE})"
 
       - name: Upload snapshot artifact
         uses: actions/upload-artifact@v4
@@ -246,7 +269,7 @@ jobs:
 
   # ONE BUILDKIT SOLVE → DH staging + GHCR staging + OCI multiarch
   # + GHCR bootstrap（首次 push 自动创建 private package）
-  # + GHCR delete capability gate（FULL_COMPENSATION 前提）
+  # + FULL_COMPENSATION capability gate
   staging-build:
     needs: preflight
     runs-on: ubuntu-latest
@@ -254,6 +277,7 @@ jobs:
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CANDIDATE: ${{ needs.preflight.outputs.candidate }}
     steps:
       - uses: actions/checkout@v5
@@ -326,24 +350,36 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
-      - name: GHCR staging delete capability gate（FULL_COMPENSATION 前提）
+      - name: FULL_COMPENSATION capability gate（GHCR staging delete + production read）
         run: |
           set -euo pipefail
           CANDIDATE="${CANDIDATE}"
           GHCR_DGST=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
           echo "candidate=${CANDIDATE} digest=${GHCR_DGST:0:19}"
 
-          # 列出 versions（GITHUB_TOKEN；403 → 无能力）
+          # 0) production package 只读能力（GITHUB_TOKEN）
+          PROD_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/qbittorrent-next-ui/versions?per_page=1")
+          echo "production package versions GET: ${PROD_CODE}"
+          if [ "${PROD_CODE}" != "200" ]; then
+            echo "::error::cannot verify production GHCR package access (HTTP ${PROD_CODE}); "
+            echo "::error::FULL_COMPENSATION_PENDING_GHCR; refusing COMMIT"
+            exit 1
+          fi
+
+          # 1) staging versions 列表（GITHUB_TOKEN）
           curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" \
             > /tmp/ghcr-versions.json
           if grep -q "Resource not accessible" /tmp/ghcr-versions.json; then
-            echo "::error::GHCR delete capability NOT available (403); TRANSACTION_MODE=PARTIAL_COMPENSATION"
+            echo "::error::GHCR staging delete capability NOT available (403); TRANSACTION_MODE=PARTIAL_COMPENSATION"
             exit 1
           fi
 
-          # 匹配 digest + tags 精确 == [candidate]
+          # 2) 匹配 digest + tags 精确 == [candidate]
           VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
           import json, os
           versions = json.load(open("/tmp/ghcr-versions.json"))
@@ -362,9 +398,9 @@ jobs:
             echo "::error::no GHCR version matching candidate digest with tags==[${CANDIDATE}]"
             exit 1
           fi
-          echo "matched version id: ${VID}"
+          echo "matched staging version id: ${VID}"
 
-          # DELETE
+          # 3) DELETE（guard 已满足）
           DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
@@ -374,17 +410,13 @@ jobs:
             exit 1
           fi
 
-          # read-back 确认删除
+          # 4) read-back 确认删除（用已认证 docker buildx inspect，非匿名 token）
           sleep 3
-          STG_TOK=$(curl -s "https://ghcr.io/token?scope=repository:cainiao524/qb-release-staging:pull&service=ghcr.io" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${STG_TOK}" \
-            "https://ghcr.io/v2/cainiao524/qb-release-staging/manifests/${CANDIDATE}")
-          if [ "${CODE}" != "404" ]; then
-            echo "::error::GHCR staging candidate still visible after delete (HTTP ${CODE})"
+          if docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>/dev/null | grep -q "sha256:"; then
+            echo "::error::GHCR staging candidate still visible after delete"
             exit 1
           fi
-          echo "::notice::GHCR staging DELETE capability verified (204 + read-back 404); FULL_COMPENSATION confirmed"
+          echo "::notice::GHCR staging DELETE capability verified (204 + read-back gone); production read OK; FULL_COMPENSATION confirmed"
 
       - name: 恢复 GHCR staging candidate（从 DH staging 复制，digest 一致，不重新 build）
         run: |
@@ -402,7 +434,7 @@ jobs:
           echo "::notice::GHCR staging candidate restored (digest ${NEW_DGST:0:19})"
 
   export:
-    needs: [preflight, staging-build]
+    needs: [preflight, webui-build, staging-build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -469,6 +501,8 @@ jobs:
     needs: [preflight, export]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -520,7 +554,7 @@ jobs:
           echo "::notice::draft release verified (draft=true, 5 assets, notes non-empty)"
 
   # ============================================================
-  # PHASE 2: COMMIT（严禁重新 build；失败 → read-back → rollback）
+  # PHASE 2: COMMIT（严禁重新 build；失败 → 独立 rollback job）
   # ============================================================
   promote:
     needs: [preflight, draft-release]
@@ -621,106 +655,20 @@ jobs:
             echo "${archs}" | grep -q "linux/arm64"
           done
           echo "::notice::latest promoted & verified (DH=${DH_LATEST_DGST:0:19} GHCR=${GHCR_LATEST_DGST:0:19})"
-          echo "COMMIT_OK=1" >> "$GITHUB_ENV"
-
-      - name: Rollback（publish 前失败补偿，read-back 权威）
-        if: failure()
-        run: |
-          set -euo pipefail
-          echo "::warning::COMMIT failed; executing compensation rollback"
-          CANDIDATE="${CANDIDATE}"
-          CLEAN_TAG="${CLEAN_TAG}"
-          python3 - "$CANDIDATE" "$CLEAN_TAG" <<'PYEOF'
-          import json, subprocess, sys, os
-          cand, clean = sys.argv[1], sys.argv[2]
-          snap = json.load(open("snapshot.json"))
-          dh_prev = snap.get("dh_previous_latest_digest", "")
-          ghcr_prev = snap.get("ghcr_previous_latest_digest", "")
-
-          def img_inspect(ref):
-              r = subprocess.run(["docker", "buildx", "imagetools", "inspect", ref,
-                                  "--format", "{{.Manifest.Digest}}"],
-                                 capture_output=True, text=True, timeout=120)
-              return r.stdout.strip() if r.returncode == 0 else ""
-
-          results = []
-          # 1) GHCR latest 恢复
-          ghcr_now = img_inspect("ghcr.io/cainiao524/qbittorrent-next-ui:latest")
-          if ghcr_prev and ghcr_now != ghcr_prev:
-              try:
-                  subprocess.run(["docker", "buildx", "imagetools", "create",
-                                  "-t", "ghcr.io/cainiao524/qbittorrent-next-ui:latest",
-                                  f"ghcr.io/cainiao524/qbittorrent-next-ui@{ghcr_prev}"],
-                                 check=True, timeout=180, capture_output=True)
-                  results.append(("ghcr_latest_restored", True))
-              except Exception:
-                  results.append(("ghcr_latest_restored", False))
-          # 2) DH latest 恢复
-          dh_now = img_inspect("lowsabishi/qbittorrent-next-ui:latest")
-          if dh_prev and dh_now != dh_prev:
-              try:
-                  subprocess.run(["docker", "buildx", "imagetools", "create",
-                                  "-t", "lowsabishi/qbittorrent-next-ui:latest",
-                                  f"lowsabishi/qbittorrent-next-ui@{dh_prev}"],
-                                 check=True, timeout=180, capture_output=True)
-                  results.append(("dh_latest_restored", True))
-              except Exception:
-                  results.append(("dh_latest_restored", False))
-          # 3) GHCR final 处理（guard：digest 匹配 + tags == [final]）
-          ghcr_final = img_inspect(f"ghcr.io/cainiao524/qbittorrent-next-ui:{clean}")
-          if ghcr_final:
-              r = subprocess.run(["curl", "-s", "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
-                                  f"https://api.github.com/user/packages/container/qbittorrent-next-ui/versions?per_page=100"],
-                                 capture_output=True, text=True, timeout=60)
-              try:
-                  versions = json.loads(r.stdout)
-              except Exception:
-                  versions = []
-              vid = None
-              for v in versions:
-                  md = v.get("metadata", {}).get("container", {})
-                  if md.get("digest") == ghcr_final:
-                      tags = [t["name"] for t in md.get("tags", [])]
-                      vid = v["id"] if tags == [clean] else None
-                      if vid:
-                          break
-              if vid:
-                  d = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
-                                      "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
-                                      f"https://api.github.com/user/packages/container/qbittorrent-next-ui/versions/{vid}"],
-                                     capture_output=True, text=True, timeout=60)
-                  results.append(("ghcr_final_delete", d.stdout.strip() == "204"))
-              else:
-                  results.append(("ghcr_final_delete_guard_fail", True))
-          # 4) DH final 删除（exact tag）
-          dh_final = img_inspect(f"lowsabishi/qbittorrent-next-ui:{clean}")
-          if dh_final:
-              r = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
-                                  f"https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/tags/{clean}"],
-                                 capture_output=True, text=True, timeout=60)
-              results.append(("dh_final_delete", r.stdout.strip() in ("202", "204")))
-          failed = [k for k, ok in results if not ok]
-          print("rollback results:", results)
-          if failed:
-              print(f"::error::ROLLBACK_PARTIAL failed items: {failed}")
-          else:
-              print("::notice::ROLLBACK_SUCCESS")
-          PYEOF
 
   publish:
     needs: promote
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      publish_state: ${{ steps.publish.outputs.state }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: 下载 snapshot
-        uses: actions/download-artifact@v4
-        with:
-          name: phase3-snapshot
-          path: .
-
-      - name: Publish（POINT OF NO RETURN）
+      - name: Publish（POINT OF NO RETURN，严格三态）
+        id: publish
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
@@ -734,28 +682,85 @@ jobs:
           fi
           STATE=$(gh release view "${TAG}" --json isDraft -q '.isDraft' 2>/dev/null || echo "unknown")
           echo "read-back isDraft: ${STATE}"
-          if [ "${STATE}" = "false" ]; then
-            echo "::notice::Release published (draft=false); POINT OF NO RETURN crossed"
-            echo "RELEASE_PUBLISHED=1" >> "$GITHUB_ENV"
-          elif [ "${STATE}" = "true" ]; then
-            echo "::error::publish failed; release still draft=true; PONR NOT crossed; entering rollback"
-            exit 1
-          else
-            echo "::error::cannot determine release state (${STATE})"
-            exit 1
-          fi
+          case "${STATE}" in
+            false)
+              echo "::notice::Release published (draft=false); POINT OF NO RETURN crossed"
+              echo "state=PUBLISHED" >> "$GITHUB_OUTPUT"
+              echo "RELEASE_PUBLISHED=1" >> "$GITHUB_ENV"
+              ;;
+            true)
+              echo "::error::publish failed; release still draft=true; PONR NOT crossed; rollback job 将补偿"
+              echo "state=NOT_CROSSED" >> "$GITHUB_OUTPUT"
+              exit 1
+              ;;
+            *)
+              echo "::error::PONR_AMBIGUOUS: cannot determine release state (${STATE}); 严禁 rollback，需人工检查"
+              echo "state=AMBIGUOUS" >> "$GITHUB_OUTPUT"
+              exit 1
+              ;;
+          esac
 
-      - name: Rollback（仅当 read-back 确认仍 draft）
-        if: failure()
+  # ============================================================
+  # 独立 ROLLBACK job：唯一补偿实现，完整环境
+  # 触发：promote 失败 或 publish 失败且明确 NOT_CROSSED
+  # 严禁：publish 成功(PUBLISHED) 或 PONR_AMBIGUOUS 时运行
+  # ============================================================
+  rollback:
+    needs: [preflight, promote, publish]
+    if: ${{ always() && (needs.promote.result == 'failure' || (needs.publish.result == 'failure' && needs.publish.outputs.publish_state == 'NOT_CROSSED')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CANDIDATE: ${{ needs.preflight.outputs.candidate }}
+      CLEAN_TAG: ${{ needs.preflight.outputs.clean-tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 下载 snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3-snapshot
+          path: .
+
+      - name: 下载 digests
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3-digests
+          path: .
+
+      - name: 统一补偿 rollback（read-back 权威，三态输出）
         run: |
           set -euo pipefail
-          echo "::warning::publish 前失败补偿 rollback（final/latest 已 promote）"
-          python3 - <<'PYEOF'
-          import json, subprocess, os
+          CANDIDATE="${CANDIDATE}"
+          CLEAN_TAG="${CLEAN_TAG}"
+          echo "::warning::executing compensation rollback (candidate=${CANDIDATE})"
+          python3 - "$CANDIDATE" "$CLEAN_TAG" <<'PYEOF'
+          import json, os, subprocess, sys
+
+          cand, clean = sys.argv[1], sys.argv[2]
           snap = json.load(open("snapshot.json"))
-          clean = os.environ.get("GITHUB_REF_NAME", "")
+          dig = json.load(open("digests.json"))
           dh_prev = snap.get("dh_previous_latest_digest", "")
           ghcr_prev = snap.get("ghcr_previous_latest_digest", "")
+          cand_dgst = dig.get("dh_candidate_digest", "")
 
           def img_inspect(ref):
               r = subprocess.run(["docker", "buildx", "imagetools", "inspect", ref,
@@ -763,7 +768,42 @@ jobs:
                                  capture_output=True, text=True, timeout=120)
               return r.stdout.strip() if r.returncode == 0 else ""
 
-          results = []
+          def dh_jwt():
+              r = subprocess.run(["curl", "-s", "-X", "POST", "-H", "Content-Type: application/json",
+                                  "-d", json.dumps({"username": os.environ["DOCKERHUB_USERNAME"],
+                                                    "password": os.environ["DOCKERHUB_TOKEN"]}),
+                                  "https://hub.docker.com/v2/users/login"],
+                                 capture_output=True, text=True, timeout=60)
+              return json.loads(r.stdout).get("token", "")
+
+          def dh_tag_digest(jwt, repo, tag):
+              r = subprocess.run(["curl", "-s", "-H", f"Authorization: JWT {jwt}",
+                                  f"https://hub.docker.com/v2/repositories/{repo}/tags/{tag}"],
+                                 capture_output=True, text=True, timeout=60)
+              try:
+                  d = json.loads(r.stdout)
+                  return d.get("digest", "")
+              except Exception:
+                  return ""
+
+          def ghcr_version_id(pkg, digest):
+              r = subprocess.run(["curl", "-s", "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
+                                  f"https://api.github.com/user/packages/container/{pkg}/versions?per_page=100"],
+                                 capture_output=True, text=True, timeout=60)
+              try:
+                  versions = json.loads(r.stdout)
+              except Exception:
+                  return None, []
+              for v in versions:
+                  md = v.get("metadata", {}).get("container", {})
+                  if md.get("digest") == digest:
+                      tags = [t["name"] for t in md.get("tags", [])]
+                      return v["id"], tags
+              return None, []
+
+          results = []  # (action, status: ok|skipped|guard_rejected|failed)
+
+          # 1) GHCR latest 恢复（若已更新且 snapshot 有旧 digest）
           ghcr_now = img_inspect("ghcr.io/cainiao524/qbittorrent-next-ui:latest")
           if ghcr_prev and ghcr_now and ghcr_now != ghcr_prev:
               try:
@@ -771,9 +811,15 @@ jobs:
                                   "-t", "ghcr.io/cainiao524/qbittorrent-next-ui:latest",
                                   f"ghcr.io/cainiao524/qbittorrent-next-ui@{ghcr_prev}"],
                                  check=True, timeout=180, capture_output=True)
-                  results.append(("ghcr_latest_restored", True))
+                  restored = img_inspect("ghcr.io/cainiao524/qbittorrent-next-ui:latest")
+                  results.append(("ghcr_latest_restore",
+                                  "ok" if restored == ghcr_prev else "failed"))
               except Exception:
-                  results.append(("ghcr_latest_restored", False))
+                  results.append(("ghcr_latest_restore", "failed"))
+          else:
+              results.append(("ghcr_latest_restore", "skipped"))
+
+          # 2) DH latest 恢复
           dh_now = img_inspect("lowsabishi/qbittorrent-next-ui:latest")
           if dh_prev and dh_now and dh_now != dh_prev:
               try:
@@ -781,18 +827,64 @@ jobs:
                                   "-t", "lowsabishi/qbittorrent-next-ui:latest",
                                   f"lowsabishi/qbittorrent-next-ui@{dh_prev}"],
                                  check=True, timeout=180, capture_output=True)
-                  results.append(("dh_latest_restored", True))
+                  restored = img_inspect("lowsabishi/qbittorrent-next-ui:latest")
+                  results.append(("dh_latest_restore",
+                                  "ok" if restored == dh_prev else "failed"))
               except Exception:
-                  results.append(("dh_latest_restored", False))
+                  results.append(("dh_latest_restore", "failed"))
+          else:
+              results.append(("dh_latest_restore", "skipped"))
+
+          # 3) GHCR new final 安全删除（guard：digest==candidate && tags==[final]）
+          ghcr_final = img_inspect(f"ghcr.io/cainiao524/qbittorrent-next-ui:{clean}")
+          if ghcr_final:
+              vid, tags = ghcr_version_id("qbittorrent-next-ui", ghcr_final)
+              if vid is None:
+                  results.append(("ghcr_final_delete", "guard_rejected"))
+              elif tags != [clean]:
+                  results.append(("ghcr_final_delete", "guard_rejected"))
+              else:
+                  d = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
+                                      "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
+                                      f"https://api.github.com/user/packages/container/qbittorrent-next-ui/versions/{vid}"],
+                                     capture_output=True, text=True, timeout=60)
+                  results.append(("ghcr_final_delete",
+                                  "ok" if d.stdout.strip() == "204" else "failed"))
+          else:
+              results.append(("ghcr_final_delete", "skipped"))
+
+          # 4) DH new final 安全删除（JWT 认证 + digest==candidate + exact tag）
           dh_final = img_inspect(f"lowsabishi/qbittorrent-next-ui:{clean}")
           if dh_final:
-              r = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
-                                  f"https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/tags/{clean}"],
-                                 capture_output=True, text=True, timeout=60)
-              results.append(("dh_final_delete", r.stdout.strip() in ("202", "204")))
-          failed = [k for k, ok in results if not ok]
+              jwt = dh_jwt()
+              cur = dh_tag_digest(jwt, "lowsabishi/qbittorrent-next-ui", clean)
+              if not jwt or cur != cand_dgst:
+                  results.append(("dh_final_delete", "guard_rejected"))
+              else:
+                  r = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
+                                      "-H", f"Authorization: JWT {jwt}",
+                                      f"https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/tags/{clean}"],
+                                     capture_output=True, text=True, timeout=60)
+                  if r.stdout.strip() in ("202", "204"):
+                      # read-back 确认
+                      gone = dh_tag_digest(jwt, "lowsabishi/qbittorrent-next-ui", clean) == ""
+                      results.append(("dh_final_delete", "ok" if gone else "failed"))
+                  else:
+                      results.append(("dh_final_delete", "failed"))
+          else:
+              results.append(("dh_final_delete", "skipped"))
+
+          # 状态计算：guard_rejected → PARTIAL；failed → FAILED；全 ok/skipped → SUCCESS
           print("rollback results:", results)
-          print(f"::{'error' if failed else 'notice'}::{'ROLLBACK_PARTIAL: ' + str(failed) if failed else 'ROLLBACK_SUCCESS'}")
+          if any(st == "failed" for _, st in results):
+              state = "ROLLBACK_FAILED"
+          elif any(st == "guard_rejected" for _, st in results):
+              state = "ROLLBACK_PARTIAL"
+          else:
+              state = "ROLLBACK_SUCCESS"
+          print(f"::{'error' if state != 'ROLLBACK_SUCCESS' else 'notice'}::{state}")
+          with open(os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
+              f.write(f"ROLLBACK_STATE={state}\n")
           PYEOF
 
   # ============================================================
@@ -804,6 +896,7 @@ jobs:
     timeout-minutes: 20
     env:
       CLEAN_TAG: ${{ needs.preflight.outputs.clean-tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -858,6 +951,7 @@ jobs:
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CANDIDATE: ${{ needs.preflight.outputs.candidate }}
     steps:
       - uses: actions/checkout@v5
@@ -875,7 +969,7 @@ jobs:
           SNAP_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['dh_candidate_digest'])" 2>/dev/null)
           echo "candidate=${CANDIDATE} snapshot digest=${SNAP_DGST:0:19}"
 
-          # --- DH staging candidate delete（exact tag + digest match）---
+          # --- DH staging candidate delete（exact tag + digest match + JWT 认证）---
           DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
             "https://hub.docker.com/v2/users/login" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
