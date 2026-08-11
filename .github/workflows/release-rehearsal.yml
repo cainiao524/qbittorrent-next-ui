@@ -278,10 +278,11 @@ jobs:
           python3 - "$DH_DGST" "$GHCR_DGST" "$CANDIDATE" <<'PYEOF'
           import json, sys
           with open("rehearsal-digests.json", "w") as f:
-              json.dump({"dh_candidate_digest": sys.argv[1],
-                         "ghcr_candidate_digest": sys.argv[2],
-                         "candidate": sys.argv[3]}, f, indent=2)
-          print("rehearsal-digests.json written")
+              json.dump({"candidate": sys.argv[3],
+                         "dh_candidate_digest": sys.argv[1],
+                         "ghcr_initial_digest": sys.argv[2],
+                         "ghcr_restored_digest": ""}, f, indent=2)
+          print("rehearsal-digests.json written (initial)")
           PYEOF
 
       - name: Upload digests artifact
@@ -378,7 +379,25 @@ jobs:
           echo "restored GHCR candidate: ${NEW_DGST} archs=${archs}"
           echo "${archs}" | grep -q "linux/amd64"
           echo "${archs}" | grep -q "linux/arm64"
+          # 记录恢复后真实 digest（cleanup 必须用它删除恢复后的 version）
+          python3 - "$NEW_DGST" <<'PYEOF'
+          import json, sys
+          with open("rehearsal-digests.json", "r") as f:
+              d = json.load(f)
+          d["ghcr_restored_digest"] = sys.argv[1]
+          with open("rehearsal-digests.json", "w") as f:
+              json.dump(d, f, indent=2)
+          print("ghcr_restored_digest recorded:", sys.argv[1][:19])
+          PYEOF
           echo "::notice::GHCR candidate restored (digest ${NEW_DGST:0:19}; 跨 registry digest 相等仅记录: $([ "${NEW_DGST}" = "${DH_DGST}" ] && echo true || echo false))"
+
+      - name: Upload digests artifact（含 restored digest）
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-digests
+          path: rehearsal-digests.json
+          if-no-files-found: error
+          overwrite: true
 
   # ============================================================
   # export：5 资产 + sha256sum 验证（仅 Actions artifact）
@@ -416,8 +435,15 @@ jobs:
           set -euo pipefail
           CANDIDATE="${CANDIDATE}"
           docker pull --platform linux/amd64 "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}"
+          # P1-2：验证实际架构，不依赖文件名
+          ARCH_AMD=$(docker image inspect --format '{{.Architecture}}' "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}")
+          echo "amd64 实际架构: ${ARCH_AMD}"
+          [ "${ARCH_AMD}" = "amd64" ] || { echo "::error::amd64 导出架构不符: ${ARCH_AMD}"; exit 1; }
           docker save "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" | gzip > qbittorrent-next-ui-rehearsal-docker-amd64.tar.gz
           docker pull --platform linux/arm64 "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}"
+          ARCH_ARM=$(docker image inspect --format '{{.Architecture}}' "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}")
+          echo "arm64 实际架构: ${ARCH_ARM}"
+          [ "${ARCH_ARM}" = "arm64" ] || { echo "::error::arm64 导出架构不符: ${ARCH_ARM}"; exit 1; }
           docker save "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" | gzip > qbittorrent-next-ui-rehearsal-docker-arm64.tar.gz
           gzip -f -k qbittorrent-next-ui-rehearsal-multiarch.tar
           mv qbittorrent-next-ui-rehearsal-multiarch.tar.gz qbittorrent-next-ui-rehearsal-docker-multiarch.tar.gz
@@ -464,6 +490,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR（cleanup 独立 runner，必须显式认证）
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 下载 digests
         uses: actions/download-artifact@v4
         with:
@@ -471,112 +506,160 @@ jobs:
           path: .
         continue-on-error: true
 
-      - name: Best-effort staging cleanup（exact guard，残留明确输出）
+      - name: Staging cleanup（三态 fail-closed，残留明确输出）
         run: |
           set -euo pipefail
           CANDIDATE="${CANDIDATE}"
           DH_OK=false; GHCR_OK=false; DH_LEFTOVER=""; GHCR_LEFTOVER=""
 
-          # 计算前置 job 是否全部成功（用于最终状态）
+          # P1-1：入口重新验证 candidate（guard 失败时 output 可能为空）
+          if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
+            echo "::error::candidate 非法或为空: '${CANDIDATE}'；不执行任何 DELETE"
+            echo "## REHEARSAL_PARTIAL" >> "$GITHUB_STEP_SUMMARY"
+            echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- candidate: ${CANDIDATE:-<empty>}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 原因: candidate 格式校验失败，未执行任何删除" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # 计算前置 job 是否全部成功
           PRE_OK=true
           if [ "${{ needs.webui-build.result }}" != "success" ] || [ "${{ needs.staging-build.result }}" != "success" ] || [ "${{ needs.export.result }}" != "success" ]; then
             PRE_OK=false
           fi
 
-          # --- DH candidate cleanup（exact tag + digest match）---
+          # 读取 digest artifact（统一文件名 rehearsal-digests.json，P0-1）
+          DH_SNAP=""; GHCR_INITIAL=""; GHCR_RESTORED=""
+          if [ -f rehearsal-digests.json ]; then
+            DH_SNAP=$(python3 -c "import json; print(json.load(open('rehearsal-digests.json'))['dh_candidate_digest'])" 2>/dev/null || true)
+            GHCR_INITIAL=$(python3 -c "import json; print(json.load(open('rehearsal-digests.json'))['ghcr_initial_digest'])" 2>/dev/null || true)
+            GHCR_RESTORED=$(python3 -c "import json; print(json.load(open('rehearsal-digests.json'))['ghcr_restored_digest'])" 2>/dev/null || true)
+          fi
+
+          # --- DH candidate cleanup：三态 fail-closed ---
           DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
             -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
             "https://hub.docker.com/v2/users/login" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
-          SNAP_DGST=""
-          if [ -f digests.json ]; then
-            SNAP_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['dh_candidate_digest'])" 2>/dev/null || true)
-          fi
-          CUR_DGST=$(curl -s -H "Authorization: JWT ${DH_JWT}" \
-            "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin).get('digest',''))" 2>/dev/null || true)
-          if [ -n "${CUR_DGST}" ] && [ -n "${SNAP_DGST}" ] && [ "${CUR_DGST}" = "${SNAP_DGST}" ]; then
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: JWT ${DH_JWT}" \
-              "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
-            if [ "${CODE}" = "202" ] || [ "${CODE}" = "204" ]; then
-              # read-back 确认
-              GONE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
-                "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
-              if [ "${GONE}" = "404" ]; then DH_OK=true; else DH_LEFTOVER="HTTP ${GONE}"; fi
-            else
-              DH_LEFTOVER="delete HTTP ${CODE}"
-            fi
-          elif [ -n "${CUR_DGST}" ]; then
-            DH_LEFTOVER="digest mismatch cur=${CUR_DGST:0:19} snap=${SNAP_DGST:0:19}"
+          if [ -z "${DH_JWT}" ]; then
+            DH_LEFTOVER="DH JWT 获取失败 (UNKNOWN)"
           else
-            DH_OK=true  # 不存在
+            DH_STATE=$(curl -s -o /tmp/dh-tag.json -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+              "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+            case "${DH_STATE}" in
+              404)
+                DH_OK=true  # ABSENT_CONFIRMED
+                ;;
+              200)
+                CUR_DGST=$(python3 -c "import json; print(json.load(open('/tmp/dh-tag.json')).get('digest',''))" 2>/dev/null || true)
+                if [ -z "${CUR_DGST}" ]; then
+                  DH_LEFTOVER="tag 200 但 digest 解析失败 (UNKNOWN)"
+                elif [ -z "${DH_SNAP}" ]; then
+                  DH_LEFTOVER="digest artifact 缺失，无法校验 (UNKNOWN)"
+                elif [ "${CUR_DGST}" != "${DH_SNAP}" ]; then
+                  DH_LEFTOVER="digest mismatch cur=${CUR_DGST:0:19} snap=${DH_SNAP:0:19} (guard 拒绝)"
+                else
+                  DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: JWT ${DH_JWT}" \
+                    "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+                  if [ "${DEL_CODE}" = "202" ] || [ "${DEL_CODE}" = "204" ]; then
+                    sleep 2
+                    GONE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+                      "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+                    if [ "${GONE}" = "404" ]; then DH_OK=true; else DH_LEFTOVER="post-delete read-back HTTP ${GONE} (UNKNOWN)"; fi
+                  else
+                    DH_LEFTOVER="delete HTTP ${DEL_CODE}"
+                  fi
+                fi
+                ;;
+              *)
+                DH_LEFTOVER="existence HTTP ${DH_STATE} (UNKNOWN; 禁止删除)"
+                ;;
+            esac
           fi
 
-          # --- GHCR candidate cleanup（digest + tags==[candidate] guard）---
-          GHCR_DGST=""
-          if [ -f digests.json ]; then
-            GHCR_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['ghcr_candidate_digest'])" 2>/dev/null || true)
-          fi
+          # --- GHCR candidate cleanup：三态 fail-closed，使用 restored digest（P0-2）---
+          # 优先 ghcr_restored_digest（恢复后的真实 digest）；无则用 ghcr_initial_digest
+          GHCR_TARGET="${GHCR_RESTORED:-${GHCR_INITIAL}}"
           VID=""
-          if [ -n "${GHCR_DGST}" ]; then
+          GHCR_STATE="UNKNOWN"
+          if [ -z "${GHCR_TARGET}" ]; then
+            GHCR_LEFTOVER="无 GHCR digest 记录（restore/initial 均缺失），无法精确清理 (UNKNOWN)"
+          else
             VER_CODE=$(curl -s -o /tmp/ghcr-cleanup.json -w "%{http_code}" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
-            if [ "${VER_CODE}" = "200" ]; then
-              VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
-              import json, os
-              try:
-                  versions = json.load(open("/tmp/ghcr-cleanup.json"))
-              except Exception:
-                  raise SystemExit(0)
-              if not isinstance(versions, list):
-                  raise SystemExit(0)
-              dgst = os.environ.get("GHCR_DGST", "")
-              cand = os.environ.get("CANDIDATE", "")
-              for v in versions:
-                  if not isinstance(v, dict) or not isinstance(v.get("name"), str):
-                      raise SystemExit(0)
-                  if v.get("name") == dgst:
-                      tags = v.get("metadata", {}).get("container", {}).get("tags", [])
-                      if isinstance(tags, list) and tags == [cand]:
-                          print(v["id"])
-                          break
-              PYEOF
-              )
-            fi
-          fi
-          if [ -n "${VID}" ]; then
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
-            if [ "${CODE}" = "204" ]; then
-              sleep 3
-              RB=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
-              if echo "${RB}" | grep -qi "not found\|no such\|unknown manifest"; then GHCR_OK=true; else GHCR_LEFTOVER="read-back 异常"; fi
-            else
-              GHCR_LEFTOVER="delete HTTP ${CODE}"
-            fi
-          elif [ -n "${GHCR_DGST}" ]; then
-            GHCR_LEFTOVER="version 未找到或 guard 未匹配"
-          else
-            GHCR_OK=true  # 无 digest 记录（前置失败），无法精确清理 → 视为残留待人工
-            GHCR_LEFTOVER="digests.json 缺失，需人工确认"
+            case "${VER_CODE}" in
+              200)
+                VID=$(GHCR_TARGET="${GHCR_TARGET}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
+                import json, os
+                try:
+                    versions = json.load(open("/tmp/ghcr-cleanup.json"))
+                except Exception:
+                    print("UNKNOWN_PARSE"); raise SystemExit(0)
+                if not isinstance(versions, list):
+                    print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+                dgst = os.environ.get("GHCR_TARGET", "")
+                cand = os.environ.get("CANDIDATE", "")
+                for v in versions:
+                    if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                        print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+                    if v.get("name") == dgst:
+                        tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+                        if isinstance(tags, list) and tags == [cand]:
+                            print(v["id"]); raise SystemExit(0)
+                print("ABSENT_CONFIRMED")
+                PYEOF
+                )
+                if [ "${VID}" = "ABSENT_CONFIRMED" ]; then
+                  GHCR_OK=true  # candidate 已不存在
+                  VID=""
+                elif [ "${VID}" = "UNKNOWN_PARSE" ] || [ "${VID}" = "UNKNOWN_STRUCTURE" ]; then
+                  GHCR_LEFTOVER="versions 响应异常 (${VID}); UNKNOWN 禁止删除"
+                  VID=""
+                elif [ -n "${VID}" ]; then
+                  DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
+                  if [ "${DEL_CODE}" = "204" ]; then
+                    sleep 3
+                    # authenticated read-back（cleanup 已显式 login GHCR）
+                    RB=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+                    if echo "${RB}" | grep -qi "not found\|no such\|unknown manifest"; then
+                      GHCR_OK=true
+                    elif echo "${RB}" | grep -q "sha256:"; then
+                      GHCR_LEFTOVER="post-delete 仍可见 (PRESENT)"
+                    else
+                      GHCR_LEFTOVER="post-delete read-back UNKNOWN: ${RB}"
+                    fi
+                  else
+                    GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
+                  fi
+                fi
+                ;;
+              404)
+                GHCR_OK=true  # 包不存在 = ABSENT_CONFIRMED（无 candidate 残留）
+                ;;
+              *)
+                GHCR_LEFTOVER="versions HTTP ${VER_CODE} (UNKNOWN; 禁止删除)"
+                ;;
+            esac
           fi
 
-          # --- 最终状态输出 ---
+          # --- 最终状态输出（P0-5：PARTIAL 必须 exit 1）---
           echo "DH cleanup: ok=${DH_OK} leftover=${DH_LEFTOVER:-none}"
           echo "GHCR cleanup: ok=${GHCR_OK} leftover=${GHCR_LEFTOVER:-none}"
           if [ "${PRE_OK}" = "true" ] && [ "${DH_OK}" = "true" ] && [ "${GHCR_OK}" = "true" ]; then
             echo "::notice::STAGING_REHEARSAL_VERIFIED"
             echo "STAGING_REHEARSAL_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::REHEARSAL_PARTIAL（未达 VERIFIED）"
-            echo "## REHEARSAL_PARTIAL" >> "$GITHUB_STEP_SUMMARY"
-            echo "- 前置 job 全部成功: ${PRE_OK}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- digest(DH): ${SNAP_DGST:-unknown}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- run-id: ${GITHUB_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- run-attempt: ${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- 残留: DH=${DH_LEFTOVER:-none} GHCR=${GHCR_LEFTOVER:-none}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- 人工清理建议: 按上述 exact candidate 删除（DH tag DELETE / GHCR Versions）" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          exit 0
+          echo "::error::REHEARSAL_PARTIAL（未达 VERIFIED）"
+          echo "## REHEARSAL_PARTIAL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 前置 job 全部成功: ${PRE_OK}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- digest(DH): ${DH_SNAP:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- digest(GHCR restored): ${GHCR_RESTORED:-none}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- run-id: ${GITHUB_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- run-attempt: ${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 残留: DH=${DH_LEFTOVER:-none} GHCR=${GHCR_LEFTOVER:-none}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 人工清理建议: 按上述 exact candidate 删除（DH tag DELETE / GHCR Versions）" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
