@@ -280,6 +280,7 @@ jobs:
           STG_VER_CODE=$(curl -s -o /tmp/ghcr-versions.json -w "%{http_code}" \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
             "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
           case "${STG_VER_CODE}" in
             200) ;;
@@ -321,12 +322,30 @@ jobs:
           esac
           echo "matched version id: ${VID}"
 
-          DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+          # DELETE body 解析脚本（顶层写入，避免嵌套 heredoc 缩进问题）
+          cat > /tmp/ghcr-del-parse.py <<'PYEOF'
+          import json, sys
+          try:
+              d = json.load(open(sys.argv[1]))
+              print("  message:", str(d.get("message", ""))[:300])
+              print("  documentation_url:", str(d.get("documentation_url", ""))[:300])
+              print("  status:", str(d.get("status", ""))[:100])
+          except Exception:
+              raw = open(sys.argv[1], "rb").read()[:2048]
+              print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+          PYEOF
+
+          DELETE_BODY=/tmp/ghcr-delete.json
+          DEL_CODE=$(curl -L -sS -o "${DELETE_BODY}" -w "%{http_code}" -X DELETE \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" || echo "000")
           echo "DELETE version HTTP: ${DEL_CODE}"
           if [ "${DEL_CODE}" != "204" ]; then
-            echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE})"; exit 1
+            echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE})"
+            python3 /tmp/ghcr-del-parse.py "${DELETE_BODY}"
+            exit 1
           fi
 
           sleep 3
@@ -518,6 +537,18 @@ jobs:
           else:
               print("UNKNOWN_VERSION_MAPPING")
           PYEOF
+          # DELETE body 解析脚本（顶层写入）
+          cat > /tmp/ghcr-del-parse.py <<'PYEOF'
+          import json, sys
+          try:
+              d = json.load(open(sys.argv[1]))
+              print("  message:", str(d.get("message", ""))[:300])
+              print("  documentation_url:", str(d.get("documentation_url", ""))[:300])
+              print("  status:", str(d.get("status", ""))[:100])
+          except Exception:
+              raw = open(sys.argv[1], "rb").read()[:2048]
+              print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+          PYEOF
 
           # 入口重新验证 candidate（guard 失败时无 outputs 可依赖，必须自行校验）
           if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
@@ -600,6 +631,8 @@ jobs:
             else
               VER_CODE=$(curl -s -o /tmp/ghcr-cleanup.json -w "%{http_code}" \
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2026-03-10" \
                 "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" 2>/dev/null || echo "000")
               if [ "${VER_CODE}" != "200" ]; then
                 GHCR_LEFTOVER="REST versions HTTP ${VER_CODE} (UNKNOWN; 禁止删除)"
@@ -608,9 +641,15 @@ jobs:
                 case "${MAP_RESULT}" in
                   VID:*)
                     VID="${MAP_RESULT#VID:}"
-                    DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    DEL_CODE=$(curl -L -sS -o /tmp/ghcr-del-body.json -w "%{http_code}" -X DELETE \
+                      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                      -H "Accept: application/vnd.github+json" \
+                      -H "X-GitHub-Api-Version: 2026-03-10" \
                       "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" 2>/dev/null || echo "000")
-                    if [ "${DEL_CODE}" = "204" ]; then
+                    if [ "${DEL_CODE}" != "204" ]; then
+                      GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
+                      python3 /tmp/ghcr-del-parse.py /tmp/ghcr-del-body.json || true
+                    else
                       sleep 3
                       RB2=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
                       if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
@@ -620,8 +659,6 @@ jobs:
                       else
                         GHCR_LEFTOVER="post-delete read-back UNKNOWN: ${RB2}"
                       fi
-                    else
-                      GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
                     fi
                     ;;
                   TAG_SET_MISMATCH)

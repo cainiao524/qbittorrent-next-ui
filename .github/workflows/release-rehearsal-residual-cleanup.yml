@@ -1,0 +1,156 @@
+name: Release Rehearsal Residual Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: "exact staging candidate (qb-rehearsal-<run-id>-<attempt>)"
+        required: true
+      expected_digest:
+        description: "expected sha256 digest of the candidate version"
+        required: true
+      expected_version_id:
+        description: "expected GHCR package version id (integer)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  residual-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CANDIDATE: ${{ inputs.candidate }}
+      EXPECTED_DIGEST: ${{ inputs.expected_digest }}
+      EXPECTED_VERSION_ID: ${{ inputs.expected_version_id }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Guard：ref == main + HEAD == origin/main + inputs 格式
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::residual cleanup 只允许从 main 运行 (ref=${GITHUB_REF}); 零 DELETE"; exit 1
+          fi
+          git fetch origin main --quiet
+          LOCAL_HEAD="$(git rev-parse HEAD)"
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          if [ "${LOCAL_HEAD}" != "${MAIN_HEAD}" ]; then
+            echo "::error::HEAD != origin/main; 零 DELETE"; exit 1
+          fi
+          CANDIDATE="${CANDIDATE}"
+          EXPECTED_DIGEST="${EXPECTED_DIGEST}"
+          EXPECTED_VERSION_ID="${EXPECTED_VERSION_ID}"
+          if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
+            echo "::error::candidate 格式非法: '${CANDIDATE}'; 零 DELETE"; exit 1
+          fi
+          if [[ ! "${EXPECTED_DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::expected_digest 格式非法; 零 DELETE"; exit 1
+          fi
+          if [[ ! "${EXPECTED_VERSION_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::expected_version_id 格式非法; 零 DELETE"; exit 1
+          fi
+          echo "guard: ref/HEAD/inputs 全部通过"
+
+      - name: 四重 guard + DELETE + read-back
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          EXPECTED_DIGEST="${EXPECTED_DIGEST}"
+          EXPECTED_VERSION_ID="${EXPECTED_VERSION_ID}"
+          STAGING_PKG="qb-release-staging"
+          STAGING_REF="ghcr.io/cainiao524/qb-release-staging"
+
+          # ---- 只读确认 DH candidate（理想 ABSENT；不执行 DH DELETE）----
+          DH_STATE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" 2>/dev/null || echo "000")
+          echo "DH candidate read-back: ${DH_STATE}（404=ABSENT_CONFIRMED）"
+
+          # ---- Guard 1+2：authenticated registry exact candidate read-back + digest match ----
+          RB_OUT=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest"; then
+            echo "::error::candidate ABSENT_CONFIRMED；无需清理（可能已删）"; exit 1
+          fi
+          CURRENT_DIGEST=""
+          if echo "${RB_OUT}" | grep -q "sha256:"; then
+            CURRENT_DIGEST=$(echo "${RB_OUT}" | grep -o "sha256:[a-f0-9]*" | head -1)
+          fi
+          if [ -z "${CURRENT_DIGEST}" ]; then
+            echo "::error::registry read-back UNKNOWN: ${RB_OUT}; GUARD_REJECTED; 零 DELETE"; exit 1
+          fi
+          echo "CURRENT_DIGEST=${CURRENT_DIGEST}"
+          if [ "${CURRENT_DIGEST}" != "${EXPECTED_DIGEST}" ]; then
+            echo "::error::GUARD_REJECTED: CURRENT != EXPECTED (${CURRENT_DIGEST:0:19} vs ${EXPECTED_DIGEST:0:19}); 零 DELETE"; exit 1
+          fi
+
+          # ---- Guard 3：GET exact package version（id + name 校验）----
+          VER_CODE=$(curl -s -o /tmp/ghcr-version.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/${STAGING_PKG}/versions/${EXPECTED_VERSION_ID}" 2>/dev/null || echo "000")
+          if [ "${VER_CODE}" != "200" ]; then
+            echo "::error::GET version HTTP ${VER_CODE}; GUARD_REJECTED; 零 DELETE"; exit 1
+          fi
+          VID_OK=$(python3 -c "
+          import json
+          d = json.load(open('/tmp/ghcr-version.json'))
+          ok = str(d.get('id')) == '$EXPECTED_VERSION_ID' and d.get('name') == '$EXPECTED_DIGEST'
+          print('OK' if ok else 'MISMATCH')
+          ")
+          if [ "${VID_OK}" != "OK" ]; then
+            echo "::error::GUARD_REJECTED: version id/name mismatch; 零 DELETE"; exit 1
+          fi
+
+          # ---- Guard 4：tags 精确 == [candidate] ----
+          TAGS_OK=$(python3 -c "
+          import json
+          d = json.load(open('/tmp/ghcr-version.json'))
+          tags = d.get('metadata', {}).get('container', {}).get('tags', [])
+          print('OK' if tags == ['$CANDIDATE'] else 'TAGS=' + repr(tags))
+          ")
+          if [ "${TAGS_OK}" != "OK" ]; then
+            echo "::error::GUARD_REJECTED: tags ${TAGS_OK}; 零 DELETE"; exit 1
+          fi
+          echo "四重 guard 全部通过"
+
+          # ---- DELETE exact version ----
+          DEL_CODE=$(curl -L -sS -o /tmp/ghcr-residual-del.json -w "%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/${STAGING_PKG}/versions/${EXPECTED_VERSION_ID}" || echo "000")
+          echo "DELETE HTTP: ${DEL_CODE}"
+          if [ "${DEL_CODE}" != "204" ]; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (HTTP ${DEL_CODE})"
+            python3 -c "import json; d=json.load(open('/tmp/ghcr-residual-del.json')); print('  message:', str(d.get('message',''))[:300]); print('  status:', str(d.get('status',''))[:100])" 2>/dev/null || true
+            exit 1
+          fi
+
+          # ---- read-back：authenticated exact candidate ABSENT_CONFIRMED ----
+          sleep 3
+          RB2=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
+            echo "::notice::RESIDUAL_CLEANUP_VERIFIED（DELETE 204 + ABSENT_CONFIRMED）"
+            echo "RESIDUAL_CLEANUP_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- version_id: ${EXPECTED_VERSION_ID}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          elif echo "${RB2}" | grep -q "sha256:"; then
+            echo "::error::post-delete 仍可见 (PRESENT); RESIDUAL_CLEANUP_FAILED"; exit 1
+          else
+            echo "::error::post-delete read-back UNKNOWN: ${RB2}; RESIDUAL_CLEANUP_FAILED"; exit 1
+          fi
