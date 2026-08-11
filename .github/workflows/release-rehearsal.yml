@@ -305,7 +305,10 @@ jobs:
                   found = True
                   tags = v.get("metadata", {}).get("container", {}).get("tags", [])
                   if isinstance(tags, list) and tags == [cand]:
-                      print(v["id"]); raise SystemExit(0)
+                      vid = v.get("id")
+                      if not isinstance(vid, int):
+                          print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+                      print(vid); raise SystemExit(0)
           print("ABSENT_TAG_MISMATCH" if found else "ABSENT_CONFIRMED")
           ')
           case "${VID}" in
@@ -505,7 +508,10 @@ jobs:
                   if not isinstance(tags, list):
                       print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
                   if tags == [cand]:
-                      print("VID:" + v["id"]); raise SystemExit(0)
+                      vid = v.get("id")
+                      if not isinstance(vid, int):
+                          print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+                      print(f"VID:{vid}"); raise SystemExit(0)
                   tag_mismatch = True
           if tag_mismatch:
               print("TAG_SET_MISMATCH")
