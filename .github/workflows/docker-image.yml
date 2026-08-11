@@ -156,9 +156,34 @@ jobs:
             exit 1
           fi
           DH_LATEST_EXISTS=true
+          # 4b) Docker Hub immutable policy（当前 namespace repository API，fail-closed）
+          DH_REPO_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+            "https://hub.docker.com/v2/namespaces/lowsabishi/repositories/qbittorrent-next-ui")
+          if [ "${DH_REPO_CODE}" != "200" ]; then
+            echo "::error::DH repository settings UNKNOWN (HTTP ${DH_REPO_CODE}); fail-closed"
+            exit 1
+          fi
           DH_REPO_JSON=$(curl -s -H "Authorization: JWT ${DH_JWT}" \
-            "https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/")
-          DH_IMMUTABLE=$(echo "${DH_REPO_JSON}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('immutable_tags') if d.get('immutable_tags') is not None else False)")
+            "https://hub.docker.com/v2/namespaces/lowsabishi/repositories/qbittorrent-next-ui")
+          python3 - "$DH_REPO_JSON" <<'PYEOF'
+          import json, os, sys
+          d = json.loads(sys.argv[1])
+          its = d.get("immutable_tags_settings") or {}
+          enabled = bool(its.get("enabled"))
+          rules = its.get("rules") or []
+          print(f"dh_immutable_enabled={enabled}")
+          print(f"dh_immutable_rules={json.dumps(rules)}")
+          with open(os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
+              f.write(f"DH_IMMUTABLE_ENABLED={str(enabled).lower()}\n")
+              f.write(f"DH_IMMUTABLE_RULES={json.dumps(rules)}\n")
+          PYEOF
+          DH_IMMUTABLE_ENABLED="${DH_IMMUTABLE_ENABLED:-false}"
+          DH_IMMUTABLE_RULES="${DH_IMMUTABLE_RULES:-[]}"
+          if [ "${FULL_TRANSACTION_REQUIRED}" = "true" ] && [ "${DH_IMMUTABLE_ENABLED}" = "true" ]; then
+            echo "::error::DH immutable_tags_settings.enabled=true; final tag cannot be created/deleted safely; PRE-FLIGHT FAIL"
+            exit 1
+          fi
+          echo "DH immutable: enabled=${DH_IMMUTABLE_ENABLED} rules=${DH_IMMUTABLE_RULES}"
 
           # 5) GHCR previous latest digest（必须可信：成功读取 + 非空 digest）
           GHCR_LATEST_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -180,40 +205,55 @@ jobs:
           fi
           GHCR_LATEST_EXISTS=true
 
-          # 6) staging candidate 是否已存在（GITHUB_TOKEN 认证检查，真实结果）
-          DH_STAGING_CAND_PRE=false
-          if curl -s -H "Authorization: JWT ${DH_JWT}" \
-              "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" | grep -q '"digest"'; then
-            DH_STAGING_CAND_PRE=true
-          fi
-          # GHCR staging：GITHUB_TOKEN 认证；包不存在(404) → false；token 无效 → not_checked
+          # 6) staging candidate ownership collision 检查（fail-closed）
+          # DH staging candidate：HTTP 三态
+          DH_STG_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+            "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+          case "${DH_STG_CODE}" in
+            200) echo "::error::DH staging candidate ${CANDIDATE} already exists; refusing (ownership collision)"; exit 1;;
+            404) DH_STAGING_CAND_PRE=false;;
+            *) echo "::error::DH staging candidate existence UNKNOWN (HTTP ${DH_STG_CODE}); fail-closed"; exit 1;;
+          esac
+          # GHCR staging candidate：三态 fail-closed；not_checked 仅允许包不存在（首次 bootstrap）
           GHCR_STAGING_CAND_PRE="not_checked"
           STG_TOK=$(curl -s -u "oauth2:${GITHUB_TOKEN}" \
             "https://ghcr.io/token?scope=repository:cainiao524/qb-release-staging:pull&service=ghcr.io" \
             | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" 2>/dev/null || true)
-          if [ -n "${STG_TOK}" ]; then
-            STG_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${STG_TOK}" \
-              "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list")
-            if [ "${STG_CODE}" = "200" ]; then
-              GHCR_STAGING_CAND_PRE=false
-              if curl -s -H "Authorization: Bearer ${STG_TOK}" \
-                  "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list" | grep -q "${CANDIDATE}"; then
-                GHCR_STAGING_CAND_PRE=true
-              fi
-            fi
+          if [ -z "${STG_TOK}" ]; then
+            echo "::error::GHCR staging token acquisition failed; fail-closed"
+            exit 1
           fi
+          STG_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${STG_TOK}" \
+            "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list")
+          case "${STG_CODE}" in
+            404) GHCR_STAGING_CAND_PRE="not_checked" ;;  # 包不存在：首次 bootstrap 允许
+            200)
+              STG_TAGS=$(curl -s -H "Authorization: Bearer ${STG_TOK}" \
+                "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list")
+              if echo "${STG_TAGS}" | python3 -c "import json,sys; print('${CANDIDATE}' in json.load(sys.stdin).get('tags',[]))" | grep -q "True"; then
+                echo "::error::GHCR staging candidate ${CANDIDATE} already exists; refusing (ownership collision)"
+                exit 1
+              fi
+              GHCR_STAGING_CAND_PRE=false
+              ;;
+            *) echo "::error::GHCR staging candidate existence UNKNOWN (HTTP ${STG_CODE}); fail-closed"; exit 1;;
+          esac
 
           python3 - "$TAG" "$MAIN_SHA" "$CANDIDATE" "$CLEAN_TAG" \
             "$DH_STAGING_CAND_PRE" "$GHCR_STAGING_CAND_PRE" \
             "$DH_LATEST_EXISTS" "$DH_PREV_LATEST" "$GHCR_LATEST_EXISTS" "$GHCR_PREV_LATEST" \
-            "$DH_IMMUTABLE" <<'PYEOF'
+            "$DH_IMMUTABLE_ENABLED" "$DH_IMMUTABLE_RULES" <<'PYEOF'
           import json, os, sys
           tag, main_sha, candidate, clean = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
           dh_sc_pre = sys.argv[5] == "true"
           ghcr_sc_pre = sys.argv[6]
           dh_lat_ex, dh_prev = sys.argv[7] == "true", sys.argv[8]
           ghcr_lat_ex, ghcr_prev = sys.argv[9] == "true", sys.argv[10]
-          dh_imm = sys.argv[11] == "True" or sys.argv[11] == "true"
+          dh_imm_enabled = sys.argv[11] == "true"
+          try:
+              dh_imm_rules = json.loads(sys.argv[12])
+          except Exception:
+              dh_imm_rules = []
           snapshot = {
             "release_tag": tag, "main_sha": main_sha,
             "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
@@ -224,7 +264,8 @@ jobs:
             "dh_latest_exists": dh_lat_ex, "dh_previous_latest_digest": dh_prev,
             "ghcr_latest_exists": ghcr_lat_ex, "ghcr_previous_latest_digest": ghcr_prev,
             "github_release_preexists": False,
-            "dh_final_immutable": dh_imm,
+            "dh_immutable_enabled": dh_imm_enabled,
+            "dh_immutable_rules": dh_imm_rules,
           }
           with open("snapshot.json", "w") as f:
               json.dump(snapshot, f, indent=2)
@@ -397,34 +438,58 @@ jobs:
           fi
           echo "production GHCR package Admin confirmed via repo variable (manual bootstrap)"
 
-          # 1) staging versions 列表（GITHUB_TOKEN）
-          curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          # 1) staging versions 列表（GITHUB_TOKEN，HTTP 三态）
+          STG_VER_CODE=$(curl -s -o /tmp/ghcr-versions.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" \
-            > /tmp/ghcr-versions.json
-          if grep -q "Resource not accessible" /tmp/ghcr-versions.json; then
-            echo "::error::GHCR staging delete capability NOT available (403); TRANSACTION_MODE=PARTIAL_COMPENSATION"
-            exit 1
-          fi
+            "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
+          case "${STG_VER_CODE}" in
+            200) ;;
+            404) echo "::error::GHCR staging package not found (404); candidate was pushed; UNKNOWN state"; exit 1;;
+            *) echo "::error::GHCR staging versions UNKNOWN (HTTP ${STG_VER_CODE}); fail-closed"; exit 1;;
+          esac
 
           # 2) 匹配官方 schema：v["name"]==digest；v["metadata"]["container"]["tags"] 为字符串数组
           VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
           import json, os
-          versions = json.load(open("/tmp/ghcr-versions.json"))
+          try:
+              versions = json.load(open("/tmp/ghcr-versions.json"))
+          except Exception:
+              print("UNKNOWN_PARSE")
+              raise SystemExit(0)
+          if not isinstance(versions, list):
+              print("UNKNOWN_STRUCTURE")
+              raise SystemExit(0)
           dgst = os.environ["GHCR_DGST"]
           cand = os.environ["CANDIDATE"]
+          found = False
           for v in versions:
+              if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                  print("UNKNOWN_STRUCTURE")
+                  raise SystemExit(0)
               if v.get("name") == dgst:
+                  found = True
                   tags = v.get("metadata", {}).get("container", {}).get("tags", [])
                   if isinstance(tags, list) and tags == [cand]:
                       print(v["id"])
-                      break
+                      raise SystemExit(0)
+          if found:
+              print("ABSENT_TAG_MISMATCH")
+          else:
+              print("ABSENT_CONFIRMED")
           PYEOF
           )
-          if [ -z "${VID}" ]; then
-            echo "::error::no GHCR version matching v.name==digest with tags==[${CANDIDATE}]"
-            exit 1
-          fi
+          case "${VID}" in
+            ABSENT_CONFIRMED|ABSENT_TAG_MISMATCH)
+              echo "::error::GHCR staging version for candidate digest absent/tag-mismatch (${VID}); fail-closed"
+              exit 1;;
+            UNKNOWN_PARSE|UNKNOWN_STRUCTURE)
+              echo "::error::GHCR staging versions response abnormal (${VID}); fail-closed"
+              exit 1;;
+            "")
+              echo "::error::empty matching result; fail-closed"
+              exit 1;;
+          esac
           echo "matched staging version id: ${VID}"
 
           # 3) DELETE（guard 已满足）
@@ -737,7 +802,7 @@ jobs:
   # ============================================================
   rollback:
     needs: [preflight, promote, publish]
-    if: ${{ always() && (needs.promote.result == 'failure' || (needs.publish.result == 'failure' && needs.publish.outputs.publish_state == 'NOT_CROSSED')) }}
+    if: ${{ always() && ((needs.promote.result == 'failure' || needs.promote.result == 'cancelled') || (needs.publish.result == 'failure' && needs.publish.outputs.publish_state == 'NOT_CROSSED')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -838,27 +903,45 @@ jobs:
 
           def ghcr_version(pkg, digest):
               """官方 schema：v['name']==digest；tags 为字符串数组。
-              返回 (version_id, tags) 或 None"""
-              r = subprocess.run(["curl", "-s", "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
+              三态返回 (state, version_id, tags)：
+              FOUND / ABSENT_CONFIRMED / UNKNOWN"""
+              r = subprocess.run(["curl", "-s", "-w", "\\n%{http_code}",
+                                  "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
                                   f"https://api.github.com/user/packages/container/{pkg}/versions?per_page=100"],
                                  capture_output=True, text=True, timeout=60)
+              if r.returncode != 0:
+                  return ("UNKNOWN", None, [])
+              parts = r.stdout.rsplit("\n", 1)
+              code = parts[-1].strip() if len(parts) == 2 else ""
+              body = parts[0]
+              if code == "404":
+                  return ("ABSENT_CONFIRMED", None, [])
+              if code != "200":
+                  return ("UNKNOWN", None, [])
               try:
-                  versions = json.loads(r.stdout)
+                  versions = json.loads(body)
               except Exception:
-                  return None
+                  return ("UNKNOWN", None, [])
+              if not isinstance(versions, list):
+                  return ("UNKNOWN", None, [])
               for v in versions:
-                  if v.get("name") == digest:
+                  if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                      return ("UNKNOWN", None, [])
+                  if v["name"] == digest:
                       tags = v.get("metadata", {}).get("container", {}).get("tags", [])
-                      if isinstance(tags, list):
-                          return v["id"], tags
-              return None
+                      if not isinstance(tags, list):
+                          return ("UNKNOWN", None, [])
+                      return ("FOUND", v["id"], tags)
+              return ("ABSENT_CONFIRMED", None, [])
 
           def ghcr_version_gone(pkg, digest):
-              """DELETE 后 read-back：version 消失才算 ABSENT_CONFIRMED"""
-              found = ghcr_version(pkg, digest)
-              if found is None:
+              """DELETE 后 read-back：三态 → ABSENT_CONFIRMED / PRESENT / UNKNOWN"""
+              st, _, _ = ghcr_version(pkg, digest)
+              if st == "ABSENT_CONFIRMED":
                   return "ABSENT_CONFIRMED"
-              return "PRESENT"
+              if st == "FOUND":
+                  return "PRESENT"
+              return "UNKNOWN"
 
           results = []  # (action, status: ok|skipped|guard_rejected|failed|unknown)
 
@@ -915,25 +998,27 @@ jobs:
               if cur != ghcr_cand_dgst:
                   results.append(("ghcr_final_delete", "guard_rejected"))
               else:
-                  found = ghcr_version("qbittorrent-next-ui", cur)
-                  if found is None:
+                  vst, vid, tags = ghcr_version("qbittorrent-next-ui", cur)
+                  if vst == "UNKNOWN":
+                      results.append(("ghcr_final_delete", "unknown"))
+                  elif vst == "ABSENT_CONFIRMED":
+                      results.append(("ghcr_final_delete", "guard_rejected"))
+                  elif tags != [clean]:
                       results.append(("ghcr_final_delete", "guard_rejected"))
                   else:
-                      vid, tags = found
-                      if tags != [clean]:
-                          results.append(("ghcr_final_delete", "guard_rejected"))
+                      d = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
+                                          "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
+                                          f"https://api.github.com/user/packages/container/qbittorrent-next-ui/versions/{vid}"],
+                                         capture_output=True, text=True, timeout=60)
+                      if d.stdout.strip() != "204":
+                          results.append(("ghcr_final_delete", "failed"))
                       else:
-                          d = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE",
-                                              "-H", f"Authorization: Bearer {os.environ['GITHUB_TOKEN']}",
-                                              f"https://api.github.com/user/packages/container/qbittorrent-next-ui/versions/{vid}"],
-                                             capture_output=True, text=True, timeout=60)
-                          if d.stdout.strip() != "204":
-                              results.append(("ghcr_final_delete", "failed"))
+                          # DELETE 后 read-back：ABSENT_CONFIRMED → ok；FOUND → failed；UNKNOWN → failed
+                          st2 = ghcr_version_gone("qbittorrent-next-ui", cur)
+                          if st2 == "ABSENT_CONFIRMED":
+                              results.append(("ghcr_final_delete", "ok"))
                           else:
-                              # DELETE 后 read-back：version 明确消失才 ok
-                              st2 = ghcr_version_gone("qbittorrent-next-ui", cur)
-                              results.append(("ghcr_final_delete",
-                                              "ok" if st2 == "ABSENT_CONFIRMED" else "unknown"))
+                              results.append(("ghcr_final_delete", "failed"))
 
           # 4) DH new final 安全删除（JWT 认证 + digest==candidate + exact tag + post-delete read-back）
           st, cur = read_back(f"lowsabishi/qbittorrent-next-ui:{clean}")
@@ -1078,34 +1163,43 @@ jobs:
             echo "DH staging candidate delete SKIPPED (digest mismatch or missing; cur=${CUR_DGST:0:19} snap=${SNAP_DGST:0:19})"
           fi
 
-          # --- GHCR staging version delete（digest match + tags == [candidate]）---
+          # --- GHCR staging version delete（digest match + tags == [candidate]，三态 best-effort）---
           GHCR_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['ghcr_candidate_digest'])" 2>/dev/null)
-          curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100" \
-            > /tmp/ghcr-cleanup-versions.json
-          CLEAN_ID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
-          import json, os
-          try:
-              versions = json.load(open("/tmp/ghcr-cleanup-versions.json"))
-          except Exception:
-              versions = []
-          dgst = os.environ.get("GHCR_DGST", "")
-          cand = os.environ.get("CANDIDATE", "")
-          for v in versions:
-              # 官方 schema：v["name"]==digest；tags 为字符串数组
-              if v.get("name") == dgst:
-                  tags = v.get("metadata", {}).get("container", {}).get("tags", [])
-                  if isinstance(tags, list) and tags == [cand]:
-                      print(v["id"])
-                      break
-          PYEOF
-          )
+          STG_VER_CODE=$(curl -s -o /tmp/ghcr-cleanup-versions.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
+          CLEAN_ID=""
+          if [ "${STG_VER_CODE}" = "200" ]; then
+            CLEAN_ID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
+            import json, os
+            try:
+                versions = json.load(open("/tmp/ghcr-cleanup-versions.json"))
+            except Exception:
+                raise SystemExit(0)
+            if not isinstance(versions, list):
+                raise SystemExit(0)
+            dgst = os.environ.get("GHCR_DGST", "")
+            cand = os.environ.get("CANDIDATE", "")
+            for v in versions:
+                if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                    raise SystemExit(0)
+                # 官方 schema：v["name"]==digest；tags 为字符串数组
+                if v.get("name") == dgst:
+                    tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+                    if isinstance(tags, list) and tags == [cand]:
+                        print(v["id"])
+                        break
+            PYEOF
+            )
+          else
+            echo "GHCR staging cleanup SKIPPED (versions UNKNOWN, HTTP ${STG_VER_CODE})"
+          fi
           if [ -n "${CLEAN_ID}" ]; then
             CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               "https://api.github.com/user/packages/container/qb-release-staging/versions/${CLEAN_ID}")
             echo "GHCR staging candidate delete: HTTP ${CODE}"
           else
-            echo "GHCR staging candidate delete SKIPPED (guard not matched)"
+            echo "GHCR staging candidate delete SKIPPED (guard not matched or UNKNOWN)"
           fi
           echo "::warning::staging cleanup completed (best-effort); 残留不影响已发布 Release"
           exit 0
