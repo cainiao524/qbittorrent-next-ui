@@ -15,10 +15,10 @@ import {
 } from "lucide-react"
 import { EditTorrentDialog } from "@/components/torrents/edit-torrent-dialog"
 import { cn } from "@/lib/utils"
-import { formatSpeed, formatDuration, getStatusLabel, formatSizeParts, splitSpeed } from "@/lib/formatters"
+import { formatSpeed, formatDuration, getStatusLabel, formatSize, formatSizeParts, splitSpeed } from "@/lib/formatters"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
-import { getTorrentProgressColor } from "@/lib/torrent-progress"
+import { getTorrentProgressColor, getTorrentProgressMetrics } from "@/lib/torrent-progress"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 
 interface TorrentGridViewProps {
@@ -41,7 +41,9 @@ export function TorrentGridView({
   return (
     <>
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {paginatedTorrents.map((torrent, index) => (
+      {paginatedTorrents.map((torrent, index) => {
+        const { progressRatio, completedSelected, selectedSize, totalSize, selectionRatio, isPartialDownload } = getTorrentProgressMetrics(torrent)
+        return (
         <Card
           key={torrent.id}
           className="group relative shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0 animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
@@ -90,20 +92,28 @@ export function TorrentGridView({
             <div className="space-y-2">
               <div className="flex justify-between text-label">
                 <span>{t('common.progress')}</span>
-                <span className="text-primary">{(torrent.percentDone * 100).toFixed(1)}%</span>
+                <span className="text-primary">{(progressRatio * 100).toFixed(1)}%</span>
               </div>
               <div
                 role="progressbar"
                 aria-label={t("common.progress")}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.round(torrent.percentDone * 100)}
+                aria-valuenow={Number((progressRatio * 100).toFixed(1))}
                 className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
               >
                 <div
                   className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", getTorrentProgressColor(torrent))}
-                  style={{ transform: `scaleX(${Math.min(Math.max(torrent.percentDone, 0), 1)})` }}
+                  style={{ transform: `scaleX(${progressRatio})` }}
                 ></div>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[10px] font-medium text-muted-foreground">
+                <span>{formatSize(completedSelected)} / {formatSize(selectedSize)}</span>
+                {isPartialDownload && (
+                  <span className="text-fuchsia-600 dark:text-fuchsia-400" title={t("common.selected_of_total", { selected: formatSize(selectedSize), total: formatSize(totalSize) })}>
+                    {t("common.selected_percent", { percent: (selectionRatio * 100).toFixed(0) })}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -160,7 +170,8 @@ export function TorrentGridView({
             </div>
           </CardFooter>
         </Card>
-      ))}
+        )
+      })}
     </div>
     <EditTorrentDialog torrent={editingTorrent} onClose={closeEdit} onSuccess={onAdvancedSuccess} />
     </>

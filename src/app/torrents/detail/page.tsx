@@ -20,7 +20,8 @@ import {
   Activity,
   Info,
   ExternalLink,
-  Tag
+  Tag,
+  LoaderCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -38,7 +39,7 @@ import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { type Torrent, type TorrentFile, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"
 import { formatSize, formatSpeed, formatDuration, getStatusLabel, formatDate } from "@/lib/formatters"
-import { getTorrentProgressColor, getTorrentProgressStrokeColor } from "@/lib/torrent-progress"
+import { getTorrentProgressColor, getTorrentProgressMetrics, getTorrentProgressStrokeColor } from "@/lib/torrent-progress"
 import { cn } from "@/lib/utils"
 import { formatPeerRegion, peerCountryFlag } from "@/lib/peer-region"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
@@ -204,7 +205,7 @@ function TorrentDetailsContent() {
   }
 
   const tor = torrent;
-  const isComplete = tor.totalSize > 0 && tor.downloadedEver >= tor.totalSize;
+  const { progressRatio, completedSelected, selectedSize, totalSize, selectionRatio, isPartialDownload } = getTorrentProgressMetrics(tor)
 
   const isStopped = tor.status === TorrentStatus.STOPPED;
 
@@ -308,19 +309,24 @@ function TorrentDetailsContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="py-4 md:py-6 flex flex-col gap-2 px-4">
-              <div className="flex justify-between items-baseline">
-                <span className="text-2xl md:text-3xl font-medium text-primary">{(tor.percentDone * 100).toFixed(1)}%</span>
-                {!isComplete && <span className="text-[10px] md:text-xs font-medium text-muted-foreground">{formatSize(tor.downloadedEver)} / {formatSize(tor.totalSize)}</span>}
-              </div>
+              <span className="text-2xl md:text-3xl font-medium text-primary">{(progressRatio * 100).toFixed(1)}%</span>
               <div
                 role="progressbar"
                 aria-label={t("common.progress")}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.round(tor.percentDone * 100)}
+                aria-valuenow={Number((progressRatio * 100).toFixed(1))}
                 className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
               >
-                <div className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", getTorrentProgressColor(tor))} style={{ transform: `scaleX(${Math.min(Math.max(tor.percentDone, 0), 1)})` }}></div>
+                <div className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", getTorrentProgressColor(tor))} style={{ transform: `scaleX(${progressRatio})` }}></div>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[10px] md:text-xs font-medium text-muted-foreground">
+                <span>{formatSize(completedSelected)} / {formatSize(selectedSize)}</span>
+                {isPartialDownload && (
+                  <span className="text-fuchsia-600 dark:text-fuchsia-400" title={t("common.selected_of_total", { selected: formatSize(selectedSize), total: formatSize(totalSize) })}>
+                    {t("common.selected_percent", { percent: (selectionRatio * 100).toFixed(0) })}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -499,13 +505,19 @@ function TorrentDetailsContent() {
 
             {activeTab === "files" && (
               <div className="animate-in fade-in slide-in-from-right-2 duration-300 motion-reduce:animate-none">
-                <TorrentFileTree
-                  files={tor.files ?? []}
-                  updatingFileIds={updatingFileIds}
-                  progressColorClassName={getTorrentProgressColor(tor)}
-                  progressStrokeClassName={getTorrentProgressStrokeColor(tor)}
-                  onPriorityChange={handleFilePriorityChange}
-                />
+                {tor.files === undefined ? (
+                  <div className="flex min-h-48 items-center justify-center">
+                    <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <TorrentFileTree
+                    files={tor.files}
+                    updatingFileIds={updatingFileIds}
+                    progressColorClassName={getTorrentProgressColor(tor)}
+                    progressStrokeClassName={getTorrentProgressStrokeColor(tor)}
+                    onPriorityChange={handleFilePriorityChange}
+                  />
+                )}
               </div>
             )}
 

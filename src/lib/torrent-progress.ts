@@ -41,3 +41,22 @@ export function getTorrentProgressColor(torrent: Pick<Torrent, "status" | "error
 export function getTorrentProgressStrokeColor(torrent: Pick<Torrent, "status" | "error" | "errorString">) {
   return PROGRESS_COLORS[getTorrentProgressTone(torrent)].stroke
 }
+
+export function getTorrentProgressMetrics(torrent: Pick<Torrent, "size" | "totalSize" | "percentDone">) {
+  const selectedSize = Number.isFinite(torrent.size) && torrent.size > 0 ? torrent.size : 0
+  const reportedTotalSize = Number.isFinite(torrent.totalSize) && torrent.totalSize > 0 ? torrent.totalSize : 0
+  const totalSize = Math.max(selectedSize, reportedTotalSize)
+  const progressRatio = Number.isFinite(torrent.percentDone)
+    ? Math.min(Math.max(torrent.percentDone, 0), 1)
+    : 0
+  const selectionRatio = totalSize > 0 ? Math.min(selectedSize / totalSize, 1) : 1
+
+  return {
+    selectedSize,
+    totalSize,
+    progressRatio,
+    completedSelected: selectedSize * progressRatio,
+    selectionRatio,
+    isPartialDownload: totalSize > 0 && selectedSize < totalSize - 1,
+  }
+}

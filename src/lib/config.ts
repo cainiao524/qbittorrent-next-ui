@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-  version: "v1.18.0-funky⑨",
+  version: "v1.18.1-funky⑨",
   githubUrl: "https://github.com/cainiao524/qbittorrent-next-ui",
   name: "qBittorrent Next"
 }

@@ -631,10 +631,6 @@ export function TorrentFileTree({
   const isMobile = useIsMobile();
   const tree = useMemo(() => buildTorrentFileTree(files), [files]);
   const folderKeys = useMemo(() => getTorrentFolderKeys(tree), [tree]);
-  const rootFolderKeys = useMemo(
-    () => tree.filter((node) => node.kind === "folder").map((node) => node.key),
-    [tree],
-  );
   const fileIdsByKey = useMemo(() => {
     const map = new Map<string, number[]>();
     const visit = (node: TorrentFileTreeNode) => {
@@ -653,7 +649,7 @@ export function TorrentFileTree({
     new Set(),
   );
   const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(rootFolderKeys),
+    () => new Set(folderKeys),
   );
   const [query, setQuery] = useState("");
   const [detailNode, setDetailNode] = useState<TorrentFileTreeNode | null>(

@@ -42,6 +42,8 @@
     "eta": "ETA",
     "actions": "Actions",
     "selected": "Selected",
+    "selected_percent": "Selected {percent}%",
+    "selected_of_total": "Selected {selected} / {total} total",
     "resume": "Resume",
     "resume_all": "Resume All",
     "pause": "Stop",
