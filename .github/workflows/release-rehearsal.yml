@@ -1,0 +1,582 @@
+name: Release Staging Rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================
+  # rehearsal-guard：任何 registry 写操作前必须通过
+  # ============================================================
+  rehearsal-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      candidate: ${{ steps.vars.outputs.candidate }}
+      dh_staging_repo: ${{ steps.vars.outputs.dh_staging_repo }}
+      ghcr_staging_repo: ${{ steps.vars.outputs.ghcr_staging_repo }}
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 校验运行 ref == refs/heads/main
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::rehearsal 只允许从 main 运行 (ref=${GITHUB_REF}); fail"
+            exit 1
+          fi
+          echo "ref OK: ${GITHUB_REF}"
+
+      - name: 校验 HEAD == origin/main HEAD
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          LOCAL_HEAD="$(git rev-parse HEAD)"
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          if [ "${LOCAL_HEAD}" != "${MAIN_HEAD}" ]; then
+            echo "::error::HEAD ${LOCAL_HEAD} != origin/main ${MAIN_HEAD}; rehearsal 必须基于最新 main"
+            exit 1
+          fi
+          echo "HEAD == origin/main: ${LOCAL_HEAD}"
+
+      - name: Resolve rehearsal variables
+        id: vars
+        run: |
+          CANDIDATE="qb-rehearsal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
+            echo "::error::candidate 格式非法: ${CANDIDATE}"
+            exit 1
+          fi
+          echo "candidate=${CANDIDATE}" >> "$GITHUB_OUTPUT"
+          echo "dh_staging_repo=lowsabishi/release-staging" >> "$GITHUB_OUTPUT"
+          echo "ghcr_staging_repo=ghcr.io/cainiao524/qb-release-staging" >> "$GITHUB_OUTPUT"
+          echo "candidate=${CANDIDATE}"
+
+      - name: Docker Hub credentials preflight
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCKERHUB_USERNAME}" ] || [ -z "${DOCKERHUB_TOKEN}" ]; then
+            echo "::error::Docker Hub credentials missing"
+            exit 1
+          fi
+          echo "Docker Hub credentials present"
+
+      - name: Candidate preexists 检查（fail-closed）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${{ steps.vars.outputs.candidate }}"
+          DH_STAGING_REPO="${{ steps.vars.outputs.dh_staging_repo }}"
+          GHCR_STAGING_REPO="${{ steps.vars.outputs.ghcr_staging_repo }}"
+
+          # Docker Hub API JWT
+          DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
+            "https://hub.docker.com/v2/users/login" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
+
+          # DH candidate：200→fail / 404→continue / 其他→fail
+          DH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+            "https://hub.docker.com/v2/repositories/${DH_STAGING_REPO}/tags/${CANDIDATE}")
+          case "${DH_CODE}" in
+            200) echo "::error::DH candidate ${CANDIDATE} already exists; ownership collision"; exit 1;;
+            404) echo "DH candidate absent (404)";;
+            *) echo "::error::DH candidate existence UNKNOWN (HTTP ${DH_CODE}); fail-closed"; exit 1;;
+          esac
+
+          # GHCR candidate：FOUND→fail / ABSENT_CONFIRMED→continue / 包未创建(首次)→允许 / UNKNOWN→fail
+          STG_TOK=$(curl -s -u "oauth2:${GITHUB_TOKEN}" \
+            "https://ghcr.io/token?scope=repository:cainiao524/qb-release-staging:pull&service=ghcr.io" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))" 2>/dev/null || true)
+          if [ -z "${STG_TOK}" ]; then
+            echo "::error::GHCR staging token acquisition failed; fail-closed"
+            exit 1
+          fi
+          STG_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${STG_TOK}" \
+            "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list")
+          case "${STG_CODE}" in
+            404)
+              echo "GHCR staging package 尚未创建（首次 rehearsal）; candidate 必然不存在"
+              ;;
+            200)
+              if curl -s -H "Authorization: Bearer ${STG_TOK}" \
+                  "https://ghcr.io/v2/cainiao524/qb-release-staging/tags/list" \
+                  | python3 -c "import json,sys; print('$CANDIDATE' in json.load(sys.stdin).get('tags',[]))" | grep -q "True"; then
+                echo "::error::GHCR candidate ${CANDIDATE} already exists; ownership collision"
+                exit 1
+              fi
+              echo "GHCR candidate absent (ABSENT_CONFIRMED)"
+              ;;
+            *)
+              echo "::error::GHCR candidate existence UNKNOWN (HTTP ${STG_CODE}); fail-closed"
+              exit 1
+              ;;
+          esac
+          echo "::notice::rehearsal-guard passed (candidate=${CANDIDATE})"
+
+  # ============================================================
+  # webui-build：与 production 等价
+  # ============================================================
+  webui-build:
+    needs: rehearsal-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 代码规范检查
+        run: pnpm lint
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 运行测试
+        run: pnpm test
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 打包 WebUI
+        run: cd dist && zip -r ../qbittorrent-next-ui.zip .
+
+      - name: 上传 WebUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-webui-zip
+          path: qbittorrent-next-ui.zip
+          if-no-files-found: error
+          overwrite: true
+
+  # ============================================================
+  # staging-build：ONE BUILDKIT SOLVE → 双 staging candidate + OCI artifact
+  #                + GHCR DELETE capability 真测 + 恢复
+  # ============================================================
+  staging-build:
+    needs: rehearsal-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
+      DH_STAGING_REPO: ${{ needs.rehearsal-guard.outputs.dh_staging_repo }}
+      GHCR_STAGING_REPO: ${{ needs.rehearsal-guard.outputs.ghcr_staging_repo }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Runtime staging ref assertion（写操作前）
+        run: |
+          set -euo pipefail
+          assert_staging_ref() {
+            # $1 = 完整镜像 ref；仅允许 DH/GHCR staging repo
+            local ref="$1"
+            case "${ref}" in
+              "lowsabishi/release-staging:"*|"ghcr.io/cainiao524/qb-release-staging:"*) return 0;;
+              *) echo "::error::write ref 不在 staging 白名单: ${ref}"; exit 1;;
+            esac
+          }
+          echo "assert_staging_ref() 已定义（后续 push/delete/imagetools create 前调用）"
+
+      - name: ONE BUILDKIT SOLVE → dual staging candidate + OCI artifact
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          # 写目标白名单断言（与 production staging-build 配置一致）
+          case "${DH_STAGING_REPO}:${CANDIDATE}" in
+            "lowsabishi/release-staging:qb-rehearsal-"*) ;;
+            *) echo "::error::DH write ref 非法"; exit 1;;
+          esac
+          case "${GHCR_STAGING_REPO}:${CANDIDATE}" in
+            "ghcr.io/cainiao524/qb-release-staging:qb-rehearsal-"*) ;;
+            *) echo "::error::GHCR write ref 非法"; exit 1;;
+          esac
+          echo "write refs asserted: ${DH_STAGING_REPO}:${CANDIDATE} + ${GHCR_STAGING_REPO}:${CANDIDATE}"
+        # 注意：build-push-action 的 tags/outputs 在下方 action 中配置（与 production 相同）
+
+      - name: Build and push staging（ONE BUILDKIT SOLVE）
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            lowsabishi/release-staging:${{ needs.rehearsal-guard.outputs.candidate }}
+            ghcr.io/cainiao524/qb-release-staging:${{ needs.rehearsal-guard.outputs.candidate }}
+          outputs: type=oci,dest=qbittorrent-next-ui-rehearsal-multiarch.tar
+
+      - name: Upload OCI multiarch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-oci-multiarch
+          path: qbittorrent-next-ui-rehearsal-multiarch.tar
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Verify staging（分别记录 digest + 平台，不要求跨 registry digest 相等）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          DH_STAGING_REPO="${DH_STAGING_REPO}"
+          GHCR_STAGING_REPO="${GHCR_STAGING_REPO}"
+          DH_DGST=$(docker buildx imagetools inspect "${DH_STAGING_REPO}:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          GHCR_DGST=$(docker buildx imagetools inspect "${GHCR_STAGING_REPO}:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          echo "DH_STAGING_DIGEST=${DH_DGST}"
+          echo "GHCR_STAGING_DIGEST=${GHCR_DGST}"
+          for ref in "${DH_STAGING_REPO}:${CANDIDATE}" "${GHCR_STAGING_REPO}:${CANDIDATE}"; do
+            archs=$(docker buildx imagetools inspect "${ref}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+            echo "${ref}: ${archs}"
+            echo "${archs}" | grep -q "linux/amd64" || { echo "::error::${ref} 缺 amd64"; exit 1; }
+            echo "${archs}" | grep -q "linux/arm64" || { echo "::error::${ref} 缺 arm64"; exit 1; }
+          done
+          # 跨 registry digest 相等：仅记录，不作失败条件
+          if [ "${DH_DGST}" = "${GHCR_DGST}" ]; then
+            echo "cross-registry digest equal = true"
+          else
+            echo "cross-registry digest equal = false（记录；非失败条件）"
+          fi
+          python3 - "$DH_DGST" "$GHCR_DGST" "$CANDIDATE" <<'PYEOF'
+          import json, sys
+          with open("rehearsal-digests.json", "w") as f:
+              json.dump({"dh_candidate_digest": sys.argv[1],
+                         "ghcr_candidate_digest": sys.argv[2],
+                         "candidate": sys.argv[3]}, f, indent=2)
+          print("rehearsal-digests.json written")
+          PYEOF
+
+      - name: Upload digests artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-digests
+          path: rehearsal-digests.json
+          if-no-files-found: error
+          overwrite: true
+
+      - name: GHCR staging DELETE capability 真测（三态 schema + guard）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          GHCR_DGST=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          echo "candidate=${CANDIDATE} digest=${GHCR_DGST:0:19}"
+
+          STG_VER_CODE=$(curl -s -o /tmp/ghcr-versions.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
+          case "${STG_VER_CODE}" in
+            200) ;;
+            404) echo "::error::staging package not found (404); UNKNOWN state"; exit 1;;
+            *) echo "::error::staging versions UNKNOWN (HTTP ${STG_VER_CODE}); fail-closed"; exit 1;;
+          esac
+
+          VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
+          import json, os
+          try:
+              versions = json.load(open("/tmp/ghcr-versions.json"))
+          except Exception:
+              print("UNKNOWN_PARSE"); raise SystemExit(0)
+          if not isinstance(versions, list):
+              print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+          dgst = os.environ["GHCR_DGST"]
+          cand = os.environ["CANDIDATE"]
+          found = False
+          for v in versions:
+              if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                  print("UNKNOWN_STRUCTURE"); raise SystemExit(0)
+              if v.get("name") == dgst:
+                  found = True
+                  tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+                  if isinstance(tags, list) and tags == [cand]:
+                      print(v["id"]); raise SystemExit(0)
+          print("ABSENT_TAG_MISMATCH" if found else "ABSENT_CONFIRMED")
+          PYEOF
+          )
+          case "${VID}" in
+            ABSENT_CONFIRMED|ABSENT_TAG_MISMATCH)
+              echo "::error::GHCR version 匹配失败 (${VID}); fail-closed"; exit 1;;
+            UNKNOWN_PARSE|UNKNOWN_STRUCTURE)
+              echo "::error::GHCR versions 响应异常 (${VID}); fail-closed"; exit 1;;
+            "")
+              echo "::error::空匹配结果; fail-closed"; exit 1;;
+          esac
+          echo "matched version id: ${VID}"
+
+          # 真实 DELETE
+          DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
+          echo "DELETE version HTTP: ${DEL_CODE}"
+          if [ "${DEL_CODE}" != "204" ]; then
+            echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE})"; exit 1
+          fi
+
+          # read-back：ABSENT_CONFIRMED 才成功
+          sleep 3
+          RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB_OUT}" | grep -q "sha256:"; then
+            echo "::error::GHCR candidate 删除后仍可见"; exit 1
+          fi
+          echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest" \
+            || { echo "::error::GHCR DELETE read-back UNKNOWN: ${RB_OUT}"; exit 1; }
+          echo "::notice::GHCR staging DELETE capability verified (204 + ABSENT_CONFIRMED)"
+
+      - name: 从 DH staging 恢复 GHCR candidate（imagetools create，白名单断言）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          DH_DGST=$(docker buildx imagetools inspect "lowsabishi/release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          # 写目标白名单断言
+          case "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" in
+            "ghcr.io/cainiao524/qb-release-staging:qb-rehearsal-"*) ;;
+            *) echo "::error::恢复写目标非法"; exit 1;;
+          esac
+          docker buildx imagetools create \
+            -t "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" \
+            "lowsabishi/release-staging@${DH_DGST}"
+          NEW_DGST=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}')
+          archs=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+          echo "restored GHCR candidate: ${NEW_DGST} archs=${archs}"
+          echo "${archs}" | grep -q "linux/amd64"
+          echo "${archs}" | grep -q "linux/arm64"
+          echo "::notice::GHCR candidate restored (digest ${NEW_DGST:0:19}; 跨 registry digest 相等仅记录: $([ "${NEW_DGST}" = "${DH_DGST}" ] && echo true || echo false))"
+
+  # ============================================================
+  # export：5 资产 + sha256sum 验证（仅 Actions artifact）
+  # ============================================================
+  export:
+    needs: [rehearsal-guard, staging-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 下载 WebUI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rehearsal-webui-zip
+          path: .
+
+      - name: 下载 OCI multiarch artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rehearsal-oci-multiarch
+          path: .
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 导出 amd64 / arm64 / multiarch（不重新 build）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          docker pull --platform linux/amd64 "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}"
+          docker save "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" | gzip > qbittorrent-next-ui-rehearsal-docker-amd64.tar.gz
+          docker pull --platform linux/arm64 "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}"
+          docker save "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" | gzip > qbittorrent-next-ui-rehearsal-docker-arm64.tar.gz
+          gzip -f -k qbittorrent-next-ui-rehearsal-multiarch.tar
+          mv qbittorrent-next-ui-rehearsal-multiarch.tar.gz qbittorrent-next-ui-rehearsal-docker-multiarch.tar.gz
+          ls -la *.tar.gz
+
+      - name: 生成 SHA256SUMS.txt + 验证
+        run: |
+          set -euo pipefail
+          sha256sum \
+            qbittorrent-next-ui.zip \
+            qbittorrent-next-ui-rehearsal-docker-amd64.tar.gz \
+            qbittorrent-next-ui-rehearsal-docker-arm64.tar.gz \
+            qbittorrent-next-ui-rehearsal-docker-multiarch.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          echo "::notice::SHA256SUMS verified"
+
+      - name: 上传 rehearsal 资产 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-assets
+          path: |
+            qbittorrent-next-ui.zip
+            qbittorrent-next-ui-rehearsal-docker-amd64.tar.gz
+            qbittorrent-next-ui-rehearsal-docker-arm64.tar.gz
+            qbittorrent-next-ui-rehearsal-docker-multiarch.tar.gz
+            SHA256SUMS.txt
+          if-no-files-found: error
+          overwrite: true
+
+  # ============================================================
+  # cleanup：always() 执行，完整 guard，输出最终状态
+  # ============================================================
+  cleanup:
+    if: always()
+    needs: [rehearsal-guard, webui-build, staging-build, export]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CANDIDATE: ${{ needs.rehearsal-guard.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 下载 digests
+        uses: actions/download-artifact@v4
+        with:
+          name: rehearsal-digests
+          path: .
+        continue-on-error: true
+
+      - name: Best-effort staging cleanup（exact guard，残留明确输出）
+        run: |
+          set -euo pipefail
+          CANDIDATE="${CANDIDATE}"
+          DH_OK=false; GHCR_OK=false; DH_LEFTOVER=""; GHCR_LEFTOVER=""
+
+          # 计算前置 job 是否全部成功（用于最终状态）
+          PRE_OK=true
+          if [ "${{ needs.webui-build.result }}" != "success" ] || [ "${{ needs.staging-build.result }}" != "success" ] || [ "${{ needs.export.result }}" != "success" ]; then
+            PRE_OK=false
+          fi
+
+          # --- DH candidate cleanup（exact tag + digest match）---
+          DH_JWT=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" \
+            "https://hub.docker.com/v2/users/login" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
+          SNAP_DGST=""
+          if [ -f digests.json ]; then
+            SNAP_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['dh_candidate_digest'])" 2>/dev/null || true)
+          fi
+          CUR_DGST=$(curl -s -H "Authorization: JWT ${DH_JWT}" \
+            "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('digest',''))" 2>/dev/null || true)
+          if [ -n "${CUR_DGST}" ] && [ -n "${SNAP_DGST}" ] && [ "${CUR_DGST}" = "${SNAP_DGST}" ]; then
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: JWT ${DH_JWT}" \
+              "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+            if [ "${CODE}" = "202" ] || [ "${CODE}" = "204" ]; then
+              # read-back 确认
+              GONE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
+                "https://hub.docker.com/v2/repositories/lowsabishi/release-staging/tags/${CANDIDATE}")
+              if [ "${GONE}" = "404" ]; then DH_OK=true; else DH_LEFTOVER="HTTP ${GONE}"; fi
+            else
+              DH_LEFTOVER="delete HTTP ${CODE}"
+            fi
+          elif [ -n "${CUR_DGST}" ]; then
+            DH_LEFTOVER="digest mismatch cur=${CUR_DGST:0:19} snap=${SNAP_DGST:0:19}"
+          else
+            DH_OK=true  # 不存在
+          fi
+
+          # --- GHCR candidate cleanup（digest + tags==[candidate] guard）---
+          GHCR_DGST=""
+          if [ -f digests.json ]; then
+            GHCR_DGST=$(python3 -c "import json; print(json.load(open('digests.json'))['ghcr_candidate_digest'])" 2>/dev/null || true)
+          fi
+          VID=""
+          if [ -n "${GHCR_DGST}" ]; then
+            VER_CODE=$(curl -s -o /tmp/ghcr-cleanup.json -w "%{http_code}" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "https://api.github.com/user/packages/container/qb-release-staging/versions?per_page=100")
+            if [ "${VER_CODE}" = "200" ]; then
+              VID=$(GHCR_DGST="${GHCR_DGST}" CANDIDATE="${CANDIDATE}" python3 <<'PYEOF'
+              import json, os
+              try:
+                  versions = json.load(open("/tmp/ghcr-cleanup.json"))
+              except Exception:
+                  raise SystemExit(0)
+              if not isinstance(versions, list):
+                  raise SystemExit(0)
+              dgst = os.environ.get("GHCR_DGST", "")
+              cand = os.environ.get("CANDIDATE", "")
+              for v in versions:
+                  if not isinstance(v, dict) or not isinstance(v.get("name"), str):
+                      raise SystemExit(0)
+                  if v.get("name") == dgst:
+                      tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+                      if isinstance(tags, list) and tags == [cand]:
+                          print(v["id"])
+                          break
+              PYEOF
+              )
+            fi
+          fi
+          if [ -n "${VID}" ]; then
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}")
+            if [ "${CODE}" = "204" ]; then
+              sleep 3
+              RB=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+              if echo "${RB}" | grep -qi "not found\|no such\|unknown manifest"; then GHCR_OK=true; else GHCR_LEFTOVER="read-back 异常"; fi
+            else
+              GHCR_LEFTOVER="delete HTTP ${CODE}"
+            fi
+          elif [ -n "${GHCR_DGST}" ]; then
+            GHCR_LEFTOVER="version 未找到或 guard 未匹配"
+          else
+            GHCR_OK=true  # 无 digest 记录（前置失败），无法精确清理 → 视为残留待人工
+            GHCR_LEFTOVER="digests.json 缺失，需人工确认"
+          fi
+
+          # --- 最终状态输出 ---
+          echo "DH cleanup: ok=${DH_OK} leftover=${DH_LEFTOVER:-none}"
+          echo "GHCR cleanup: ok=${GHCR_OK} leftover=${GHCR_LEFTOVER:-none}"
+          if [ "${PRE_OK}" = "true" ] && [ "${DH_OK}" = "true" ] && [ "${GHCR_OK}" = "true" ]; then
+            echo "::notice::STAGING_REHEARSAL_VERIFIED"
+            echo "STAGING_REHEARSAL_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::REHEARSAL_PARTIAL（未达 VERIFIED）"
+            echo "## REHEARSAL_PARTIAL" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 前置 job 全部成功: ${PRE_OK}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- digest(DH): ${SNAP_DGST:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- run-id: ${GITHUB_RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- run-attempt: ${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 残留: DH=${DH_LEFTOVER:-none} GHCR=${GHCR_LEFTOVER:-none}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 人工清理建议: 按上述 exact candidate 删除（DH tag DELETE / GHCR Versions）" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
