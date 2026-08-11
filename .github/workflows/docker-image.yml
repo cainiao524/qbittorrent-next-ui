@@ -13,12 +13,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  webui-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -54,6 +51,53 @@ jobs:
             exit 1
           fi
           echo "Release guard passed for ${TAG}"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 代码规范检查
+        run: pnpm lint
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 运行测试
+        run: pnpm test
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 打包 WebUI
+        run: cd dist && zip -r ../qbittorrent-next-ui.zip .
+
+      - name: 上传 WebUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webui-zip
+          path: qbittorrent-next-ui.zip
+          if-no-files-found: error
+          overwrite: true
+
+  build:
+    needs: webui-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
 
       - name: Docker Hub credentials preflight
         run: |
@@ -123,6 +167,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: 下载 WebUI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: webui-zip
+          path: .
+
       - name: Resolve version tag
         id: version
         run: |
@@ -163,10 +213,12 @@ jobs:
       - name: Compress multiarch archive
         run: gzip -f qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar
 
-      - name: Upload docker images to Release
+      - name: 上传发行包到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            qbittorrent-next-ui.zip
             qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-amd64.tar.gz
             qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-arm64.tar.gz
             qbittorrent-next-ui-${{ steps.version.outputs.clean-tag }}-docker-multiarch.tar.gz
+          generate_release_notes: true
