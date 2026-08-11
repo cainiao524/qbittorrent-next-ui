@@ -47,7 +47,7 @@ describe("TorrentFileTree", () => {
     renderTree(onPriorityChange)
 
     const checkboxes = screen.getAllByRole("checkbox")
-    expect(checkboxes).toHaveLength(5)
+    expect(checkboxes).toHaveLength(6)
     await user.click(checkboxes[1])
 
     expect(screen.getByText("已选 2 个文件")).toBeTruthy()
@@ -85,6 +85,12 @@ describe("TorrentFileTree", () => {
     expect(screen.queryByText("片段.mp4")).toBeNull()
 
     await user.click(screen.getByText("花絮"))
+    expect(screen.getByText("片段.mp4")).toBeTruthy()
+  })
+
+  test("首次渲染时默认展开全部文件夹", () => {
+    renderTree()
+
     expect(screen.getByText("片段.mp4")).toBeTruthy()
   })
 

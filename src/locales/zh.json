@@ -41,6 +41,8 @@
     "eta": "剩余时间",
     "actions": "操作",
     "selected": "已选择",
+    "selected_percent": "已选 {percent}%",
+    "selected_of_total": "已选择 {selected} / 全部 {total}",
     "resume": "开始",
     "resume_all": "全部开始",
     "pause": "停止",

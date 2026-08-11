@@ -24,7 +24,7 @@ import type { ColumnConfig } from "@/lib/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
-import { getTorrentProgressColor } from "@/lib/torrent-progress"
+import { getTorrentProgressColor, getTorrentProgressMetrics } from "@/lib/torrent-progress"
 import type { SortKey } from "@/lib/torrent-list-utils"
 import { parseTorrentLabel } from "@/lib/torrent-labels"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -161,13 +161,8 @@ const TorrentRow = memo(function TorrentRow({
           </TableCell>
         )
       case "progress": {
-        const isPartialDownload = torrent.totalSize > 0 && torrent.size < torrent.totalSize - 1
-        const progressRatio = isPartialDownload
-          ? Math.min(Math.max((torrent.size * torrent.percentDone) / torrent.totalSize, 0), 1)
-          : Math.min(Math.max(torrent.percentDone, 0), 1)
-        const progressColor = isPartialDownload
-          ? "bg-fuchsia-500/65 dark:bg-fuchsia-400/65"
-          : getTorrentProgressColor(torrent)
+        const { progressRatio, selectionRatio, isPartialDownload, selectedSize, totalSize } = getTorrentProgressMetrics(torrent)
+        const progressColor = getTorrentProgressColor(torrent)
         return (
           <TableCell key={column.id} {...cellProps}>
             <div data-column-content className={cn("flex min-w-0 items-center", compact ? "h-7" : "h-10")}>
@@ -182,8 +177,16 @@ const TorrentRow = memo(function TorrentRow({
                 >
                   <div className={cn("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", progressColor)} style={{ transform: `scaleX(${progressRatio})` }} />
                 </div>
-                <span className="w-12 shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground">
-                  {(progressRatio * 100).toFixed(1)}%
+                <span className="w-14 shrink-0 text-right font-medium tabular-nums leading-tight">
+                  <span className="block text-[11px] text-muted-foreground">{(progressRatio * 100).toFixed(1)}%</span>
+                  {isPartialDownload && (
+                    <span
+                      className="block text-[9px] text-fuchsia-600 dark:text-fuchsia-400"
+                      title={t("common.selected_of_total", { selected: formatSize(selectedSize), total: formatSize(totalSize) })}
+                    >
+                      {t("common.selected_percent", { percent: (selectionRatio * 100).toFixed(0) })}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
