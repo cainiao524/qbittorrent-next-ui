@@ -335,6 +335,94 @@ jobs:
               print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
           PYEOF
 
+          # last-tagged message 判定 + inventory guard 判定脚本（顶层写入）
+          cat > /tmp/ghcr-fallback.py <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          LAST_TAGGED_MSG = "You cannot delete the last tagged version of a package. You must delete the package instead."
+          STAGING_ALLOWED = ("qb-release-staging", "trm-release-staging")
+          PRODUCTION_FORBIDDEN = ("qbittorrent-next-ui", "transmission-next-vibemod")
+
+          def api_get(url, token):
+              req = urllib.request.Request(url, headers={
+                  "Authorization": "Bearer " + token,
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              })
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      return r.status, r.read().decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode("utf-8", errors="replace")
+              except Exception:
+                  return -1, ""
+
+          def is_last_tagged(body_file):
+              try:
+                  d = json.load(open(body_file))
+                  msg = str(d.get("message", ""))
+              except Exception:
+                  msg = ""
+              return msg.strip() == LAST_TAGGED_MSG
+
+          def inventory_guard(pkg, exp_id, exp_dgst, cand, token):
+              versions = []
+              page = 1
+              while True:
+                  url = "https://api.github.com/user/packages/container/%s/versions?per_page=100&page=%d" % (pkg, page)
+                  code, body = api_get(url, token)
+                  if code != 200:
+                      print("UNKNOWN_HTTP_%s" % code); sys.exit(0)
+                  try:
+                      data = json.loads(body)
+                  except Exception:
+                      print("UNKNOWN_PARSE"); sys.exit(0)
+                  if not isinstance(data, list):
+                      print("UNKNOWN_STRUCTURE"); sys.exit(0)
+                  versions.extend(data)
+                  if len(data) < 100:
+                      break
+                  page += 1
+                  if page > 50:
+                      print("UNKNOWN_PAGINATION_CAP"); sys.exit(0)
+              if len(versions) != 1:
+                  print("GUARD_REJECTED_VERSION_COUNT_%d" % len(versions)); sys.exit(0)
+              v = versions[0]
+              if not isinstance(v, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              if str(v.get("id")) != str(exp_id):
+                  print("GUARD_REJECTED_ID_MISMATCH"); sys.exit(0)
+              if v.get("name") != exp_dgst:
+                  print("GUARD_REJECTED_DIGEST_MISMATCH"); sys.exit(0)
+              metadata = v.get("metadata")
+              if not isinstance(metadata, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              container = metadata.get("container")
+              if not isinstance(container, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              tags = container.get("tags")
+              if not isinstance(tags, list) or tags != [cand]:
+                  print("GUARD_REJECTED_TAGS_MISMATCH"); sys.exit(0)
+              print("GUARD_PASS")
+
+          def pkg_assert(pkg):
+              if pkg in PRODUCTION_FORBIDDEN:
+                  print("REJECT_PRODUCTION"); sys.exit(1)
+              if pkg not in STAGING_ALLOWED:
+                  print("REJECT_NOT_STAGING"); sys.exit(1)
+              print("PKG_ASSERT_PASS")
+
+          cmd = sys.argv[1]
+          if cmd == "is_last_tagged":
+              print("LAST_TAGGED" if is_last_tagged(sys.argv[2]) else "NOT_LAST_TAGGED")
+          elif cmd == "inventory":
+              inventory_guard(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], os.environ.get("GITHUB_TOKEN", ""))
+          elif cmd == "pkg_assert":
+              pkg_assert(sys.argv[2])
+          else:
+              print("UNKNOWN_CMD"); sys.exit(2)
+          PYEOF
+
           DELETE_BODY=/tmp/ghcr-delete.json
           DEL_CODE=$(curl -L -sS -o "${DELETE_BODY}" -w "%{http_code}" -X DELETE \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -342,20 +430,93 @@ jobs:
             -H "X-GitHub-Api-Version: 2026-03-10" \
             "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" || echo "000")
           echo "DELETE version HTTP: ${DEL_CODE}"
-          if [ "${DEL_CODE}" != "204" ]; then
-            echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE})"
-            python3 /tmp/ghcr-del-parse.py "${DELETE_BODY}"
+          if [ "${DEL_CODE}" = "204" ]; then
+            sleep 3
+            RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+            if echo "${RB_OUT}" | grep -q "sha256:"; then
+              echo "::error::GHCR candidate 删除后仍可见"; exit 1
+            fi
+            echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest" \
+              || { echo "::error::GHCR DELETE read-back UNKNOWN: ${RB_OUT}"; exit 1; }
+            echo "::notice::GHCR staging DELETE capability verified (version DELETE 204 + ABSENT_CONFIRMED; cleanup_mode=version_delete)"
+          else
+          # ---- 非 204：完整输出 response diagnostics ----
+          echo "::error::version DELETE HTTP ${DEL_CODE}; 进入 last-tagged 判定"
+          python3 /tmp/ghcr-del-parse.py "${DELETE_BODY}" 2>/dev/null || true
+
+          # ---- last-tagged message gate：仅 HTTP 400 且 message 精确匹配才可能 fallback ----
+          if [ "${DEL_CODE}" != "400" ]; then
+            echo "::error::GHCR staging DELETE failed (HTTP ${DEL_CODE}, 非 last-tagged); fail-closed"; exit 1
+          fi
+          LAST_FLAG=$(python3 /tmp/ghcr-fallback.py is_last_tagged "${DELETE_BODY}")
+          if [ "${LAST_FLAG}" != "LAST_TAGGED" ]; then
+            echo "::error::GHCR staging DELETE failed (400 但 message 不匹配 last-tagged); fail-closed"; exit 1
+          fi
+          echo "last-tagged message gate PASS"
+
+          # ---- 完整 package inventory guard（pagination 枚举 + 单版本严格校验）----
+          INV_RESULT=$(python3 /tmp/ghcr-fallback.py inventory qb-release-staging "${VID}" "${GHCR_DGST}" "${CANDIDATE}")
+          echo "inventory guard: ${INV_RESULT}"
+          case "${INV_RESULT}" in
+            GUARD_PASS) ;;
+            UNKNOWN_*) echo "::error::inventory guard UNKNOWN (${INV_RESULT}); 零 package DELETE"; exit 1;;
+            *) echo "::error::inventory guard REJECTED (${INV_RESULT}); 零 package DELETE"; exit 1;;
+          esac
+
+          # ---- registry candidate digest 再次严格匹配 ----
+          RB3=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          CUR3=$(echo "${RB3}" | grep -o "sha256:[a-f0-9]*" | head -1 || true)
+          if [ -z "${CUR3}" ] || [ "${CUR3}" != "${GHCR_DGST}" ]; then
+            echo "::error::registry digest 复核失败 (${RB3}); 零 package DELETE"; exit 1
+          fi
+          echo "registry digest 复核 PASS"
+
+          # ---- whole-package DELETE 目标白名单（硬编码，禁止变量构造 production 名）----
+          case "qb-release-staging" in
+            qb-release-staging) ;;
+            *) echo "::error::whole-package DELETE 白名单拒绝; 零 DELETE"; exit 1;;
+          esac
+          case "https://api.github.com/user/packages/container/qb-release-staging" in
+            *qbittorrent-next-ui*|*transmission-next-vibemod*)
+              echo "::error::静态断言失败: production package 名出现在 whole-package DELETE URL"; exit 1;;
+          esac
+          PKG_ASSERT=$(python3 /tmp/ghcr-fallback.py pkg_assert qb-release-staging)
+          [ "${PKG_ASSERT}" = "PKG_ASSERT_PASS" ] || { echo "::error::pkg_assert 失败: ${PKG_ASSERT}"; exit 1; }
+          echo "whole-package DELETE 白名单断言 PASS"
+
+          # ---- WHOLE_PACKAGE_FALLBACK：DELETE whole staging package（last-tagged 唯一版本）----
+          PKG_CODE=$(curl -L -sS -o /tmp/ghcr-pkg-del.json -w "%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/qb-release-staging" || echo "000")
+          echo "DELETE whole package HTTP: ${PKG_CODE}"
+          if [ "${PKG_CODE}" != "204" ]; then
+            echo "::error::whole-package DELETE failed (HTTP ${PKG_CODE}); fail-closed"
+            python3 /tmp/ghcr-del-parse.py /tmp/ghcr-pkg-del.json 2>/dev/null || true
             exit 1
           fi
 
+          # ---- 双 read-back：REST package absent + registry candidate absent ----
           sleep 3
-          RB_OUT=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
-          if echo "${RB_OUT}" | grep -q "sha256:"; then
-            echo "::error::GHCR candidate 删除后仍可见"; exit 1
+          REST_CODE=$(curl -s -o /tmp/ghcr-pkg-get.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/qb-release-staging" 2>/dev/null || echo "000")
+          echo "REST package read-back: HTTP ${REST_CODE}（404=PACKAGE_ABSENT_CONFIRMED）"
+          if [ "${REST_CODE}" != "404" ]; then
+            echo "::error::REST package 仍可访问 HTTP ${REST_CODE}; fail-closed"; exit 1
           fi
-          echo "${RB_OUT}" | grep -qi "not found\|no such\|unknown manifest" \
-            || { echo "::error::GHCR DELETE read-back UNKNOWN: ${RB_OUT}"; exit 1; }
-          echo "::notice::GHCR staging DELETE capability verified (204 + ABSENT_CONFIRMED)"
+          RB2=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
+            echo "::notice::GHCR staging DELETE capability verified (whole-package last-tagged fallback 204 + REST 404 + registry ABSENT_CONFIRMED; cleanup_mode=whole_package_last_tagged_fallback)"
+          elif echo "${RB2}" | grep -q "sha256:"; then
+            echo "::error::whole-package DELETE 后 registry 仍 PRESENT"; exit 1
+          else
+            echo "::error::whole-package DELETE 后 registry read-back UNKNOWN: ${RB2}"; exit 1
+          fi
+          fi
 
       - name: 从 DH staging 恢复 GHCR candidate（imagetools create，白名单断言）
         run: |
@@ -550,6 +711,94 @@ jobs:
               print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
           PYEOF
 
+          # last-tagged message 判定 + inventory guard 判定脚本（顶层写入）
+          cat > /tmp/ghcr-fallback.py <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          LAST_TAGGED_MSG = "You cannot delete the last tagged version of a package. You must delete the package instead."
+          STAGING_ALLOWED = ("qb-release-staging", "trm-release-staging")
+          PRODUCTION_FORBIDDEN = ("qbittorrent-next-ui", "transmission-next-vibemod")
+
+          def api_get(url, token):
+              req = urllib.request.Request(url, headers={
+                  "Authorization": "Bearer " + token,
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              })
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      return r.status, r.read().decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode("utf-8", errors="replace")
+              except Exception:
+                  return -1, ""
+
+          def is_last_tagged(body_file):
+              try:
+                  d = json.load(open(body_file))
+                  msg = str(d.get("message", ""))
+              except Exception:
+                  msg = ""
+              return msg.strip() == LAST_TAGGED_MSG
+
+          def inventory_guard(pkg, exp_id, exp_dgst, cand, token):
+              versions = []
+              page = 1
+              while True:
+                  url = "https://api.github.com/user/packages/container/%s/versions?per_page=100&page=%d" % (pkg, page)
+                  code, body = api_get(url, token)
+                  if code != 200:
+                      print("UNKNOWN_HTTP_%s" % code); sys.exit(0)
+                  try:
+                      data = json.loads(body)
+                  except Exception:
+                      print("UNKNOWN_PARSE"); sys.exit(0)
+                  if not isinstance(data, list):
+                      print("UNKNOWN_STRUCTURE"); sys.exit(0)
+                  versions.extend(data)
+                  if len(data) < 100:
+                      break
+                  page += 1
+                  if page > 50:
+                      print("UNKNOWN_PAGINATION_CAP"); sys.exit(0)
+              if len(versions) != 1:
+                  print("GUARD_REJECTED_VERSION_COUNT_%d" % len(versions)); sys.exit(0)
+              v = versions[0]
+              if not isinstance(v, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              if str(v.get("id")) != str(exp_id):
+                  print("GUARD_REJECTED_ID_MISMATCH"); sys.exit(0)
+              if v.get("name") != exp_dgst:
+                  print("GUARD_REJECTED_DIGEST_MISMATCH"); sys.exit(0)
+              metadata = v.get("metadata")
+              if not isinstance(metadata, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              container = metadata.get("container")
+              if not isinstance(container, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              tags = container.get("tags")
+              if not isinstance(tags, list) or tags != [cand]:
+                  print("GUARD_REJECTED_TAGS_MISMATCH"); sys.exit(0)
+              print("GUARD_PASS")
+
+          def pkg_assert(pkg):
+              if pkg in PRODUCTION_FORBIDDEN:
+                  print("REJECT_PRODUCTION"); sys.exit(1)
+              if pkg not in STAGING_ALLOWED:
+                  print("REJECT_NOT_STAGING"); sys.exit(1)
+              print("PKG_ASSERT_PASS")
+
+          cmd = sys.argv[1]
+          if cmd == "is_last_tagged":
+              print("LAST_TAGGED" if is_last_tagged(sys.argv[2]) else "NOT_LAST_TAGGED")
+          elif cmd == "inventory":
+              inventory_guard(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], os.environ.get("GITHUB_TOKEN", ""))
+          elif cmd == "pkg_assert":
+              pkg_assert(sys.argv[2])
+          else:
+              print("UNKNOWN_CMD"); sys.exit(2)
+          PYEOF
+
           # 入口重新验证 candidate（guard 失败时无 outputs 可依赖，必须自行校验）
           if [[ ! "${CANDIDATE}" =~ ^qb-rehearsal-[0-9]+-[0-9]+$ ]]; then
             echo "::error::candidate 非法或为空: '${CANDIDATE}'；不执行任何 DELETE"
@@ -646,10 +895,7 @@ jobs:
                       -H "Accept: application/vnd.github+json" \
                       -H "X-GitHub-Api-Version: 2026-03-10" \
                       "https://api.github.com/user/packages/container/qb-release-staging/versions/${VID}" 2>/dev/null || echo "000")
-                    if [ "${DEL_CODE}" != "204" ]; then
-                      GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
-                      python3 /tmp/ghcr-del-parse.py /tmp/ghcr-del-body.json || true
-                    else
+                    if [ "${DEL_CODE}" = "204" ]; then
                       sleep 3
                       RB2=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
                       if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
@@ -659,6 +905,82 @@ jobs:
                       else
                         GHCR_LEFTOVER="post-delete read-back UNKNOWN: ${RB2}"
                       fi
+                    elif [ "${DEL_CODE}" = "400" ]; then
+                      # ---- last-tagged message gate：仅 400 且 message 精确匹配才可能 fallback ----
+                      echo "::warning::version DELETE HTTP 400; 检查 last-tagged message"
+                      python3 /tmp/ghcr-del-parse.py /tmp/ghcr-del-body.json || true
+                      LAST_FLAG=$(python3 /tmp/ghcr-fallback.py is_last_tagged /tmp/ghcr-del-body.json)
+                      if [ "${LAST_FLAG}" != "LAST_TAGGED" ]; then
+                        GHCR_LEFTOVER="delete HTTP 400 但 message 不匹配 last-tagged; 禁止 package DELETE"
+                      else
+                        # ---- 完整 inventory guard（pagination 枚举 + 单版本严格校验）----
+                        INV_RESULT=$(python3 /tmp/ghcr-fallback.py inventory qb-release-staging "${VID}" "${GHCR_TARGET}" "${CANDIDATE}")
+                        echo "inventory guard: ${INV_RESULT}"
+                        case "${INV_RESULT}" in
+                          GUARD_PASS) ;;
+                          *) GHCR_LEFTOVER="inventory guard ${INV_RESULT}; 禁止 package DELETE";;
+                        esac
+                        if [ -z "${GHCR_LEFTOVER}" ]; then
+                          # ---- registry digest 复核 ----
+                          RB3=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+                          CUR3=$(echo "${RB3}" | grep -o "sha256:[a-f0-9]*" | head -1 || true)
+                          if [ -z "${CUR3}" ] || [ "${CUR3}" != "${GHCR_TARGET}" ]; then
+                            GHCR_LEFTOVER="registry digest 复核失败 (${RB3}); 禁止 package DELETE"
+                          else
+                            # ---- whole-package DELETE 白名单断言 ----
+                            case "qb-release-staging" in
+                              qb-release-staging) ;;
+                              *) GHCR_LEFTOVER="whole-package DELETE 白名单拒绝; 禁止 DELETE";;
+                            esac
+                            case "https://api.github.com/user/packages/container/qb-release-staging" in
+                              *qbittorrent-next-ui*|*transmission-next-vibemod*)
+                                GHCR_LEFTOVER="静态断言失败: production 名出现在 whole-package DELETE URL";;
+                            esac
+                            if [ -z "${GHCR_LEFTOVER}" ]; then
+                              PKG_ASSERT=$(python3 /tmp/ghcr-fallback.py pkg_assert qb-release-staging)
+                              if [ "${PKG_ASSERT}" != "PKG_ASSERT_PASS" ]; then
+                                GHCR_LEFTOVER="pkg_assert 失败: ${PKG_ASSERT}"
+                              else
+                                # ---- WHOLE_PACKAGE_FALLBACK ----
+                                PKG_CODE=$(curl -L -sS -o /tmp/ghcr-pkg-del.json -w "%{http_code}" -X DELETE \
+                                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                                  -H "Accept: application/vnd.github+json" \
+                                  -H "X-GitHub-Api-Version: 2026-03-10" \
+                                  "https://api.github.com/user/packages/container/qb-release-staging" 2>/dev/null || echo "000")
+                                echo "DELETE whole package HTTP: ${PKG_CODE}"
+                                if [ "${PKG_CODE}" != "204" ]; then
+                                  GHCR_LEFTOVER="whole-package DELETE HTTP ${PKG_CODE}"
+                                  python3 /tmp/ghcr-del-parse.py /tmp/ghcr-pkg-del.json || true
+                                else
+                                  sleep 3
+                                  REST_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                                    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                                    -H "Accept: application/vnd.github+json" \
+                                    -H "X-GitHub-Api-Version: 2026-03-10" \
+                                    "https://api.github.com/user/packages/container/qb-release-staging" 2>/dev/null || echo "000")
+                                  echo "REST package read-back: HTTP ${REST_CODE}"
+                                  if [ "${REST_CODE}" != "404" ]; then
+                                    GHCR_LEFTOVER="REST package 仍可访问 HTTP ${REST_CODE}"
+                                  else
+                                    RB4=$(docker buildx imagetools inspect "ghcr.io/cainiao524/qb-release-staging:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+                                    if echo "${RB4}" | grep -qi "not found\|no such\|unknown manifest"; then
+                                      GHCR_OK=true
+                                      echo "::notice::GHCR cleanup via whole-package last-tagged fallback (204 + REST 404 + registry ABSENT_CONFIRMED)"
+                                    elif echo "${RB4}" | grep -q "sha256:"; then
+                                      GHCR_LEFTOVER="whole-package DELETE 后 registry 仍 PRESENT"
+                                    else
+                                      GHCR_LEFTOVER="whole-package DELETE 后 registry read-back UNKNOWN: ${RB4}"
+                                    fi
+                                  fi
+                                fi
+                              fi
+                            fi
+                          fi
+                        fi
+                      fi
+                    else
+                      GHCR_LEFTOVER="delete HTTP ${DEL_CODE}"
+                      python3 /tmp/ghcr-del-parse.py /tmp/ghcr-del-body.json || true
                     fi
                     ;;
                   TAG_SET_MISMATCH)

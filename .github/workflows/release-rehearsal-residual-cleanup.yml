@@ -18,7 +18,194 @@ permissions:
   packages: write
 
 jobs:
+  # ============================================================
+  # guard-fixtures：AA1-AA12 last-tagged fallback 判定逻辑自测
+  # 纯本地 mock，不触网、无任何 registry 副作用
+  # ============================================================
+  guard-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: AA1-AA12 fixtures 自测（last-tagged fallback 判定逻辑）
+        run: |
+          set -euo pipefail
+          cat > /tmp/ghcr-fixtures.py <<'PYEOF'
+          import json, sys
+
+          LAST_TAGGED_MSG = "You cannot delete the last tagged version of a package. You must delete the package instead."
+          STAGING_ALLOWED = ("qb-release-staging", "trm-release-staging")
+          PRODUCTION_FORBIDDEN = ("qbittorrent-next-ui", "transmission-next-vibemod")
+
+          def parse_del_body(raw):
+              try:
+                  d = json.loads(raw)
+                  return str(d.get("message", "")), str(d.get("status", ""))
+              except Exception:
+                  return "", ""
+
+          def is_last_tagged(raw):
+              msg, _ = parse_del_body(raw)
+              return msg.strip() == LAST_TAGGED_MSG
+
+          def inventory_guard(versions, exp_id, exp_dgst, cand):
+              if not isinstance(versions, list):
+                  return False, "UNKNOWN_STRUCTURE"
+              if len(versions) != 1:
+                  return False, "VERSION_COUNT_%d" % len(versions)
+              v = versions[0]
+              if not isinstance(v, dict):
+                  return False, "UNKNOWN_STRUCTURE"
+              if str(v.get("id")) != str(exp_id):
+                  return False, "ID_MISMATCH"
+              if v.get("name") != exp_dgst:
+                  return False, "DIGEST_MISMATCH"
+              metadata = v.get("metadata")
+              if not isinstance(metadata, dict):
+                  return False, "UNKNOWN_STRUCTURE"
+              container = metadata.get("container")
+              if not isinstance(container, dict):
+                  return False, "UNKNOWN_STRUCTURE"
+              tags = container.get("tags")
+              if not isinstance(tags, list) or tags != [cand]:
+                  return False, "TAGS_MISMATCH"
+              return True, ""
+
+          def paginate_all(fetch_page):
+              versions = []
+              page = 1
+              while True:
+                  code, body = fetch_page(page)
+                  if code != 200:
+                      return None, "HTTP_%s" % code
+                  try:
+                      data = json.loads(body)
+                  except Exception:
+                      return None, "PARSE"
+                  if not isinstance(data, list):
+                      return None, "STRUCTURE"
+                  versions.extend(data)
+                  if len(data) < 100:
+                      break
+                  page += 1
+                  if page > 50:
+                      return None, "PAGINATION_CAP"
+              return versions, ""
+
+          def pkg_guard(pkg, version_del_code, version_del_body, versions, registry_digest, exp_digest, exp_id, cand,
+                        pkg_del_code=204, rest_code=404, registry_absent=True):
+              """完整决策（含 whole-package DELETE + 双 read-back）：
+              返回 (verdict, mode, reason)
+              verdict: VERIFIED / FAILED / GUARD_REJECTED / UNKNOWN
+              mode: version_delete | whole_package_last_tagged_fallback | none
+              """
+              if version_del_code == 204:
+                  return "VERIFIED", "version_delete", ""
+              if version_del_code != 400:
+                  return "FAILED", "none", "VERSION_DELETE_HTTP_%s" % version_del_code
+              if not is_last_tagged(version_del_body):
+                  return "FAILED", "none", "NOT_LAST_TAGGED_MESSAGE"
+              if versions is None:
+                  return "GUARD_REJECTED", "none", "INVENTORY_UNKNOWN"
+              ok, reason = inventory_guard(versions, exp_id, exp_digest, cand)
+              if not ok:
+                  return "GUARD_REJECTED", "none", reason
+              if registry_digest != exp_digest:
+                  return "GUARD_REJECTED", "none", "REGISTRY_DIGEST_MISMATCH"
+              if pkg not in STAGING_ALLOWED:
+                  return "GUARD_REJECTED", "none", "WHOLE_PKG_NOT_ALLOWED"
+              if pkg in PRODUCTION_FORBIDDEN:
+                  return "GUARD_REJECTED", "none", "PRODUCTION_PKG_FORBIDDEN"
+              # ---- WHOLE_PACKAGE_FALLBACK 授权后：package DELETE + 双 read-back ----
+              if pkg_del_code != 204:
+                  return "FAILED", "none", "PACKAGE_DELETE_HTTP_%s" % pkg_del_code
+              if rest_code != 404:
+                  return "FAILED", "none", "REST_PACKAGE_HTTP_%s" % rest_code
+              if not registry_absent:
+                  return "FAILED", "none", "REGISTRY_STILL_PRESENT"
+              return "VERIFIED", "whole_package_last_tagged_fallback", ""
+
+          failures = []
+
+          def check(name, got, want, want_mode="", want_reason=""):
+              verdict, mode, reason = got
+              if verdict != want or (want_mode and mode != want_mode) or (want_reason and reason != want_reason):
+                  failures.append("%s: got %r want verdict=%s mode=%s reason=%s" % (name, got, want, want_mode, want_reason))
+
+          LAST = json.dumps({"message": LAST_TAGGED_MSG, "status": "400"})
+          OTHER = json.dumps({"message": "some other error", "status": "400"})
+          EXP_DGST = "sha256:" + "a" * 64
+          EXP_ID = "1120649274"
+          CAND = "qb-rehearsal-31485736041-1"
+          PKG = "qb-release-staging"
+
+          def single_version():
+              return [{"id": int(EXP_ID), "name": EXP_DGST,
+                       "metadata": {"container": {"tags": [CAND]}}}]
+
+          def page1(page):
+              if page == 1:
+                  return 200, json.dumps(single_version())
+              return 200, json.dumps([])
+
+          # AA1: version DELETE 204 → 不执行 package DELETE（mode=version_delete）
+          check("AA1", pkg_guard(PKG, 204, "", None, EXP_DGST, EXP_DGST, EXP_ID, CAND), "VERIFIED", "version_delete")
+          # AA2: 400 但 message 不匹配 last-tagged → 零 package DELETE
+          check("AA2", pkg_guard(PKG, 400, OTHER, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND), "FAILED", "none", "NOT_LAST_TAGGED_MESSAGE")
+          # AA3: last-tagged 匹配但 inventory count > 1 → 零 package DELETE
+          two = single_version() + [{"id": 999, "name": "sha256:" + "b" * 64, "metadata": {"container": {"tags": ["x"]}}}]
+          check("AA3", pkg_guard(PKG, 400, LAST, two, EXP_DGST, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "VERSION_COUNT_2")
+          # AA4: inventory pagination UNKNOWN（非 200）→ 零 package DELETE
+          check("AA4", pkg_guard(PKG, 400, LAST, None, EXP_DGST, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "INVENTORY_UNKNOWN")
+          # AA5: 唯一 version id mismatch → 零 package DELETE
+          bad_id = [{"id": 42, "name": EXP_DGST, "metadata": {"container": {"tags": [CAND]}}}]
+          check("AA5", pkg_guard(PKG, 400, LAST, bad_id, EXP_DGST, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "ID_MISMATCH")
+          # AA6: 唯一 version digest mismatch → 零 package DELETE
+          bad_dg = [{"id": int(EXP_ID), "name": "sha256:" + "c" * 64, "metadata": {"container": {"tags": [CAND]}}}]
+          check("AA6", pkg_guard(PKG, 400, LAST, bad_dg, EXP_DGST, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "DIGEST_MISMATCH")
+          # AA7: 唯一 version tags != [candidate] → 零 package DELETE
+          bad_tags = [{"id": int(EXP_ID), "name": EXP_DGST, "metadata": {"container": {"tags": ["other"]}}}]
+          check("AA7", pkg_guard(PKG, 400, LAST, bad_tags, EXP_DGST, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "TAGS_MISMATCH")
+          # AA8: registry digest mismatch → 零 package DELETE
+          check("AA8", pkg_guard(PKG, 400, LAST, single_version(), "sha256:" + "d" * 64, EXP_DGST, EXP_ID, CAND), "GUARD_REJECTED", "none", "REGISTRY_DIGEST_MISMATCH")
+          # AA9: 全部 guard PASS + package DELETE 204 + REST 404 + registry absent → VERIFIED（fallback mode）
+          check("AA9", pkg_guard(PKG, 400, LAST, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND,
+                                 pkg_del_code=204, rest_code=404, registry_absent=True),
+                "VERIFIED", "whole_package_last_tagged_fallback")
+          # AA10: package DELETE 204 但 registry 仍 PRESENT → FAILED
+          check("AA10", pkg_guard(PKG, 400, LAST, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND,
+                                  pkg_del_code=204, rest_code=404, registry_absent=False),
+                "FAILED", "none", "REGISTRY_STILL_PRESENT")
+          # AA11: whole-package DELETE target 只能 qb-release-staging / trm-release-staging
+          ok11 = all(pkg_guard(p, 400, LAST, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND)[0] == "VERIFIED"
+                     for p in STAGING_ALLOWED)
+          reject11 = pkg_guard("some-other-pkg", 400, LAST, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND)[0] == "GUARD_REJECTED"
+          if not (ok11 and reject11):
+              failures.append("AA11: staging whitelist semantics wrong")
+          # AA12: production 名不得出现在 whole-package DELETE endpoint
+          reject12 = all(pkg_guard(p, 400, LAST, single_version(), EXP_DGST, EXP_DGST, EXP_ID, CAND)[0] == "GUARD_REJECTED"
+                         for p in PRODUCTION_FORBIDDEN)
+          if not reject12:
+              failures.append("AA12: production package must be forbidden")
+
+          # paginate_all 单元校验
+          vs, err = paginate_all(page1)
+          if err or vs is None or len(vs) != 1:
+              failures.append("PAGINATE: expected 1 version, got %r %r" % (err, vs))
+
+          if failures:
+              print("FIXTURES_FAILED")
+              for f in failures:
+                  print("  -", f)
+              sys.exit(1)
+          print("AA1-AA12 fixtures: ALL PASS")
+          PYEOF
+          python3 /tmp/ghcr-fixtures.py
+          echo "::notice::AA1-AA12 fixtures all PASS"
+
   residual-cleanup:
+    needs: guard-fixtures
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -64,7 +251,7 @@ jobs:
           fi
           echo "guard: ref/HEAD/inputs 全部通过"
 
-      - name: 四重 guard + DELETE + read-back
+      - name: 四重 guard + version DELETE + last-tagged fallback + 双 read-back
         run: |
           set -euo pipefail
           # GitHub Packages DELETE 失败响应统一 parser（顶层写入，避免嵌套 heredoc/多行 python -c 缩进问题）
@@ -78,6 +265,93 @@ jobs:
           except Exception:
               raw = open(sys.argv[1], "rb").read()[:2048]
               print("  raw body (max 2KiB):", raw.decode(errors="replace")[:2048])
+          PYEOF
+          # last-tagged message 判定 + inventory guard 判定脚本（顶层写入）
+          cat > /tmp/ghcr-fallback.py <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          LAST_TAGGED_MSG = "You cannot delete the last tagged version of a package. You must delete the package instead."
+          STAGING_ALLOWED = ("qb-release-staging", "trm-release-staging")
+          PRODUCTION_FORBIDDEN = ("qbittorrent-next-ui", "transmission-next-vibemod")
+
+          def api_get(url, token):
+              req = urllib.request.Request(url, headers={
+                  "Authorization": "Bearer " + token,
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2026-03-10",
+              })
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      return r.status, r.read().decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode("utf-8", errors="replace")
+              except Exception:
+                  return -1, ""
+
+          def is_last_tagged(body_file):
+              try:
+                  d = json.load(open(body_file))
+                  msg = str(d.get("message", ""))
+              except Exception:
+                  msg = ""
+              return msg.strip() == LAST_TAGGED_MSG
+
+          def inventory_guard(pkg, exp_id, exp_dgst, cand, token):
+              versions = []
+              page = 1
+              while True:
+                  url = "https://api.github.com/user/packages/container/%s/versions?per_page=100&page=%d" % (pkg, page)
+                  code, body = api_get(url, token)
+                  if code != 200:
+                      print("UNKNOWN_HTTP_%s" % code); sys.exit(0)
+                  try:
+                      data = json.loads(body)
+                  except Exception:
+                      print("UNKNOWN_PARSE"); sys.exit(0)
+                  if not isinstance(data, list):
+                      print("UNKNOWN_STRUCTURE"); sys.exit(0)
+                  versions.extend(data)
+                  if len(data) < 100:
+                      break
+                  page += 1
+                  if page > 50:
+                      print("UNKNOWN_PAGINATION_CAP"); sys.exit(0)
+              if len(versions) != 1:
+                  print("GUARD_REJECTED_VERSION_COUNT_%d" % len(versions)); sys.exit(0)
+              v = versions[0]
+              if not isinstance(v, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              if str(v.get("id")) != str(exp_id):
+                  print("GUARD_REJECTED_ID_MISMATCH"); sys.exit(0)
+              if v.get("name") != exp_dgst:
+                  print("GUARD_REJECTED_DIGEST_MISMATCH"); sys.exit(0)
+              metadata = v.get("metadata")
+              if not isinstance(metadata, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              container = metadata.get("container")
+              if not isinstance(container, dict):
+                  print("UNKNOWN_STRUCTURE"); sys.exit(0)
+              tags = container.get("tags")
+              if not isinstance(tags, list) or tags != [cand]:
+                  print("GUARD_REJECTED_TAGS_MISMATCH"); sys.exit(0)
+              print("GUARD_PASS")
+
+          def pkg_assert(pkg):
+              if pkg in PRODUCTION_FORBIDDEN:
+                  print("REJECT_PRODUCTION"); sys.exit(1)
+              if pkg not in STAGING_ALLOWED:
+                  print("REJECT_NOT_STAGING"); sys.exit(1)
+              print("PKG_ASSERT_PASS")
+
+          cmd = sys.argv[1]
+          if cmd == "is_last_tagged":
+              print("LAST_TAGGED" if is_last_tagged(sys.argv[2]) else "NOT_LAST_TAGGED")
+          elif cmd == "inventory":
+              inventory_guard(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], os.environ.get("GITHUB_TOKEN", ""))
+          elif cmd == "pkg_assert":
+              pkg_assert(sys.argv[2])
+          else:
+              print("UNKNOWN_CMD"); sys.exit(2)
           PYEOF
           CANDIDATE="${CANDIDATE}"
           EXPECTED_DIGEST="${EXPECTED_DIGEST}"
@@ -138,31 +412,112 @@ jobs:
           fi
           echo "四重 guard 全部通过"
 
-          # ---- DELETE exact version ----
+          # ---- version DELETE（保留原路径）----
           DEL_CODE=$(curl -L -sS -o /tmp/ghcr-residual-del.json -w "%{http_code}" -X DELETE \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2026-03-10" \
             "https://api.github.com/user/packages/container/${STAGING_PKG}/versions/${EXPECTED_VERSION_ID}" || echo "000")
-          echo "DELETE HTTP: ${DEL_CODE}"
-          if [ "${DEL_CODE}" != "204" ]; then
-            echo "::error::RESIDUAL_CLEANUP_FAILED (HTTP ${DEL_CODE})"
-            python3 /tmp/ghcr-del-parse.py /tmp/ghcr-residual-del.json 2>/dev/null || true
+          echo "DELETE version HTTP: ${DEL_CODE}"
+          if [ "${DEL_CODE}" = "204" ]; then
+            # ---- read-back：authenticated exact candidate ABSENT_CONFIRMED ----
+            sleep 3
+            RB2=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+            if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
+              echo "::notice::RESIDUAL_CLEANUP_VERIFIED（version DELETE 204 + ABSENT_CONFIRMED; cleanup_mode=version_delete）"
+              echo "RESIDUAL_CLEANUP_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+              echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
+              echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
+              echo "- version_id: ${EXPECTED_VERSION_ID}" >> "$GITHUB_STEP_SUMMARY"
+              echo "- cleanup_mode: version_delete" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            elif echo "${RB2}" | grep -q "sha256:"; then
+              echo "::error::post-delete 仍可见 (PRESENT); RESIDUAL_CLEANUP_FAILED"; exit 1
+            else
+              echo "::error::post-delete read-back UNKNOWN: ${RB2}; RESIDUAL_CLEANUP_FAILED"; exit 1
+            fi
+          fi
+
+          # ---- 非 204：完整输出 response diagnostics ----
+          echo "::error::version DELETE HTTP ${DEL_CODE}; 进入 last-tagged 判定"
+          python3 /tmp/ghcr-del-parse.py /tmp/ghcr-residual-del.json 2>/dev/null || true
+
+          # ---- last-tagged message gate：仅 HTTP 400 且 message 精确匹配才可能 fallback ----
+          if [ "${DEL_CODE}" != "400" ]; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (HTTP ${DEL_CODE}, 非 last-tagged 场景); 零 package DELETE"; exit 1
+          fi
+          LAST_FLAG=$(python3 /tmp/ghcr-fallback.py is_last_tagged /tmp/ghcr-residual-del.json)
+          if [ "${LAST_FLAG}" != "LAST_TAGGED" ]; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (400 但 message 不匹配 last-tagged); 零 package DELETE"; exit 1
+          fi
+          echo "last-tagged message gate PASS"
+
+          # ---- 完整 package inventory guard（pagination 枚举 + 单版本严格校验）----
+          INV_RESULT=$(python3 /tmp/ghcr-fallback.py inventory "${STAGING_PKG}" "${EXPECTED_VERSION_ID}" "${EXPECTED_DIGEST}" "${CANDIDATE}")
+          echo "inventory guard: ${INV_RESULT}"
+          case "${INV_RESULT}" in
+            GUARD_PASS) ;;
+            UNKNOWN_*) echo "::error::inventory guard UNKNOWN (${INV_RESULT}); 零 package DELETE"; exit 1;;
+            *) echo "::error::inventory guard REJECTED (${INV_RESULT}); 零 package DELETE"; exit 1;;
+          esac
+
+          # ---- registry candidate digest 再次严格匹配 ----
+          RB3=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          CUR3=$(echo "${RB3}" | grep -o "sha256:[a-f0-9]*" | head -1 || true)
+          if [ -z "${CUR3}" ] || [ "${CUR3}" != "${EXPECTED_DIGEST}" ]; then
+            echo "::error::registry digest 复核失败 (${RB3}); 零 package DELETE"; exit 1
+          fi
+          echo "registry digest 复核 PASS"
+
+          # ---- whole-package DELETE 目标白名单（硬编码，禁止变量构造 production 名）----
+          case "${STAGING_PKG}" in
+            qb-release-staging) ;;
+            *) echo "::error::whole-package DELETE 白名单拒绝: ${STAGING_PKG}; 零 DELETE"; exit 1;;
+          esac
+          # 硬性静态断言：production package 名不得出现在 whole-package DELETE URL
+          case "https://api.github.com/user/packages/container/${STAGING_PKG}" in
+            *qbittorrent-next-ui*|*transmission-next-vibemod*)
+              echo "::error::静态断言失败: production package 名出现在 whole-package DELETE URL"; exit 1;;
+          esac
+          PKG_ASSERT=$(python3 /tmp/ghcr-fallback.py pkg_assert "${STAGING_PKG}")
+          [ "${PKG_ASSERT}" = "PKG_ASSERT_PASS" ] || { echo "::error::pkg_assert 失败: ${PKG_ASSERT}"; exit 1; }
+          echo "whole-package DELETE 白名单断言 PASS"
+
+          # ---- WHOLE_PACKAGE_FALLBACK：DELETE whole staging package ----
+          PKG_CODE=$(curl -L -sS -o /tmp/ghcr-pkg-del.json -w "%{http_code}" -X DELETE \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/${STAGING_PKG}" || echo "000")
+          echo "DELETE whole package HTTP: ${PKG_CODE}"
+          if [ "${PKG_CODE}" != "204" ]; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (whole-package DELETE HTTP ${PKG_CODE})"
+            python3 /tmp/ghcr-del-parse.py /tmp/ghcr-pkg-del.json 2>/dev/null || true
             exit 1
           fi
 
-          # ---- read-back：authenticated exact candidate ABSENT_CONFIRMED ----
+          # ---- 双 read-back：REST package absent + registry candidate absent ----
           sleep 3
-          RB2=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
-          if echo "${RB2}" | grep -qi "not found\|no such\|unknown manifest"; then
-            echo "::notice::RESIDUAL_CLEANUP_VERIFIED（DELETE 204 + ABSENT_CONFIRMED）"
+          REST_CODE=$(curl -s -o /tmp/ghcr-pkg-get.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/user/packages/container/${STAGING_PKG}" 2>/dev/null || echo "000")
+          echo "REST package read-back: HTTP ${REST_CODE}（404=PACKAGE_ABSENT_CONFIRMED）"
+          if [ "${REST_CODE}" != "404" ]; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (REST package 仍可访问 HTTP ${REST_CODE})"; exit 1
+          fi
+          RB4=$(docker buildx imagetools inspect "${STAGING_REF}:${CANDIDATE}" --format '{{.Manifest.Digest}}' 2>&1 || true)
+          if echo "${RB4}" | grep -qi "not found\|no such\|unknown manifest"; then
+            echo "::notice::RESIDUAL_CLEANUP_VERIFIED（whole-package fallback DELETE 204 + REST 404 + registry ABSENT_CONFIRMED; cleanup_mode=whole_package_last_tagged_fallback）"
             echo "RESIDUAL_CLEANUP_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
             echo "- repository: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- candidate: ${CANDIDATE}" >> "$GITHUB_STEP_SUMMARY"
             echo "- version_id: ${EXPECTED_VERSION_ID}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- cleanup_mode: whole_package_last_tagged_fallback" >> "$GITHUB_STEP_SUMMARY"
             exit 0
-          elif echo "${RB2}" | grep -q "sha256:"; then
-            echo "::error::post-delete 仍可见 (PRESENT); RESIDUAL_CLEANUP_FAILED"; exit 1
+          elif echo "${RB4}" | grep -q "sha256:"; then
+            echo "::error::RESIDUAL_CLEANUP_FAILED (whole-package DELETE 后 registry 仍 PRESENT)"; exit 1
           else
-            echo "::error::post-delete read-back UNKNOWN: ${RB2}; RESIDUAL_CLEANUP_FAILED"; exit 1
+            echo "::error::RESIDUAL_CLEANUP_FAILED (whole-package DELETE 后 registry read-back UNKNOWN: ${RB4})"; exit 1
           fi
