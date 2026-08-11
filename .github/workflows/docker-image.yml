@@ -1,17 +1,16 @@
 name: Build and publish Docker images
 
 on:
-  workflow_dispatch:
   push:
-    tags: ["v*", "V*", "beta*"]
+    tags: ["v*"]
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: docker-image
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,6 +22,48 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Release Guard
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          # 1) tag 格式：仅接受 vX.Y.Z-funky9
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-funky9$ ]]; then
+            echo "::error::Invalid release tag '${TAG}' (expected vX.Y.Z-funky9)"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          VERSION="${VERSION%-funky9}"
+          # 2) package.json version == X.Y.Z
+          PKG_VERSION=$(grep -m1 '"version"' package.json | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          if [ "${PKG_VERSION}" != "${VERSION}" ]; then
+            echo "::error::package.json version '${PKG_VERSION}' != tag version '${VERSION}'"
+            exit 1
+          fi
+          # 3) APP_CONFIG.version == vX.Y.Z-funky⑨
+          EXPECTED="v${VERSION}-funky⑨"
+          if ! grep -q "version: \"${EXPECTED}\"" src/lib/config.ts; then
+            echo "::error::APP_CONFIG.version != '${EXPECTED}'"
+            exit 1
+          fi
+          # 4) tag commit == origin/main HEAD
+          git fetch origin main --quiet
+          TAG_COMMIT="$(git rev-parse HEAD)"
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          if [ "${TAG_COMMIT}" != "${MAIN_HEAD}" ]; then
+            echo "::error::tag commit ${TAG_COMMIT} != origin/main HEAD ${MAIN_HEAD}"
+            exit 1
+          fi
+          echo "Release guard passed for ${TAG}"
+
+      - name: Docker Hub credentials preflight
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCKERHUB_USERNAME}" ] || [ -z "${DOCKERHUB_TOKEN}" ]; then
+            echo "::error::Docker Hub credentials missing (DOCKERHUB_USERNAME/DOCKERHUB_TOKEN); refusing partial release"
+            exit 1
+          fi
+          echo "Docker Hub credentials present"
+
       - name: Resolve version tag
         id: version
         run: |
@@ -33,14 +74,12 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Login Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -72,7 +111,7 @@ jobs:
             ghcr.io/cainiao524/qbittorrent-next-ui:${{ steps.version.outputs.clean-tag }}
 
   update-description:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     uses: ./.github/workflows/update-dockerhub-description.yml
     secrets: inherit

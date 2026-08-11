@@ -3,7 +3,7 @@ name: 验证与构建
 on:
   push:
     branches: [main]
-    tags: ["v*", "beta*"]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -13,6 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -31,6 +32,9 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 代码规范检查
+        run: pnpm lint
+
       - name: 类型检查
         run: pnpm typecheck
 
@@ -41,11 +45,11 @@ jobs:
         run: pnpm build
 
       - name: 打包
-        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/beta')
+        if: startsWith(github.ref, 'refs/tags/v')
         run: cd dist && zip -r ../qbittorrent-next-ui.zip .
 
       - name: 上传发行包
-        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/beta')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: qbittorrent-next-ui.zip
