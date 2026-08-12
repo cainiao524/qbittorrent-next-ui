@@ -1,12 +1,13 @@
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from "react"
 import { HashRouter, useLocation } from "react-router-dom"
 import { Layout } from "@/components/layout"
 import { TorrentView } from "@/components/torrents/torrent-view"
-import TorrentDetailsPage from "@/app/torrents/detail/page"
-import SettingsPage from "@/app/settings/page"
 import { AuthGate } from "@/components/auth-gate"
 import { ThemeProvider } from "@/components/theme-provider"
 import { I18nProvider } from "@/lib/i18n-context"
+
+const TorrentDetailsPage = lazy(() => import("@/app/torrents/detail/page"))
+const SettingsPage = lazy(() => import("@/app/settings/page"))
 
 interface TorrentRouteConfig {
   statusFilter?: string
@@ -47,7 +48,13 @@ function AppRoutes() {
     if (!isDetailRoute && wasDetail) window.scrollTo({ top: listScrollPosition.current, left: 0, behavior: "auto" })
   }, [isDetailRoute])
 
-  if (location.pathname === "/settings") return <SettingsPage key="settings" />
+  if (location.pathname === "/settings") {
+    return (
+      <Suspense fallback={null}>
+        <SettingsPage key="settings" />
+      </Suspense>
+    )
+  }
 
   const isTorrentRoute = Boolean(currentListRoute) || isDetailRoute
   if (!isTorrentRoute) return <TorrentView />
@@ -58,7 +65,11 @@ function AppRoutes() {
       <div className={isDetailRoute ? "hidden" : undefined} aria-hidden={isDetailRoute}>
         <TorrentView {...activeListRoute} isActive={!isDetailRoute} />
       </div>
-      {isDetailRoute && <TorrentDetailsPage key={location.search} />}
+      {isDetailRoute && (
+        <Suspense fallback={null}>
+          <TorrentDetailsPage key={location.search} />
+        </Suspense>
+      )}
     </>
   )
 }
