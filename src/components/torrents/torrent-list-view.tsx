@@ -412,10 +412,9 @@ export function TorrentListView({
 
   const getColumnStyle = (columnId: ColumnConfig["id"]): CSSProperties => ({ width: columnWidths[columnId] })
 
-  const getHeaderClassName = (column: ColumnConfig) => cn(
+  const getHeaderClassName = () => cn(
     "group/header relative cursor-pointer select-none hover:text-primary transition-colors",
-    compact ? "h-9" : "h-12",
-    column.align === "right" && "text-right"
+    compact ? "h-9" : "h-12"
   )
 
   const startResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, columnId: string) => {
@@ -450,8 +449,8 @@ export function TorrentListView({
   const renderHeader = (column: ColumnConfig & { label: string }) => {
     const sortKey = COLUMN_SORT_KEYS[column.id]
     return (
-      <TableHead key={column.id} data-column-id={column.id} className={getHeaderClassName(column)} style={getColumnStyle(column.id)} onClick={() => onSort(sortKey)}>
-        <div data-column-content className={cn("flex min-w-0 items-center truncate pr-3", column.align === "right" && "justify-end")}>
+      <TableHead key={column.id} data-column-id={column.id} className={getHeaderClassName()} style={getColumnStyle(column.id)} onClick={() => onSort(sortKey)}>
+        <div data-column-content className="flex min-w-0 items-center truncate pr-3">
           <span className="truncate">{column.label}</span><SortIcon column={sortKey} sortConfig={sortConfig} />
         </div>
         {!isMobile && <div role="separator" aria-orientation="vertical" aria-label={`${column.label} ${t("common.resize_column", "调整列宽")}`} className="absolute right-0 top-1/2 z-10 h-2/3 w-2 -translate-y-1/2 cursor-col-resize touch-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border/50 hover:after:w-0.5 hover:after:bg-primary" onPointerDown={(event) => startResize(event, column.id)} onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); autoFitColumn(column.id) }} />}
