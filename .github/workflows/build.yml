@@ -31,6 +31,9 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 版本引用检查
+        run: pnpm check:versions
+
       - name: 代码规范检查
         run: pnpm lint
 

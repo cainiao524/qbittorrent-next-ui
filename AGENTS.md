@@ -91,19 +91,14 @@ vX.Y.Z-baka⑨
 
 # 二、当前稳定生产基线
 
-当前正式发布版本：
+当前正式发布版本不得写死在维护说明中。接手任务时必须分别执行：
 
-qBittorrent：
-
-```text
-v1.17.5-funky9
+```bash
+gh release view --repo cainiao524/qbittorrent-next-ui
+gh release view --repo cainiao524/transmission-next-vibemod
 ```
 
-Transmission：
-
-```text
-v1.17.5-baka9
-```
+以两个远端仓库最新的非草稿、非预发布 Release 为生产基线，并确认本地 `main` 与 `origin/main` 一致。
 
 除非用户明确要求准备或发布新版本，否则禁止：
 
