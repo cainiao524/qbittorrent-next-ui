@@ -18,13 +18,15 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           REPO_NAME: lowsabishi/qbittorrent-next-ui
+          TAG_SUFFIX: funky9
         run: |
           python3 - <<'PYEOF'
-          import json, os, urllib.request, urllib.error
+          import json, os, re, urllib.request, urllib.error
 
           username = os.environ["DOCKERHUB_USERNAME"]
           password = os.environ["DOCKERHUB_TOKEN"]
           repo = os.environ["REPO_NAME"]
+          suffix = os.environ["TAG_SUFFIX"]
 
           def api(method, url, data=None, token=None):
               req = urllib.request.Request(url, method=method)
@@ -46,13 +48,52 @@ jobs:
               raise SystemExit(1)
           jwt = json.loads(text)["token"]
 
-          full_desc = open("DOCKERHUB.md", encoding="utf-8").read()
+          with open("package.json", encoding="utf-8") as package_file:
+              version = json.load(package_file)["version"]
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+              raise SystemExit(f"invalid package version: {version}")
+
+          tag = f"v{version}-{suffix}"
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          ref = os.environ.get("GITHUB_REF", "")
+          ref_type = os.environ.get("GITHUB_REF_TYPE", "")
+          ref_name = os.environ.get("GITHUB_REF_NAME", "")
+          if event_name == "workflow_dispatch":
+              if ref != "refs/heads/main":
+                  raise SystemExit("manual Docker Hub description sync must run from main")
+          elif ref_type != "tag" or ref_name != tag:
+              raise SystemExit(f"release sync ref mismatch: expected {tag}, got {ref}")
+
+          placeholder = "{{DOCKER_VERSION_TAG}}"
+          template = open("DOCKERHUB.md", encoding="utf-8").read()
+          if template.count(placeholder) != 1:
+              raise SystemExit(f"DOCKERHUB.md must contain exactly one {placeholder}")
+          concrete_tag_pattern = rf"v[0-9]+\.[0-9]+\.[0-9]+-{re.escape(suffix)}"
+          if re.search(concrete_tag_pattern, template):
+              raise SystemExit("DOCKERHUB.md contains a hard-coded release tag")
+          full_desc = template.replace(placeholder, tag)
+
+          tag_url = f"https://hub.docker.com/v2/repositories/{repo}/tags/{tag}"
+          tag_status, _ = api("GET", tag_url, token=jwt)
+          print("tag check status:", tag_status)
+          if tag_status != 200:
+              raise SystemExit(f"Docker Hub tag does not exist: {tag}")
+
           short_desc = "面向 qBittorrent 的现代化响应式第三方 WebUI"
           status2, text2 = api("PATCH", f"https://hub.docker.com/v2/repositories/{repo}/",
                                {"description": short_desc, "full_description": full_desc}, jwt)
           print("patch status:", status2)
-          print(text2[:1000])
           if status2 not in (200, 201):
+              print(text2[:1000])
               raise SystemExit(1)
-          print("Docker Hub description updated")
+
+          status3, text3 = api("GET", f"https://hub.docker.com/v2/repositories/{repo}/", token=jwt)
+          if status3 != 200:
+              raise SystemExit(f"Docker Hub read-back failed: HTTP {status3}")
+          remote_desc = json.loads(text3).get("full_description", "")
+          if remote_desc != full_desc:
+              raise SystemExit("Docker Hub description read-back mismatch")
+          if placeholder in remote_desc or tag not in remote_desc:
+              raise SystemExit("Docker Hub description version verification failed")
+          print(f"Docker Hub description updated and verified: {tag}")
           PYEOF
