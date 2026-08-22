@@ -203,28 +203,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="flex items-center border-t flex-row px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center">
-        <div className="flex h-12 w-14 shrink-0 items-center justify-center">
-          <Link
-            to={APP_CONFIG.githubUrl}
-            target="_blank"
-            title={t("ui.github_title")}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-          >
-            <Github className="size-5" />
-          </Link>
-        </div>
-        <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:w-0">
-          <Link
-            to={APP_CONFIG.githubUrl}
-            target="_blank"
-            className="text-primary/40 hover:text-primary transition-colors cursor-pointer"
-            title={t("ui.github_title")}
-          >
-            <Github className="size-4" />
-          </Link>
-          <span className="text-sm font-semibold text-primary/80 tracking-tight">{APP_CONFIG.version}</span>
-        </div>
+      <SidebarFooter className="border-t py-2">
+        <SidebarMenu className="px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">
+          <SidebarMenuItem className="transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-1">
+            <SidebarMenuButton
+              asChild
+              tooltip={t("ui.github_title")}
+              className="h-12 text-primary/80 hover:bg-sidebar-accent hover:text-primary [&_svg]:size-5"
+            >
+              <Link to={APP_CONFIG.githubUrl} target="_blank" className="flex w-full items-center">
+                <span className="flex h-12 w-14 shrink-0 items-center justify-center">
+                  <Github />
+                </span>
+                <span className="font-semibold tracking-tight">{APP_CONFIG.version}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

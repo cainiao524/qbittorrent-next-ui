@@ -56,7 +56,7 @@ export function useTorrentData(
     const poll = async () => {
       await fetchData()
       if (!cancelled && autoRefresh) {
-        timer = setTimeout(poll, Math.max(500, refreshInterval))
+        timer = setTimeout(poll, refreshInterval)
       }
     }
 

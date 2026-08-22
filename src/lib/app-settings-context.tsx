@@ -1,5 +1,4 @@
 import * as React from "react"
-import { normalizeRefreshInterval } from "@/lib/refresh-interval"
 
 export type SidebarItemId = "all" | "active" | "downloading" | "seeding" | "paused" | "settings"
 export type TorrentListDensity = "comfortable" | "compact"
@@ -31,7 +30,7 @@ function readStoredNumber(key: string, fallback: number) {
   const value = localStorage.getItem(key)
   if (!value) return fallback
   const parsed = Number.parseInt(value, 10)
-  return Number.isNaN(parsed) ? fallback : normalizeRefreshInterval(parsed, fallback)
+  return Number.isNaN(parsed) ? fallback : parsed
 }
 
 function readStoredBoolean(key: string, fallback: boolean) {
@@ -64,7 +63,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     const savedInterval = localStorage.getItem("app_refresh_interval")
     if (savedInterval) {
       const val = parseInt(savedInterval, 10)
-      if (!isNaN(val) && val >= 500) setRefreshIntervalState(val)
+      if (!isNaN(val)) setRefreshIntervalState(val)
     }
 
     const savedAuto = localStorage.getItem("app_auto_refresh")
@@ -86,9 +85,8 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   }, [])
 
   const setRefreshInterval = (val: number) => {
-    const normalized = normalizeRefreshInterval(val)
-    setRefreshIntervalState(normalized)
-    localStorage.setItem("app_refresh_interval", normalized.toString())
+    setRefreshIntervalState(val)
+    localStorage.setItem("app_refresh_interval", val.toString())
   }
 
   const setAutoRefresh = (val: boolean) => {

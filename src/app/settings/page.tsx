@@ -569,8 +569,7 @@ export default function SettingsPage() {
                          <div className="flex items-center gap-3">
                            <Input
                              type="number"
-                             min={0.5}
-                             step={0.5}
+                             step="any"
                              disabled={!getAutoRefresh()}
                              value={getRefreshInterval() / 1000}
                              onChange={(e) => setPendingRefreshInterval(Math.round(parseFloat(e.target.value) * 1000) || 0)}

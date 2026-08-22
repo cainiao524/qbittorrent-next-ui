@@ -37,6 +37,7 @@ describe("useTorrentData polling", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    settings.refreshInterval = 500
     rpcMock.getTorrents.mockResolvedValue(torrentResponse)
     rpcMock.getStats.mockResolvedValue(statsResponse)
     rpcMock.getSession.mockResolvedValue(sessionResponse)
@@ -78,6 +79,18 @@ describe("useTorrentData polling", () => {
       await Promise.resolve()
     })
     await act(async () => vi.advanceTimersByTimeAsync(499))
+    expect(rpcMock.getTorrents).toHaveBeenCalledOnce()
+
+    await act(async () => vi.advanceTimersByTimeAsync(1))
+    expect(rpcMock.getTorrents).toHaveBeenCalledTimes(2)
+  })
+
+  test("uses refresh intervals below 500ms without clamping", async () => {
+    settings.refreshInterval = 100
+    renderHook(() => useTorrentData("list", visibleColumns))
+    await act(async () => {})
+
+    await act(async () => vi.advanceTimersByTimeAsync(99))
     expect(rpcMock.getTorrents).toHaveBeenCalledOnce()
 
     await act(async () => vi.advanceTimersByTimeAsync(1))

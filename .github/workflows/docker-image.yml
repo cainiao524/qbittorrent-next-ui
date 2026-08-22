@@ -14,6 +14,8 @@ concurrency:
 
 env:
   FULL_TRANSACTION_REQUIRED: "true"
+  # 只有强制移动同名标签时允许覆盖现有发布；普通标签推送仍严格禁止覆盖。
+  REPLACE_RELEASE: ${{ github.event.forced && 'true' || 'false' }}
 
 jobs:
   # ============================================================
@@ -135,7 +137,13 @@ jobs:
           DH_FINAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: JWT ${DH_JWT}" \
             "https://hub.docker.com/v2/repositories/lowsabishi/qbittorrent-next-ui/tags/${CLEAN_TAG}")
           case "${DH_FINAL_CODE}" in
-            200) echo "::error::DH final tag ${CLEAN_TAG} already exists; refusing release"; exit 1;;
+            200)
+              if [ "${REPLACE_RELEASE}" = "true" ]; then
+                echo "::notice::DH final tag ${CLEAN_TAG} exists; replacement mode enabled"
+              else
+                echo "::error::DH final tag ${CLEAN_TAG} already exists; refusing release"; exit 1
+              fi
+              ;;
             404) echo "DH final absent (404)";;
             *) echo "::error::DH final existence UNKNOWN (HTTP ${DH_FINAL_CODE}); fail-closed"; exit 1;;
           esac
@@ -153,7 +161,13 @@ jobs:
             -H "Accept: application/vnd.oci.image.index.v1+json" \
             "https://ghcr.io/v2/cainiao524/qbittorrent-next-ui/manifests/${CLEAN_TAG}")
           case "${GHCR_FINAL_CODE}" in
-            200) echo "::error::GHCR final tag ${CLEAN_TAG} already exists; refusing release"; exit 1;;
+            200)
+              if [ "${REPLACE_RELEASE}" = "true" ]; then
+                echo "::notice::GHCR final tag ${CLEAN_TAG} exists; replacement mode enabled"
+              else
+                echo "::error::GHCR final tag ${CLEAN_TAG} already exists; refusing release"; exit 1
+              fi
+              ;;
             404) echo "GHCR final absent (404)";;
             *) echo "::error::GHCR final existence UNKNOWN (HTTP ${GHCR_FINAL_CODE}); fail-closed"; exit 1;;
           esac
@@ -163,7 +177,13 @@ jobs:
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")
           case "${REL_CODE}" in
-            200) echo "::error::GitHub Release for ${TAG} already exists; refusing release"; exit 1;;
+            200)
+              if [ "${REPLACE_RELEASE}" = "true" ]; then
+                echo "::notice::GitHub Release for ${TAG} exists; replacement mode enabled"
+              else
+                echo "::error::GitHub Release for ${TAG} already exists; refusing release"; exit 1
+              fi
+              ;;
             404) echo "GitHub Release absent (404)";;
             *) echo "::error::GitHub Release existence UNKNOWN (HTTP ${REL_CODE}); fail-closed"; exit 1;;
           esac
@@ -823,8 +843,9 @@ jobs:
       - name: 创建 Draft Release + 上传 5 资产（全仓唯一 Release Owner）
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
-          generate_release_notes: true
+          draft: ${{ github.event.forced != true }}
+          generate_release_notes: ${{ github.event.forced != true }}
+          overwrite_files: true
           files: |
             qbittorrent-next-ui.zip
             qbittorrent-next-ui-${{ needs.preflight.outputs.clean-tag }}-docker-amd64.tar.gz
@@ -839,7 +860,11 @@ jobs:
           CLEAN_TAG="${{ needs.preflight.outputs.clean-tag }}"
           INFO=$(gh release view "${TAG}" --json isDraft,isPrerelease,body -q '{draft:.isDraft,pre:.isPrerelease,bodyLen:(.body|length)}')
           echo "${INFO}"
-          echo "${INFO}" | grep -q '"draft":true'
+          if [ "${REPLACE_RELEASE}" = "true" ]; then
+            echo "${INFO}" | grep -q '"draft":false'
+          else
+            echo "${INFO}" | grep -q '"draft":true'
+          fi
           echo "${INFO}" | grep -q '"pre":false'
           BODYLEN=$(echo "${INFO}" | python3 -c "import json,sys; print(json.load(sys.stdin)['bodyLen'])")
           if [ "${BODYLEN}" -eq 0 ]; then
@@ -859,7 +884,7 @@ jobs:
             echo "${DIFF}"
             exit 1
           fi
-          echo "::notice::draft release verified (draft=true, 5 assets, notes non-empty)"
+          echo "::notice::release assets verified (replace=${REPLACE_RELEASE}, 5 assets, notes non-empty)"
 
   # ============================================================
   # PHASE 2: COMMIT（严禁重新 build；失败 → 独立 rollback job）
@@ -1015,7 +1040,7 @@ jobs:
   # ============================================================
   rollback:
     needs: [preflight, promote, publish]
-    if: ${{ always() && ((needs.promote.result == 'failure' || needs.promote.result == 'cancelled') || (needs.publish.result == 'failure' && needs.publish.outputs.publish_state == 'NOT_CROSSED')) }}
+    if: ${{ always() && github.event.forced != true && ((needs.promote.result == 'failure' || needs.promote.result == 'cancelled') || (needs.publish.result == 'failure' && needs.publish.outputs.publish_state == 'NOT_CROSSED')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
