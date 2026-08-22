@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useWindowVirtualizer } from "@tanstack/react-virtual"
 import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,22 +38,92 @@ export function TorrentGridView({
   const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
   const openEdit = useCallback((torrent: Torrent) => setEditingTorrent(torrent), [])
   const closeEdit = useCallback(() => setEditingTorrent(null), [])
+  const [columnCount, setColumnCount] = useState(() => getGridColumnCount())
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [scrollMargin, setScrollMargin] = useState(0)
+  const torrentRows = useMemo(() => {
+    const rows: Array<Array<{ torrent: Torrent; index: number }>> = []
+    for (let index = 0; index < paginatedTorrents.length; index += columnCount) {
+      rows.push(paginatedTorrents.slice(index, index + columnCount).map((torrent, offset) => ({
+        torrent,
+        index: index + offset,
+      })))
+    }
+    return rows
+  }, [columnCount, paginatedTorrents])
+  const shouldVirtualize = paginatedTorrents.length >= 50
+  const getVirtualRowKey = useCallback(
+    (index: number) => torrentRows[index]?.[0]?.torrent.id ?? index,
+    [torrentRows],
+  )
+  const rowVirtualizer = useWindowVirtualizer({
+    count: torrentRows.length,
+    estimateSize: () => 349,
+    getItemKey: getVirtualRowKey,
+    overscan: 2,
+    scrollMargin,
+    enabled: shouldVirtualize,
+  })
+  const renderedRows = shouldVirtualize
+    ? rowVirtualizer.getVirtualItems().map((virtualRow) => ({
+        key: virtualRow.key,
+        index: virtualRow.index,
+        offset: virtualRow.start - scrollMargin,
+      }))
+    : torrentRows.map((_, index) => ({ key: getVirtualRowKey(index), index, offset: null }))
+
+  useEffect(() => {
+    const updateColumnCount = () => setColumnCount((current) => {
+      const next = getGridColumnCount()
+      return current === next ? current : next
+    })
+    window.addEventListener("resize", updateColumnCount, { passive: true })
+    return () => window.removeEventListener("resize", updateColumnCount)
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !gridRef.current) return
+    const nextScrollMargin = Math.round(gridRef.current.getBoundingClientRect().top + window.scrollY)
+    setScrollMargin((current) => current === nextScrollMargin ? current : nextScrollMargin)
+  }, [columnCount, shouldVirtualize])
+
+  useLayoutEffect(() => {
+    if (shouldVirtualize) rowVirtualizer.measure()
+  }, [columnCount, rowVirtualizer, shouldVirtualize])
 
   return (
     <>
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {paginatedTorrents.map((torrent, index) => {
+    <div
+      ref={gridRef}
+      data-grid-virtualized={shouldVirtualize ? "true" : "false"}
+      className={cn(shouldVirtualize ? "relative" : "space-y-6")}
+      style={shouldVirtualize ? { height: `${rowVirtualizer.getTotalSize()}px` } : undefined}
+    >
+      {renderedRows.map((renderedRow) => (
+        <div
+          key={renderedRow.key}
+          data-index={renderedRow.index}
+          ref={shouldVirtualize ? rowVirtualizer.measureElement : undefined}
+          className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", shouldVirtualize && "pb-6")}
+          style={renderedRow.offset === null ? undefined : {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            transform: `translateY(${renderedRow.offset}px)`,
+          }}
+        >
+      {torrentRows[renderedRow.index].map(({ torrent, index }) => {
         const { progressRatio, completedSelected, selectedSize, totalSize, selectionRatio, isPartialDownload } = getTorrentProgressMetrics(torrent)
         return (
         <Card
           key={torrent.id}
+          data-grid-card
           className={cn(
-            "group relative shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
+            "group relative h-full shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
             index < 12 && "animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
           )}
           style={{
-            contentVisibility: "auto",
-            containIntrinsicSize: "340px",
             ...(index < 12 ? { animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" } : {}),
           }}
         >
@@ -179,8 +250,18 @@ export function TorrentGridView({
         </Card>
         )
       })}
+        </div>
+      ))}
     </div>
     <EditTorrentDialog torrent={editingTorrent} onClose={closeEdit} onSuccess={onAdvancedSuccess} />
     </>
   )
+}
+
+function getGridColumnCount() {
+  if (typeof window === "undefined") return 1
+  if (window.innerWidth >= 1280) return 4
+  if (window.innerWidth >= 1024) return 3
+  if (window.innerWidth >= 640) return 2
+  return 1
 }

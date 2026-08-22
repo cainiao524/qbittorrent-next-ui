@@ -38,6 +38,7 @@ describe("useTorrentData polling", () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     settings.refreshInterval = 500
+    settings.autoRefresh = true
     rpcMock.getTorrents.mockResolvedValue(torrentResponse)
     rpcMock.getStats.mockResolvedValue(statsResponse)
     rpcMock.getSession.mockResolvedValue(sessionResponse)
@@ -95,5 +96,26 @@ describe("useTorrentData polling", () => {
 
     await act(async () => vi.advanceTimersByTimeAsync(1))
     expect(rpcMock.getTorrents).toHaveBeenCalledTimes(2)
+  })
+
+  test("coalesces data updates while scrolling and commits the latest snapshot after scrolling", async () => {
+    settings.autoRefresh = false
+    const { result } = renderHook(() => useTorrentData("list", visibleColumns))
+    await act(async () => {})
+
+    const nextStats = { ...statsResponse, downloadSpeed: 1024 }
+    rpcMock.getStats.mockResolvedValueOnce(nextStats)
+
+    await act(async () => {
+      window.dispatchEvent(new Event("scroll"))
+      await result.current.fetchData()
+    })
+    expect(result.current.stats?.downloadSpeed).toBe(0)
+
+    await act(async () => vi.advanceTimersByTimeAsync(119))
+    expect(result.current.stats?.downloadSpeed).toBe(0)
+
+    await act(async () => vi.advanceTimersByTimeAsync(1))
+    expect(result.current.stats?.downloadSpeed).toBe(1024)
   })
 })
