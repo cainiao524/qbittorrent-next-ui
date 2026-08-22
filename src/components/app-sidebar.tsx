@@ -203,23 +203,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t py-2">
-        <SidebarMenu className="px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">
-          <SidebarMenuItem className="transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-1">
-            <SidebarMenuButton
-              asChild
-              tooltip={t("ui.github_title")}
-              className="h-12 text-primary/80 hover:bg-sidebar-accent hover:text-primary [&_svg]:size-5"
-            >
-              <Link to={APP_CONFIG.githubUrl} target="_blank" className="flex w-full items-center">
-                <span className="flex h-12 w-14 shrink-0 items-center justify-center">
-                  <Github />
-                </span>
-                <span className="font-semibold tracking-tight">{APP_CONFIG.version}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="flex-row border-t px-2 py-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-1">
+        <Link
+          to={APP_CONFIG.githubUrl}
+          target="_blank"
+          title={t("ui.github_title")}
+          className="flex h-12 min-w-0 flex-1 items-center overflow-hidden rounded-md text-primary/80 transition-colors hover:bg-sidebar-accent hover:text-primary"
+        >
+          <span className="flex h-12 w-14 shrink-0 items-center justify-center">
+            <Github className="size-5" />
+          </span>
+          <span data-sidebar="footer-label" className="font-semibold tracking-tight">
+            {APP_CONFIG.version}
+          </span>
+        </Link>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
