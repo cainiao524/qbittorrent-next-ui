@@ -47,6 +47,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --animate-bounce-slow: bounce 3s infinite;
+  --animate-spin-slow: slow-spin 8s linear infinite;
   --sidebar-motion-duration: 220ms;
   --sidebar-selection-duration: 180ms;
   --sidebar-motion-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -257,36 +258,9 @@
     scrollbar-width: none;
   }
 
-  [data-slot="dialog-overlay"] {
-    opacity: 0;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    animation: dialog-overlay-out 200ms ease-out forwards;
-    will-change: opacity;
-  }
-
-  [data-slot="dialog-overlay"][data-state="open"] {
-    animation: dialog-overlay-in 200ms ease-out forwards;
-  }
-
-  [data-slot="dialog-content"] {
-    opacity: 0;
-    animation: dialog-content-out 200ms ease-out forwards;
-  }
-
-  [data-slot="dialog-content"][data-state="open"] {
-    animation: dialog-content-in 200ms ease-out forwards;
-  }
-
-  .selected-toolbar-in {
-    animation: toolbar-in 200ms ease-out forwards;
-  }
-
   .selected-toolbar-bg {
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    animation: toolbar-bg-in 200ms ease-out forwards;
-    will-change: opacity;
   }
 
   .skeleton-gradient {
@@ -321,66 +295,26 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .skeleton-gradient::after {
     animation: none;
     opacity: 0.45;
   }
 }
 
-@keyframes dialog-overlay-in {
+@keyframes slow-spin {
   from {
-    opacity: 0;
+    transform: rotate(0deg);
   }
   to {
-    opacity: 1;
-  }
-}
-
-@keyframes dialog-overlay-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes dialog-content-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes dialog-content-out {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.95) translateY(-12px);
-  }
-}
-
-@keyframes toolbar-in {
-  from {
-    transform: translateY(2rem);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-@keyframes toolbar-bg-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+    transform: rotate(360deg);
   }
 }

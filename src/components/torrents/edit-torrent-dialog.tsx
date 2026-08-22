@@ -36,8 +36,19 @@ export function EditTorrentDialog({ torrent, onClose, onSuccess }: EditTorrentDi
   const { t } = useI18n()
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<AdvancedTab>("speed")
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const { open, setOpen, form, updateField, toggleField, handleSubmit, isLoading, isFetching } =
     useEditTorrentForm(torrent ?? EMPTY_EDIT_TORRENT, onSuccess)
+
+  React.useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+  }, [])
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (!next) closeTimerRef.current = setTimeout(() => onClose?.(), 200)
+  }
 
   React.useEffect(() => {
     setOpen(Boolean(torrent?.id))
@@ -51,7 +62,7 @@ export function EditTorrentDialog({ torrent, onClose, onSuccess }: EditTorrentDi
   }, [open])
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) onClose?.() }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[540px] rounded-3xl border-none shadow-2xl bg-card/95 backdrop-blur-xl max-h-[90vh] overflow-y-auto no-scrollbar">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="space-y-3">

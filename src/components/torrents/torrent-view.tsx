@@ -168,14 +168,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     localStorage.setItem('torrent-page-size', pageSize.toString())
   }, [pageSize])
 
-  const { torrents, stats, freeSpace, isInitialLoading, fetchData } = useTorrentData(viewMode, visibleColumns)
+  const { torrents, stats, freeSpace, isInitialLoading, fetchData } = useTorrentData(viewMode, visibleColumns, isActive)
   const deferredStatusFilter = useDeferredValue(statusFilter)
-  const wasActive = useRef(isActive)
-
-  useEffect(() => {
-    if (isActive && !wasActive.current) void fetchData()
-    wasActive.current = isActive
-  }, [fetchData, isActive])
 
   const {
     trackerFilter,
@@ -288,7 +282,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1)
-  }, [deferredStatusFilter, searchQuery, trackerFilter, dirFilter, labelFilter, sortConfig])
+  }, [deferredStatusFilter, searchQuery, trackerFilter, dirFilter, labelFilter, sortConfig, viewMode])
 
   const sortedTorrents = useMemo(() => sortTorrents(filteredTorrents, sortConfig), [filteredTorrents, sortConfig])
   const sortedIdsRef = useRef<TorrentId[]>([])
@@ -297,12 +291,14 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     sortedIdsRef.current = sortedTorrents.map((torrent) => torrent.id)
   }, [sortedTorrents])
 
-  const totalPages = Math.ceil(sortedTorrents.length / pageSize)
+  const effectivePageSize = viewMode === "grid" ? Math.min(pageSize, 200) : pageSize
+  const pageSizeOptions = viewMode === "grid" ? [50, 100, 200] : [50, 100, 200, 500, 9999]
+  const totalPages = Math.ceil(sortedTorrents.length / effectivePageSize)
   const paginatedTorrents = useMemo(() => {
     if (totalPages <= 1) return sortedTorrents
-    const start = (currentPage - 1) * pageSize
-    return sortedTorrents.slice(start, start + pageSize)
-  }, [sortedTorrents, currentPage, pageSize, totalPages])
+    const start = (currentPage - 1) * effectivePageSize
+    return sortedTorrents.slice(start, start + effectivePageSize)
+  }, [sortedTorrents, currentPage, effectivePageSize, totalPages])
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredTorrents.length) {
@@ -555,7 +551,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 pb-10">
             <div className="flex flex-col sm:flex-row items-center gap-4 order-2 sm:order-1">
               <div className="text-sm font-medium text-muted-foreground">
-                {t('common.showing', 'Showing')} <span className="text-foreground">{(currentPage - 1) * pageSize + 1}</span> - <span className="text-foreground">{Math.min(currentPage * pageSize, sortedTorrents.length)}</span> {t('common.of', 'of')} <span className="text-foreground">{sortedTorrents.length}</span> {t('common.torrents_total', 'torrents')}
+                {t('common.showing', 'Showing')} <span className="text-foreground">{(currentPage - 1) * effectivePageSize + 1}</span> - <span className="text-foreground">{Math.min(currentPage * effectivePageSize, sortedTorrents.length)}</span> {t('common.of', 'of')} <span className="text-foreground">{sortedTorrents.length}</span> {t('common.torrents_total', 'torrents')}
               </div>
 
               <div className="flex items-center gap-2">
@@ -563,18 +559,18 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-bold bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                      {pageSize >= 9999 ? t('common.all', 'All') : pageSize}
+                      {effectivePageSize >= 9999 ? t('common.all', 'All') : effectivePageSize}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="rounded-xl border border-muted/50 bg-card/95 backdrop-blur-xl p-1 min-w-[70px]">
-                    {[50, 100, 200, 500, 9999].map((size) => (
+                    {pageSizeOptions.map((size) => (
                       <DropdownMenuItem
                         key={size}
                         className={cn(
                           "rounded-lg text-xs font-bold py-1.5 px-3 cursor-pointer",
-                          pageSize === size && "bg-primary text-primary-foreground"
+                          effectivePageSize === size && "bg-primary text-primary-foreground"
                         )}
-                        onClick={() => setPageSize(size)}
+                        onClick={() => { setPageSize(size); setCurrentPage(1) }}
                       >
                         {size >= 9999 ? t('common.all', 'All') : size}
                       </DropdownMenuItem>
@@ -634,8 +630,12 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           </div>
         )}
 
-      {selectedIds.length > 0 && (
-        <div className="selected-toolbar-in fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0">
+      <div
+        data-state={selectedIds.length > 0 ? "open" : "closed"}
+        aria-hidden={selectedIds.length === 0}
+        inert={selectedIds.length === 0}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
+      >
           <div className="relative min-w-0 md:min-w-[400px] rounded-[2.5rem] border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)]">
             <div className="selected-toolbar-bg absolute inset-0 rounded-[2.5rem] bg-background/80" />
             <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
@@ -714,8 +714,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             </Button>
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
       <RemoveTorrentDialog
         open={isDeleteDialogOpen}

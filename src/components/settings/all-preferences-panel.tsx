@@ -203,8 +203,8 @@ export function AllPreferencesPanel() {
         >
           <span
             className={cn(
-              "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all",
-              value ? "left-6" : "left-1",
+              "absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 motion-reduce:transition-none",
+              value && "translate-x-5",
             )}
           />
         </button>

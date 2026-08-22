@@ -133,6 +133,14 @@ class QBittorrentRPCMock {
     return this.request("session-get");
   }
 
+  async getTorrentCategories(): Promise<Array<{ name: string; savePath: string; downloadPath?: string | boolean | null }>> {
+    return [];
+  }
+
+  async getTorrentTags(): Promise<string[]> {
+    return [];
+  }
+
   async getApplicationPreferences(): Promise<ApplicationPreferences> {
     await new Promise(resolve => setTimeout(resolve, 150));
     return { ...this.applicationPreferences };

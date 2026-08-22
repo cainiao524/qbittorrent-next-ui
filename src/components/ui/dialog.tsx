@@ -7,8 +7,46 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n-context"
 
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+const DialogMotionContext = React.createContext(false)
+
+function Dialog({ open, defaultOpen, onOpenChange, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
+  const requestedOpen = open ?? uncontrolledOpen
+  const [renderedOpen, setRenderedOpen] = React.useState(requestedOpen)
+  const [closing, setClosing] = React.useState(false)
+
+  React.useEffect(() => {
+    let exitTimer: ReturnType<typeof setTimeout> | undefined
+    const stateTimer = setTimeout(() => {
+      if (requestedOpen) {
+        setRenderedOpen(true)
+        setClosing(false)
+      } else if (renderedOpen) {
+        setClosing(true)
+        exitTimer = setTimeout(() => {
+          setRenderedOpen(false)
+          setClosing(false)
+        }, 200)
+      }
+    }, 0)
+
+    return () => {
+      clearTimeout(stateTimer)
+      if (exitTimer) clearTimeout(exitTimer)
+    }
+  }, [renderedOpen, requestedOpen])
+
+  const handleOpenChange = (next: boolean) => {
+    if (open === undefined) setUncontrolledOpen(next)
+    setClosing(!next)
+    onOpenChange?.(next)
+  }
+
+  return (
+    <DialogMotionContext.Provider value={closing}>
+      <DialogPrimitive.Root data-slot="dialog" open={renderedOpen} onOpenChange={handleOpenChange} {...props} />
+    </DialogMotionContext.Provider>
+  )
 }
 
 function DialogTrigger({
@@ -33,11 +71,13 @@ function DialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+  const closing = React.useContext(DialogMotionContext)
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
+      data-closing={closing}
       className={cn(
-        "fixed inset-0 z-50 bg-black/80",
+        "fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 duration-200 motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -51,13 +91,15 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   const { t } = useI18n()
+  const closing = React.useContext(DialogMotionContext)
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-closing={closing}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border bg-background p-6 shadow-2xl sm:max-w-[480px]",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border bg-background p-6 shadow-2xl sm:max-w-[480px] data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=false]:zoom-in-95 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 data-[closing=true]:zoom-out-95 duration-200 motion-reduce:animate-none",
           className
         )}
         {...props}

@@ -8,7 +8,8 @@ import type { Torrent, SessionStats } from "@/lib/rpc-types"
 
 export function useTorrentData(
   viewMode: "list" | "grid",
-  visibleColumns: string[]
+  visibleColumns: string[],
+  enabled = true
 ) {
   const [torrents, setTorrents] = useState<Torrent[]>([])
   const [stats, setStats] = useState<SessionStats | null>(null)
@@ -47,13 +48,24 @@ export function useTorrentData(
   }, [viewMode, visibleColumns])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData()
-    if (!autoRefresh) return
+    if (!enabled) return
 
-    const timer = setInterval(fetchData, refreshInterval)
-    return () => clearInterval(timer)
-  }, [fetchData, refreshInterval, autoRefresh])
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const poll = async () => {
+      await fetchData()
+      if (!cancelled && autoRefresh) {
+        timer = setTimeout(poll, Math.max(500, refreshInterval))
+      }
+    }
+
+    void poll()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [fetchData, refreshInterval, autoRefresh, enabled])
 
   return { torrents, stats, freeSpace, isInitialLoading, fetchData }
 }

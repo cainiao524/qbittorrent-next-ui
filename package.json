@@ -1,7 +1,7 @@
 {
   "name": "qbittorrent-next-ui",
   "private": true,
-  "version": "1.18.2",
+  "version": "1.18.5",
   "type": "module",
   "scripts": {
     "dev": "vite",

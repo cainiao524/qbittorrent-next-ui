@@ -146,23 +146,26 @@ export default function SettingsPage() {
   const Toggle = ({ field, localValue, setLocalValue }: { field?: keyof Session, localValue?: boolean, setLocalValue?: (v: boolean) => void }) => {
     const active = field ? !!getValue(field) : !!localValue
     return (
-      <div
+      <button
+        type="button"
+        role="switch"
+        aria-checked={active}
         onClick={() => {
           if (field) handleChange(field, !active)
           else if (setLocalValue) setLocalValue(!active)
         }}
         className={cn(
-          "h-6 w-11 rounded-full transition-all duration-300 relative cursor-pointer",
+          "h-6 w-11 rounded-full transition-colors duration-300 relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           active
             ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.45)]"
             : "bg-muted ring-1 ring-border"
         )}
       >
-        <div className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300",
-          active ? "right-1" : "left-1"
+        <span className={cn(
+          "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 motion-reduce:transition-none",
+          active && "translate-x-5"
         )} />
-      </div>
+      </button>
     )
   }
 

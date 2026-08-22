@@ -513,7 +513,7 @@ export function TorrentListView({
                 density={density}
                 listPath={location.pathname}
                 rowAnimationKey={rowAnimationKey}
-                animateEntrance={animateRows}
+                animateEntrance={animateRows && index < 12}
                 onToggleSelect={onToggleSelect}
                 onSingleAction={onSingleAction}
                 onOpenEdit={openEdit}

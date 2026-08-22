@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
 import { useI18n } from "@/lib/i18n-context"
+import { cn } from "@/lib/utils"
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme()
@@ -50,8 +51,16 @@ export function ThemeSwitcher() {
         <span className="sr-only">{t("ui.toggle_theme")}</span>
       </Button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-2xl border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 overflow-hidden backdrop-blur-md bg-background/90">
+      <div
+        data-state={open ? "open" : "closed"}
+        aria-hidden={!open}
+        inert={!open}
+        className={cn(
+          "absolute right-0 mt-2 w-48 rounded-2xl border bg-background p-2 shadow-xl z-50 overflow-hidden backdrop-blur-md bg-background/90 duration-200 motion-reduce:animate-none",
+          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+        )}
+      >
           <div className="flex flex-col gap-1">
             {themes.map((themeOption) => (
               <button
@@ -74,8 +83,7 @@ export function ThemeSwitcher() {
               </button>
             ))}
           </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

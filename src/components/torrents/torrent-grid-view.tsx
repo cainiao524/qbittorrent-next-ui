@@ -46,8 +46,15 @@ export function TorrentGridView({
         return (
         <Card
           key={torrent.id}
-          className="group relative shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0 animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
-          style={{ animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" }}
+          className={cn(
+            "group relative shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
+            index < 12 && "animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
+          )}
+          style={{
+            contentVisibility: "auto",
+            containIntrinsicSize: "340px",
+            ...(index < 12 ? { animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" } : {}),
+          }}
         >
           <CardHeader className="pb-3 pt-4 border-b border-muted/50 bg-background/50">
             <div className="min-w-0 space-y-1">

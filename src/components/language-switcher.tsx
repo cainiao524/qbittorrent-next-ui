@@ -37,8 +37,12 @@ export function LanguageSwitcher() {
         <Languages className="h-5 w-5" />
       </Button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-2xl border bg-background p-2 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 overflow-hidden backdrop-blur-md bg-background/90">
+      <div
+        data-state={isOpen ? "open" : "closed"}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className="absolute right-0 mt-2 w-48 rounded-2xl border bg-background p-2 shadow-xl z-50 overflow-hidden backdrop-blur-md bg-background/90 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 duration-200 motion-reduce:animate-none"
+      >
           <div className="flex flex-col gap-1">
             <button
               onClick={() => { setLocale("en"); setIsOpen(false); }}
@@ -67,8 +71,7 @@ export function LanguageSwitcher() {
               {locale === "zh" && <Check className="h-3.5 w-3.5" />}
             </button>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
