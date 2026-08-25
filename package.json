@@ -1,7 +1,7 @@
 {
   "name": "qbittorrent-next-ui",
   "private": true,
-  "version": "1.18.7",
+  "version": "1.18.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,8 +19,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.2.8",
+    "@noble/hashes": "^2.3.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-virtual": "^3.14.9",
+    "bencode": "^4.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "geist": "^1.7.0",

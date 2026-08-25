@@ -362,6 +362,79 @@ describe("qBittorrent Web API adapter", () => {
     expect(response.added_torrent_ids).toEqual(["abc123"])
   })
 
+  test("自定义文件选择会先停止添加、设置不下载文件，再启动任务", async () => {
+    fetchMock
+      .mockResolvedValueOnce(createResponse([]))
+      .mockResolvedValueOnce(createResponse(""))
+      .mockResolvedValueOnce(createResponse([{
+        hash: "abc123",
+        name: "示例任务",
+        state: "stoppedDL",
+        size: 1024,
+        progress: 0,
+        dlspeed: 0,
+        upspeed: 0,
+        eta: 0,
+        added_on: 1,
+        completion_on: 0,
+        last_activity: 1,
+        save_path: "/downloads",
+        amount_left: 1024,
+        uploaded: 0,
+        downloaded: 0,
+        ratio: 0,
+        tags: "",
+        category: "",
+        priority: 0,
+        tracker: "",
+        num_complete: 0,
+        num_incomplete: 0,
+        num_leechs: 0,
+        num_seeds: 0,
+      }]))
+      .mockResolvedValueOnce(createResponse(""))
+      .mockResolvedValueOnce(createResponse(""))
+
+    const response = await rpc.addTorrent({
+      metainfo: btoa("torrent"),
+      torrentId: "abc123",
+      "files-unwanted": [1, 3],
+      paused: false,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v2/torrents/info?hashes=abc123")
+    const addBody = fetchMock.mock.calls[1][1].body as FormData
+    expect(addBody.get("stopped")).toBe("true")
+    expect(addBody.get("forced")).toBe("false")
+
+    const priorityBody = new URLSearchParams(String(fetchMock.mock.calls[3][1].body))
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/v2/torrents/filePrio")
+    expect(priorityBody.get("id")).toBe("1|3")
+    expect(priorityBody.get("priority")).toBe("0")
+    expect(fetchMock.mock.calls[4][0]).toBe("/api/v2/torrents/start")
+    expect(response.added_torrent_ids).toEqual(["abc123"])
+  })
+
+  test("自定义文件选择不会修改已存在的重复任务", async () => {
+    fetchMock.mockResolvedValueOnce(createResponse([{
+      hash: "abc123",
+      name: "已有任务",
+      state: "stoppedDL",
+      tags: "",
+      tracker: "",
+    }]))
+
+    await expect(rpc.addTorrent({
+      metainfo: btoa("torrent"),
+      torrentId: "abc123",
+      "files-unwanted": [1],
+    })).rejects.toThrow("already exists")
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v2/torrents/info?hashes=abc123")
+  })
+
   test("调用高级任务控制和独立路径接口", async () => {
     fetchMock.mockResolvedValue(createResponse(""))
 

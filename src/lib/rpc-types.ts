@@ -103,6 +103,8 @@ export interface TorrentGetResponse {
 export interface TorrentAddArgs {
   filename?: string
   metainfo?: string
+  torrentId?: string
+  "files-unwanted"?: number[]
   "download-dir"?: string
   paused?: boolean
   category?: string

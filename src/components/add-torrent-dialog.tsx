@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Clipboard, FileIcon, FileUp, FolderOpen, Link, Plus, Settings2, Trash2 } from "lucide-react"
+import { AlertCircle, Clipboard, FileIcon, FileUp, FolderOpen, Link, LoaderCircle, Plus, Settings2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -9,9 +9,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { LocationInput } from "@/components/location-input"
+import { TorrentFileSelector } from "@/components/torrents/torrent-file-selector"
+import { formatSize } from "@/lib/formatters"
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentAddArgs } from "@/lib/rpc-types"
+import { parseTorrentMetainfoAsync } from "@/lib/torrent-metainfo-async"
+import type { TorrentMetainfo } from "@/lib/torrent-metainfo"
 import { cn } from "@/lib/utils"
 
 interface AddTorrentDialogProps {
@@ -21,6 +25,16 @@ interface AddTorrentDialogProps {
   onOpenChange?: (open: boolean) => void
   initialFiles?: File[]
 }
+
+interface TorrentUpload {
+  id: number
+  file: File
+  metainfo?: TorrentMetainfo
+  selectedFileIndexes: number[]
+  parseError?: boolean
+}
+
+let nextUploadId = 0
 
 const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader()
@@ -44,7 +58,7 @@ function Toggle({ checked, onChange, label, description }: { checked: boolean; o
 export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, onOpenChange, initialFiles }: AddTorrentDialogProps) {
   const { t } = useI18n()
   const [internalOpen, setInternalOpen] = React.useState(false)
-  const [files, setFiles] = React.useState<File[]>([])
+  const [files, setFiles] = React.useState<TorrentUpload[]>([])
   const [magnetLink, setMagnetLink] = React.useState("")
   const [location, setLocation] = React.useState("")
   const [downloadPath, setDownloadPath] = React.useState("")
@@ -87,20 +101,41 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
     onOpenChange?.(value)
   }, [onOpenChange])
 
+  const queueTorrentFiles = React.useCallback((torrentFiles: File[], replace = false) => {
+    const uploads = torrentFiles.map((file): TorrentUpload => ({
+      id: ++nextUploadId,
+      file,
+      selectedFileIndexes: [],
+    }))
+    setFiles((current) => replace ? uploads : [...current, ...uploads])
+
+    uploads.forEach((upload) => {
+      void upload.file.arrayBuffer()
+        .then((buffer) => parseTorrentMetainfoAsync(buffer))
+        .then((metainfo) => setFiles((current) => current.map((item) => item.id === upload.id
+          ? { ...item, metainfo, selectedFileIndexes: metainfo.files.map((file) => file.index) }
+          : item)))
+        .catch((error) => {
+          console.error(`Failed to parse ${upload.file.name}:`, error)
+          setFiles((current) => current.map((item) => item.id === upload.id ? { ...item, parseError: true } : item))
+        })
+    })
+  }, [])
+
   React.useEffect(() => {
     if (!open) return
-    if (initialFiles?.length) setFiles(initialFiles)
+    if (initialFiles?.length) queueTorrentFiles(initialFiles, true)
     void Promise.all([rpc.getSession(), rpc.getTorrentCategories(), rpc.getTorrentTags()]).then(([session, categories, remoteTags]) => {
       setLocation((current) => current || session["download-dir"] || "")
       setAvailableCategories(categories.map((item) => item.name))
       setAvailableTags(remoteTags)
     }).catch(() => undefined)
-  }, [initialFiles, open])
+  }, [initialFiles, open, queueTorrentFiles])
 
   const addFiles = (input: File[]) => {
     const torrentFiles = input.filter((file) => file.name.toLowerCase().endsWith(".torrent"))
     if (torrentFiles.length !== input.length) toast.info(t("add_dialog.ignored_files"))
-    setFiles((current) => [...current, ...torrentFiles])
+    queueTorrentFiles(torrentFiles)
   }
 
   const links = magnetLink.split(/[\r\n]+/).map((item) => item.trim()).filter(Boolean)
@@ -136,10 +171,24 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
   const handleSubmit = async () => {
     if (!itemCount) return toast.error(t("add_dialog.missing_input"))
+    if (files.some((upload) => !upload.metainfo)) {
+      return toast.error(t("add_dialog.select_at_least_one"))
+    }
     setIsAdding(true)
     try {
       for (const link of links) await rpc.addTorrent({ ...commonArgs(), filename: link })
-      for (const file of files) await rpc.addTorrent({ ...commonArgs(), metainfo: await toBase64(file) })
+      for (const upload of files) {
+        const selected = new Set(upload.selectedFileIndexes)
+        const unwanted = upload.metainfo!.files.filter((file) => !selected.has(file.index)).map((file) => file.index)
+        const args = commonArgs()
+        await rpc.addTorrent({
+          ...args,
+          paused: selected.size === 0 ? true : args.paused,
+          metainfo: await toBase64(upload.file),
+          torrentId: upload.metainfo!.torrentId,
+          "files-unwanted": unwanted,
+        })
+      }
       toast.success(t("add_dialog.submitted", { count: itemCount }))
       setOpen(false)
       onSuccess?.()
@@ -171,13 +220,6 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
             <FileUp className="h-6 w-6 text-green-500" />
             <div><p className="text-sm font-medium">{t("add_dialog.drop_title")}</p><p className="text-xs text-muted-foreground">{t("add_dialog.drop_desc")}</p></div>
           </div>
-          {files.length > 0 && <div className="grid gap-2 sm:grid-cols-2">{files.map((file, index) => (
-            <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 p-2.5">
-              <FileIcon className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-4 w-4" /></Button>
-            </div>
-          ))}</div>}
-
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium"><Link className="h-4 w-4" />{t("add_dialog.link_label")}</label>
             <div className="relative">
@@ -193,8 +235,36 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
           </div>
           {availableTags.length > 0 && <div className="flex flex-wrap gap-2">{availableTags.map((tag) => <Button key={tag} type="button" size="sm" variant={tags.includes(tag) ? "default" : "outline"} className="h-7 rounded-full text-xs" onClick={() => setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])}>{tag}</Button>)}</div>}
 
+          {files.length > 0 && <details open className="group rounded-2xl border border-border/60 bg-muted/10 p-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium">
+              <FileIcon className="h-4 w-4 text-green-500" />
+              {t("add_dialog.torrent_contents")}
+              <span className="text-xs text-muted-foreground">{t("add_dialog.torrent_file_count", { count: files.length })}</span>
+              <span className="ml-auto text-xs text-muted-foreground group-open:hidden">{t("add_dialog.expand")}</span>
+              <span className="ml-auto hidden text-xs text-muted-foreground group-open:inline">{t("add_dialog.collapse")}</span>
+            </summary>
+            <div className="mt-4 space-y-2">{files.map((upload) => (
+              <div key={upload.id} className="overflow-hidden rounded-xl border border-border/50 bg-muted/20">
+                <div className="flex min-w-0 items-center gap-3 p-3">
+                  <FileIcon className="h-4 w-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium" title={upload.file.name}>{upload.file.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatSize(upload.file.size)}
+                      {upload.metainfo && ` · ${t("add_dialog.torrent_file_count", { count: upload.metainfo.files.length })}`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={() => setFiles((current) => current.filter((item) => item.id !== upload.id))}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+                {!upload.metainfo && !upload.parseError && <div className="flex items-center gap-2 border-t border-border/40 px-3 py-3 text-xs text-muted-foreground"><LoaderCircle className="h-3.5 w-3.5 animate-spin" />{t("add_dialog.reading_files")}</div>}
+                {upload.parseError && <div className="flex items-center gap-2 border-t border-destructive/20 bg-destructive/5 px-3 py-3 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5" />{t("add_dialog.invalid_torrent")}</div>}
+                {upload.metainfo && <TorrentFileSelector files={upload.metainfo.files} selectedFileIndexes={upload.selectedFileIndexes} onSelectionChange={(indexes) => setFiles((current) => current.map((item) => item.id === upload.id ? { ...item, selectedFileIndexes: indexes } : item))} />}
+              </div>
+            ))}</div>
+          </details>}
+
           <details className="group rounded-2xl border border-border/60 bg-muted/10 p-4">
-            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />{t("add_dialog.advanced")}<span className="ml-auto text-xs text-muted-foreground group-open:hidden">{t("add_dialog.expand")}</span></summary>
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />{t("add_dialog.advanced")}<span className="ml-auto text-xs text-muted-foreground group-open:hidden">{t("add_dialog.expand")}</span><span className="ml-auto hidden text-xs text-muted-foreground group-open:inline">{t("add_dialog.collapse")}</span></summary>
             <div className="mt-5 space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Toggle checked={autoTMM} onChange={setAutoTMM} label={t("add_dialog.auto_management")} description={t("add_dialog.auto_management_desc")} />
@@ -231,7 +301,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
         <DialogFooter className="shrink-0 border-t pt-4 sm:justify-between">
           <Toggle checked={startImmediately} onChange={setStartImmediately} label={t("add_dialog.start_immediately")} />
-          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>{t("add_dialog.cancel")}</Button><Button disabled={isAdding || !itemCount} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
+          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>{t("add_dialog.cancel")}</Button><Button disabled={isAdding || !itemCount || files.some((upload) => !upload.metainfo)} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

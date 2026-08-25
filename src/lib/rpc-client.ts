@@ -423,7 +423,7 @@ class QBittorrentRPC {
     return {}
   }
 
-  async addTorrent(args: TorrentAddArgs) {
+  private async submitTorrent(args: TorrentAddArgs, paused = args.paused, forced = args.forced): Promise<TorrentAddResponse> {
     const form = new FormData()
     if (args.filename) form.append("urls", args.filename)
     if (args.metainfo) {
@@ -431,9 +431,9 @@ class QBittorrentRPC {
       form.append("torrents", new Blob([bytes], { type: "application/x-bittorrent" }), "upload.torrent")
     }
     if (args["download-dir"]) form.append("savepath", args["download-dir"])
-    if (args.paused !== undefined) {
-      form.append("stopped", String(args.paused))
-      form.append("paused", String(args.paused))
+    if (paused !== undefined) {
+      form.append("stopped", String(paused))
+      form.append("paused", String(paused))
     }
     const values: Array<[string, string | number | boolean | undefined]> = [
       ["category", args.category],
@@ -443,7 +443,7 @@ class QBittorrentRPC {
       ["skip_checking", args.skipChecking],
       ["sequentialDownload", args.sequentialDownload],
       ["firstLastPiecePrio", args.firstLastPiecePrio],
-      ["forced", args.forced],
+      ["forced", forced],
       ["contentLayout", args.contentLayout],
       ["rename", args.rename],
       ["useDownloadPath", args.useDownloadPath],
@@ -469,6 +469,46 @@ class QBittorrentRPC {
       return JSON.parse(text) as TorrentAddResponse
     } catch {
       return {} as TorrentAddResponse
+    }
+  }
+
+  private async findTorrent(torrentId: string): Promise<Torrent | undefined> {
+    const normalizedId = torrentId.toLowerCase()
+    const result = await this.getTorrents([], [torrentId])
+    return result.torrents.find((torrent) => torrent.hashString.toLowerCase() === normalizedId)
+  }
+
+  private async waitForTorrent(torrentId: string): Promise<Torrent> {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const torrent = await this.findTorrent(torrentId)
+      if (torrent) return torrent
+      await new Promise((resolve) => window.setTimeout(resolve, 250))
+    }
+    throw new Error("Added torrent did not become available for file selection")
+  }
+
+  async addTorrent(args: TorrentAddArgs): Promise<TorrentAddResponse> {
+    const unwantedFileIds = args["files-unwanted"] ?? []
+    if (!unwantedFileIds.length) return this.submitTorrent(args)
+    if (!args.metainfo || !args.torrentId) throw new Error("Torrent file selection requires local metadata")
+
+    if (await this.findTorrent(args.torrentId)) {
+      throw new Error("This torrent already exists; its file selection was not changed")
+    }
+
+    const response = await this.submitTorrent(args, true, false)
+    const torrent = await this.waitForTorrent(args.torrentId)
+    await this.setFilePriority(torrent.id, unwantedFileIds, 0)
+
+    if (args.paused !== true) {
+      if (args.forced) await this.setForceStart([torrent.id], true)
+      else await this.startTorrents([torrent.id])
+    }
+
+    return {
+      ...response,
+      success_count: response.success_count ?? 1,
+      added_torrent_ids: response.added_torrent_ids ?? [torrent.id],
     }
   }
 
