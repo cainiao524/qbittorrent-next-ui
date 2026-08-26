@@ -5,7 +5,7 @@ import { AlertCircle, Clipboard, FileIcon, FileUp, FolderOpen, Link, LoaderCircl
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { LocationInput } from "@/components/location-input"
@@ -91,12 +91,14 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const open = controlledOpen ?? internalOpen
 
+  const resetTransientState = React.useCallback(() => {
+    setFiles([])
+    setMagnetLink("")
+    setIsDragging(false)
+    setIsAdding(false)
+  }, [])
+
   const setOpen = React.useCallback((value: boolean) => {
-    if (!value) {
-      setFiles([])
-      setMagnetLink("")
-      setIsDragging(false)
-    }
     setInternalOpen(value)
     onOpenChange?.(value)
   }, [onOpenChange])
@@ -194,13 +196,12 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
       onSuccess?.()
     } catch (error) {
       toast.error(t("add_dialog.failed"), { description: error instanceof Error ? error.message : undefined })
-    } finally {
       setIsAdding(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} onCloseComplete={resetTransientState}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col gap-5 overflow-hidden border-none bg-background/95 p-6 shadow-2xl backdrop-blur-xl sm:max-w-3xl">
         <DialogHeader className="shrink-0">
@@ -301,7 +302,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
         <DialogFooter className="shrink-0 border-t pt-4 sm:justify-between">
           <Toggle checked={startImmediately} onChange={setStartImmediately} label={t("add_dialog.start_immediately")} />
-          <div className="flex gap-2"><Button variant="ghost" onClick={() => setOpen(false)}>{t("add_dialog.cancel")}</Button><Button disabled={isAdding || !itemCount || files.some((upload) => !upload.metainfo)} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
+          <div className="flex gap-2"><DialogClose asChild><Button variant="ghost">{t("add_dialog.cancel")}</Button></DialogClose><Button disabled={isAdding || !itemCount || files.some((upload) => !upload.metainfo)} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
