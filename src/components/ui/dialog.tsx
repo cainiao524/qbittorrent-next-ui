@@ -9,7 +9,11 @@ import { useI18n } from "@/lib/i18n-context"
 
 const DialogMotionContext = React.createContext(false)
 
-function Dialog({ open, defaultOpen, onOpenChange, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
+  onCloseComplete?: () => void
+}
+
+function Dialog({ open, defaultOpen, onOpenChange, onCloseComplete, ...props }: DialogProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
   const requestedOpen = open ?? uncontrolledOpen
   const [renderedOpen, setRenderedOpen] = React.useState(requestedOpen)
@@ -26,6 +30,7 @@ function Dialog({ open, defaultOpen, onOpenChange, ...props }: React.ComponentPr
         exitTimer = setTimeout(() => {
           setRenderedOpen(false)
           setClosing(false)
+          onCloseComplete?.()
         }, 200)
       }
     }, 0)
@@ -34,7 +39,7 @@ function Dialog({ open, defaultOpen, onOpenChange, ...props }: React.ComponentPr
       clearTimeout(stateTimer)
       if (exitTimer) clearTimeout(exitTimer)
     }
-  }, [renderedOpen, requestedOpen])
+  }, [onCloseComplete, renderedOpen, requestedOpen])
 
   const handleOpenChange = (next: boolean) => {
     if (open === undefined) setUncontrolledOpen(next)

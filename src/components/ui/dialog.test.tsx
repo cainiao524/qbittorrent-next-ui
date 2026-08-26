@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { I18nProvider } from "@/lib/i18n-context"
 import { Dialog, DialogContent, DialogTitle } from "./dialog"
 
-function DialogHarness() {
+function DialogHarness({ onCloseComplete }: { onCloseComplete?: () => void }) {
   const [open, setOpen] = React.useState(true)
   return (
     <I18nProvider>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen} onCloseComplete={onCloseComplete}>
         <DialogContent>
           <DialogTitle>Motion test</DialogTitle>
           <button type="button" onClick={() => setOpen(false)}>Close test dialog</button>
@@ -31,5 +31,18 @@ describe("Dialog exit motion", () => {
 
     await act(async () => vi.advanceTimersByTimeAsync(1))
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  test("calls the close completion callback after the exit animation", async () => {
+    const onCloseComplete = vi.fn()
+    render(<DialogHarness onCloseComplete={onCloseComplete} />)
+    fireEvent.click(screen.getByRole("button", { name: "Close test dialog" }))
+
+    expect(onCloseComplete).not.toHaveBeenCalled()
+    await act(async () => vi.advanceTimersByTimeAsync(199))
+    expect(onCloseComplete).not.toHaveBeenCalled()
+
+    await act(async () => vi.advanceTimersByTimeAsync(1))
+    expect(onCloseComplete).toHaveBeenCalledOnce()
   })
 })

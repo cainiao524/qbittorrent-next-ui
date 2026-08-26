@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -11,6 +11,11 @@ const rpcMock = vi.hoisted(() => ({
   getSession: vi.fn(),
   getTorrentCategories: vi.fn(),
   getTorrentTags: vi.fn(),
+}))
+
+const dialogMock = vi.hoisted(() => ({
+  onCloseComplete: null as (() => void) | null,
+  onOpenChange: null as ((open: boolean) => void) | null,
 }))
 
 vi.mock("@/lib/rpc-client", () => ({ rpc: rpcMock }))
@@ -30,7 +35,12 @@ vi.mock("@/components/location-input", () => ({
   ),
 }))
 vi.mock("@/components/ui/dialog", () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Dialog: ({ children, onCloseComplete, onOpenChange }: { children: React.ReactNode; onCloseComplete?: () => void; onOpenChange?: (open: boolean) => void }) => {
+    dialogMock.onCloseComplete = onCloseComplete ?? null
+    dialogMock.onOpenChange = onOpenChange ?? null
+    return <div>{children}</div>
+  },
+  DialogClose: ({ children }: { children: React.ReactNode }) => <div onClick={() => dialogMock.onOpenChange?.(false)}>{children}</div>,
   DialogTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -42,9 +52,31 @@ vi.mock("@/components/ui/dialog", () => ({
 describe("AddTorrentDialog file selection", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    dialogMock.onCloseComplete = null
+    dialogMock.onOpenChange = null
     localStorage.setItem("qbittorrent-next-locale", "zh")
     localStorage.setItem("transmission-vibemod-locale", "zh")
     rpcMock.addTorrent.mockResolvedValue({})
+  })
+
+  test("退出动画完成前保留文件内容，完成后再清理", async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <I18nProvider>
+        <AddTorrentDialog><button type="button">打开</button></AddTorrentDialog>
+      </I18nProvider>,
+    )
+    const torrent = new File([new Uint8Array([100, 101])], "example.torrent", { type: "application/x-bittorrent" })
+    Object.defineProperty(torrent, "arrayBuffer", { value: vi.fn().mockResolvedValue(new ArrayBuffer(2)) })
+
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, torrent)
+    expect(await screen.findByText("example.torrent")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "取消" }))
+    expect(screen.getByText("example.torrent")).toBeInTheDocument()
+
+    await act(async () => dialogMock.onCloseComplete?.())
+    expect(screen.queryByText("example.torrent")).not.toBeInTheDocument()
   })
 
   test("提交未勾选文件编号和种子标识", async () => {
