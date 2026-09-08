@@ -319,14 +319,11 @@
   }
 }
 
-/* 基础颜色过渡不覆盖组件已有的位移、透明度和进度动画。 */
-@layer base {
-  html[data-theme-motion="ready"],
-  html[data-theme-motion="ready"] *,
-  html[data-theme-motion="ready"] *::before,
-  html[data-theme-motion="ready"] *::after {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke;
-    transition-duration: 180ms;
-    transition-timing-function: ease-out;
-  }
+/* 仅标记的背景表面参与主题渐变，不让文字、单元格和 SVG 子节点逐个插值。
+   独立声明时长，避免入场动画的 duration 工具类改变主题渐变节奏。 */
+html[data-theme-motion="ready"] [data-theme-surface] {
+  transition-property: background-color;
+  transition-duration: 180ms;
+  transition-delay: 0s;
+  transition-timing-function: ease-out;
 }

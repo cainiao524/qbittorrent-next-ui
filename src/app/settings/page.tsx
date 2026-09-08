@@ -182,7 +182,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-300 ease-out max-w-[1300px] mx-auto pb-32">
+      <div className="flex flex-col gap-6 transition-none animate-in fade-in slide-in-from-top-2 duration-300 ease-out max-w-[1300px] mx-auto pb-32">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl md:text-3xl font-medium tracking-tight">{t('settings.title')}</h1>
           <p className="text-sm text-muted-foreground italic">{t('settings.desc')}</p>
@@ -209,7 +209,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Content Area */}
-          <div key={activeTab} className="flex-1 space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none" style={{ animationFillMode: "both" }}>
+          <div key={activeTab} className="flex-1 space-y-6 lg:space-y-8 transition-none animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none" style={{ animationFillMode: "both" }}>
 
             {activeTab === "general" && (
               <div className="space-y-6">

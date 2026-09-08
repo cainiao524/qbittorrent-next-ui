@@ -40,5 +40,31 @@ test("大量种子仍开启虚拟化而不是创建全部卡片", () => {
   const torrents = Array.from({ length: 2000 }, (_, index) => ({ ...MOCK_TORRENTS[0], id: `test-${index}`, name: `种子 ${index}` }))
   const { container } = render(<Grid torrents={torrents} />)
   expect(container.querySelector("[data-grid-virtualized]")).toHaveAttribute("data-grid-virtualized", "true")
+  expect(container.querySelectorAll("[data-grid-card]").length).toBeGreaterThan(0)
   expect(container.querySelectorAll("[data-grid-card]").length).toBeLessThan(100)
+})
+
+test("同序数值刷新不重建尺寸观察器或重新测量行高", () => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+  const created = vi.fn()
+  const original = ResizeObserver
+  vi.stubGlobal("ResizeObserver", class {
+    constructor() { created() }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  })
+  try {
+  const torrents = Array.from({ length: 60 }, (_, index) => ({ ...MOCK_TORRENTS[0], id: String(index) }))
+  const { container, rerender, unmount } = render(<Grid torrents={torrents} />)
+  expect(container.querySelectorAll("[data-grid-card]").length).toBeGreaterThan(0)
+  const count = created.mock.calls.length
+  const heights = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get")
+  rerender(<Grid torrents={torrents.map(torrent => ({ ...torrent, rateDownload: torrent.rateDownload + 100 }))} />)
+  expect(created.mock.calls).toHaveLength(count)
+  expect(heights).not.toHaveBeenCalled()
+  unmount()
+  } finally {
+    vi.stubGlobal("ResizeObserver", original)
+  }
 })

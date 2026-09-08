@@ -43,7 +43,6 @@ export function TorrentGridView({
   const [columnCount, setColumnCount] = useState(() => getGridColumnCount())
   const gridRef = useRef<HTMLDivElement>(null)
   const { animateTorrentSorting } = useAppSettings()
-  useListMotion(gridRef, animateTorrentSorting)
   const [scrollMargin, setScrollMargin] = useState(0)
   const torrentRows = useMemo(() => {
     const rows: Array<Array<{ torrent: Torrent; index: number }>> = []
@@ -77,6 +76,9 @@ export function TorrentGridView({
       }))
     : torrentRows.map((_, index) => ({ key: getVirtualRowKey(index), index, offset: null, end: 0 }))
 
+  const renderedCardKey = JSON.stringify([columnCount, ...renderedRows.flatMap(row => torrentRows[row.index].map(({ torrent }) => torrent.id))])
+  useListMotion(gridRef, animateTorrentSorting, `${columnCount}:${renderedRows[0]?.offset ?? 0}`)
+
   useEffect(() => {
     const updateColumnCount = () => setColumnCount((current) => {
       const next = getGridColumnCount()
@@ -96,7 +98,7 @@ export function TorrentGridView({
     if (shouldVirtualize) rowVirtualizer.measure()
   }, [columnCount, rowVirtualizer, shouldVirtualize])
 
-  // 所有卡片保持同一个父节点，跨行排序不卸载卡片或重播入场动画。
+  // 同序数据刷新复用观察器；只有可见卡片集合/分组变化才重新订阅。
   useLayoutEffect(() => {
     if (!shouldVirtualize || !gridRef.current) return
     const cards = Array.from(gridRef.current.querySelectorAll<HTMLElement>("[data-grid-row]"))
@@ -114,7 +116,7 @@ export function TorrentGridView({
     const observer = new ResizeObserver(measureRows)
     cards.forEach(card => observer.observe(card))
     return () => observer.disconnect()
-  })
+  }, [renderedCardKey, rowVirtualizer, shouldVirtualize])
 
   return (
     <>

@@ -45,7 +45,7 @@ export function ThemeSwitcher() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-48 rounded-2xl border bg-background/90 p-2 shadow-xl backdrop-blur-md duration-200 motion-reduce:animate-none"
+        className="w-48 rounded-2xl border bg-background/90 p-2 shadow-xl backdrop-blur-md transition-none duration-200 motion-reduce:animate-none"
       >
         <div className="flex flex-col gap-1">
           {themes.map((themeOption) => (

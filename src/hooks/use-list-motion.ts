@@ -16,10 +16,13 @@ function layoutPosition(element: HTMLElement): Position {
   return { x, y }
 }
 
-export function useListMotion(container: RefObject<HTMLElement | null>, enabled: boolean) {
+export function useListMotion(container: RefObject<HTMLElement | null>, enabled: boolean, layoutKey = "") {
   const positions = useRef(new Map<string, Position>())
   const animations = useRef(new Map<string, Motion>())
   const order = useRef("")
+  const previousLayout = useRef<string | null>(null)
+  const renderedElements = useRef<HTMLElement[]>([])
+  const observerRef = useRef<ResizeObserver | null>(null)
 
   useLayoutEffect(() => {
     const elements = Array.from(container.current?.querySelectorAll<HTMLElement>("[data-motion-id]") ?? [])
@@ -27,6 +30,24 @@ export function useListMotion(container: RefObject<HTMLElement | null>, enabled:
     const reordered = key !== order.current
     order.current = key
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const nodesChanged = elements.length !== renderedElements.current.length
+      || elements.some((element, index) => element !== renderedElements.current[index])
+    const layoutChanged = previousLayout.current !== layoutKey
+    previousLayout.current = layoutKey
+    if (nodesChanged) {
+      const previousNodes = new Set(renderedElements.current)
+      const nextNodes = new Set(elements)
+      previousNodes.forEach(element => { if (!nextNodes.has(element)) observerRef.current?.unobserve(element) })
+      nextNodes.forEach(element => { if (!previousNodes.has(element)) observerRef.current?.observe(element) })
+      renderedElements.current = elements
+    }
+    if (!enabled || reduced) {
+      animations.current.forEach(({ animation }) => animation.cancel())
+      animations.current.clear()
+    }
+    // 数据数值变化不影响布局时，避免同步读取全部可见行的 offset 链。
+    // 尺寸变化由观察器维护基线；列宽、密度与虚拟占位变化由调用方显式标记。
+    if (!reordered && !nodesChanged && !layoutChanged) return
     const next = new Map<string, Position>()
     const moves: Array<{ element: HTMLElement; id: string; x: number; y: number }> = []
     const origin = container.current ? layoutPosition(container.current) : { x: 0, y: 0 }
@@ -77,7 +98,9 @@ export function useListMotion(container: RefObject<HTMLElement | null>, enabled:
       })
     }
     const observer = new ResizeObserver(updateLayout)
+    observerRef.current = observer
     if (container.current) observer.observe(container.current)
+    renderedElements.current.forEach(element => observer.observe(element))
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)")
     const onMotionPreference = () => {
       if (!reduced.matches) return
@@ -88,6 +111,7 @@ export function useListMotion(container: RefObject<HTMLElement | null>, enabled:
     window.addEventListener("resize", updateLayout)
     return () => {
       observer.disconnect()
+      observerRef.current = null
       reduced.removeEventListener("change", onMotionPreference)
       window.removeEventListener("resize", updateLayout)
       motions.forEach(({ animation }) => animation.cancel())

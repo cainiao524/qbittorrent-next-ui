@@ -355,7 +355,6 @@ export function TorrentListView({
   const isMobile = useIsMobile()
   const location = useLocation()
   const tableRef = useRef<HTMLTableElement>(null)
-  useListMotion(tableRef, animateSortTransitions)
   const compact = density === "compact"
   const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
   const orderedVisibleColumns = useMemo(
@@ -392,6 +391,7 @@ export function TorrentListView({
     ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - scrollMargin))
     : 0
   const tableColumnCount = orderedVisibleColumns.length + 2
+  useListMotion(tableRef, animateSortTransitions, JSON.stringify([density, columnWidths, visibleColumns, paddingTop]))
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || !tableBodyRef.current) return

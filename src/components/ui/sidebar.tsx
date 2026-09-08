@@ -176,6 +176,7 @@ function Sidebar({
     return (
       <div
         data-slot="sidebar"
+        data-theme-surface
         className={cn(
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
           className
@@ -207,7 +208,7 @@ function Sidebar({
             <SheetTitle>{t("ui.sidebar")}</SheetTitle>
             <SheetDescription>{t("ui.sidebar_desc")}</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div data-theme-surface className="flex h-full w-full flex-col bg-sidebar">{children}</div>
         </SheetContent>
       </Sheet>
     )
@@ -250,6 +251,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
+          data-theme-surface
           className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border"
         >
           {children}
