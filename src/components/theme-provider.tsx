@@ -12,13 +12,31 @@ function ThemeProvider({
       attribute="class"
       defaultTheme="system"
       enableSystem
-      disableTransitionOnChange
       {...props}
     >
+      <ThemeMotion />
       <ThemeHotkey />
       {children}
     </NextThemesProvider>
   )
+}
+
+// 首次主题落定后才启用颜色过渡，避免加载时从默认主题渐变。
+function ThemeMotion() {
+  React.useEffect(() => {
+    let readyFrame = 0
+    const frame = requestAnimationFrame(() => {
+      readyFrame = requestAnimationFrame(() => {
+        document.documentElement.dataset.themeMotion = "ready"
+      })
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(readyFrame)
+      delete document.documentElement.dataset.themeMotion
+    }
+  }, [])
+  return null
 }
 
 function isTypingTarget(target: EventTarget | null) {

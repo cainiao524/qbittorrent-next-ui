@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
 import { useListMotion } from "@/hooks/use-list-motion"
 import { useAppSettings } from "@/lib/app-settings-context"
@@ -73,8 +73,9 @@ export function TorrentGridView({
         key: virtualRow.key,
         index: virtualRow.index,
         offset: virtualRow.start - scrollMargin,
+        end: virtualRow.end - scrollMargin,
       }))
-    : torrentRows.map((_, index) => ({ key: getVirtualRowKey(index), index, offset: null }))
+    : torrentRows.map((_, index) => ({ key: getVirtualRowKey(index), index, offset: null, end: 0 }))
 
   useEffect(() => {
     const updateColumnCount = () => setColumnCount((current) => {
@@ -95,43 +96,42 @@ export function TorrentGridView({
     if (shouldVirtualize) rowVirtualizer.measure()
   }, [columnCount, rowVirtualizer, shouldVirtualize])
 
+  // 所有卡片保持同一个父节点，跨行排序不卸载卡片或重播入场动画。
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !gridRef.current) return
+    const cards = Array.from(gridRef.current.querySelectorAll<HTMLElement>("[data-grid-row]"))
+    const measureRows = () => {
+      const heights = new Map<number, number>()
+      for (const card of cards) {
+        const row = Number(card.dataset.gridRow)
+        heights.set(row, Math.max(heights.get(row) ?? 0, card.offsetHeight))
+      }
+      for (const [row, height] of heights) {
+        if (height > 0) rowVirtualizer.resizeItem(row, height + 24)
+      }
+    }
+    measureRows()
+    const observer = new ResizeObserver(measureRows)
+    cards.forEach(card => observer.observe(card))
+    return () => observer.disconnect()
+  })
+
   return (
     <>
     <div
       ref={gridRef}
       data-grid-virtualized={shouldVirtualize ? "true" : "false"}
-      className={cn(shouldVirtualize ? "relative" : "space-y-6")}
-      style={shouldVirtualize ? { height: `${rowVirtualizer.getTotalSize()}px` } : undefined}
+      className="relative grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      style={shouldVirtualize ? {
+        paddingTop: renderedRows[0]?.offset ?? 0,
+        paddingBottom: Math.max(0, rowVirtualizer.getTotalSize() - (renderedRows.at(-1)?.end ?? 0)) + 24,
+      } : undefined}
     >
-      {renderedRows.map((renderedRow) => (
-        <div
-          key={renderedRow.key}
-          data-index={renderedRow.index}
-          ref={shouldVirtualize ? rowVirtualizer.measureElement : undefined}
-          className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", shouldVirtualize && "pb-6")}
-          style={renderedRow.offset === null ? undefined : {
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            transform: `translateY(${renderedRow.offset}px)`,
-          }}
-        >
-      {torrentRows[renderedRow.index].map(({ torrent, index }) => {
+      {renderedRows.flatMap(renderedRow => torrentRows[renderedRow.index]).map(({ torrent, index }) => {
         const { progressRatio, completedSelected, selectedSize, totalSize, selectionRatio, isPartialDownload } = getTorrentProgressMetrics(torrent)
         return (
-        <Card
-          key={torrent.id}
-          data-grid-card
-          data-motion-id={torrent.id}
-          className={cn(
-            "group relative h-full shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
-            index < 12 && "animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"
-          )}
-          style={{
-            ...(index < 12 ? { animationDelay: `${Math.min(index, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both" } : {}),
-          }}
-        >
+        <div key={torrent.id} data-motion-id={torrent.id} data-grid-row={Math.floor(index / columnCount)} className="min-w-0">
+        <TorrentGridCard initialIndex={index}>
           <CardHeader className="pb-3 pt-4 border-b border-muted/50 bg-background/50">
             <div className="min-w-0 space-y-1">
               <Link to={`/torrents/detail?id=${torrent.id}`} state={{ fromListPath: location.pathname }} className="block group-hover:text-primary transition-colors">
@@ -252,14 +252,29 @@ export function TorrentGridView({
               )}
             </div>
           </CardFooter>
-        </Card>
+        </TorrentGridCard>
+        </div>
         )
       })}
-        </div>
-      ))}
     </div>
     <EditTorrentDialog torrent={editingTorrent} onClose={closeEdit} onSuccess={onAdvancedSuccess} />
     </>
+  )
+}
+
+function TorrentGridCard({ initialIndex, children }: { initialIndex: number; children: ReactNode }) {
+  const [entranceIndex] = useState(initialIndex)
+  return (
+    <Card
+      data-grid-card
+      className={cn(
+        "group relative h-full shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-[translate,background-color,color,box-shadow] duration-180 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
+        entranceIndex < 12 && "animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none",
+      )}
+      style={entranceIndex < 12 ? {
+        animationDelay: `${Math.min(entranceIndex, 6) * 12}ms`, animationDuration: "160ms", animationFillMode: "both",
+      } : undefined}
+    >{children}</Card>
   )
 }
 

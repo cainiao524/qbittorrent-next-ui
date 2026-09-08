@@ -149,6 +149,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [showSelectionToolbar, setShowSelectionToolbar] = useState(false)
+  const [toolbarCount, setToolbarCount] = useState(0)
 
   const {
     visibleColumns,
@@ -172,7 +173,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
 
   useEffect(() => {
     const timer = setTimeout(
-      () => setShowSelectionToolbar(selectedIds.length > 0),
+      () => {
+        setShowSelectionToolbar(selectedIds.length > 0)
+        if (selectedIds.length > 0) setToolbarCount(selectedIds.length)
+      },
       selectedIds.length > 0 ? 0 : 200,
     )
     return () => clearTimeout(timer)
@@ -637,6 +641,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       {showSelectionToolbar && (
         <div
           data-state={selectedIds.length > 0 ? "open" : "closed"}
+          style={{ animationFillMode: "both" }}
           aria-hidden={selectedIds.length === 0}
           inert={selectedIds.length === 0}
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
@@ -646,7 +651,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
             <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
               <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
-                {selectedIds.length}
+                {selectedIds.length || toolbarCount}
               </div>
               <span className="text-sm font-bold tracking-tight hidden lg:inline">{t('common.selected')}</span>
             </div>

@@ -209,7 +209,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 space-y-6 lg:space-y-8 animate-in slide-in-from-right-4 duration-500">
+          <div key={activeTab} className="flex-1 space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none" style={{ animationFillMode: "both" }}>
 
             {activeTab === "general" && (
               <div className="space-y-6">
@@ -533,29 +533,42 @@ export default function SettingsPage() {
                   <CardContent className="p-5 pt-0 space-y-8">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <button
+                         type="button"
+                         role="switch"
+                         aria-checked={getAutoRefresh()}
+                         aria-label={t("settings.page.auto_refresh")}
+                         aria-describedby="auto-refresh-description"
                          onClick={() => setPendingAutoRefresh(!getAutoRefresh())}
                          className={cn(
-                           "p-5 rounded-2xl border transition-all text-left flex flex-col gap-3 group relative overflow-hidden",
+                           "p-5 rounded-2xl border transition-all text-left flex flex-col gap-3 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                            getAutoRefresh()
                              ? "bg-primary/10 border-primary shadow-sm"
                              : "bg-muted/30 border-transparent hover:bg-muted/50"
                          )}
                        >
-                         <div className="flex items-center justify-between w-full">
-                           <div className={cn(
+                         <span className="flex items-center justify-between w-full">
+                           <span className={cn(
                              "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
                              getAutoRefresh() ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                            )}>
                              <RefreshCw className={cn("h-5 w-5", getAutoRefresh() && "animate-spin-slow")} />
-                           </div>
-                           <Toggle localValue={getAutoRefresh()} setLocalValue={setPendingAutoRefresh} />
-                         </div>
-                         <div>
-                           <p className="text-sm font-bold tracking-tight">{t('settings.page.auto_refresh')}</p>
-                           <p className="text-[10px] text-muted-foreground/60 italic leading-relaxed mt-1">
+                           </span>
+                           <span aria-hidden="true" className={cn(
+                             "h-6 w-11 shrink-0 rounded-full transition-colors duration-300 relative",
+                             getAutoRefresh() ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.45)]" : "bg-muted ring-1 ring-border",
+                           )}>
+                             <span className={cn(
+                               "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 motion-reduce:transition-none",
+                               getAutoRefresh() && "translate-x-5",
+                             )} />
+                           </span>
+                         </span>
+                         <span>
+                           <span className="block text-sm font-bold tracking-tight">{t('settings.page.auto_refresh')}</span>
+                           <span id="auto-refresh-description" className="block text-[10px] text-muted-foreground/60 italic leading-relaxed mt-1">
                              {t('settings.page.auto_refresh_desc')}
-                           </p>
-                         </div>
+                           </span>
+                         </span>
                        </button>
 
                        <div className={cn(

@@ -318,3 +318,15 @@
     transform: rotate(360deg);
   }
 }
+
+/* 基础颜色过渡不覆盖组件已有的位移、透明度和进度动画。 */
+@layer base {
+  html[data-theme-motion="ready"],
+  html[data-theme-motion="ready"] *,
+  html[data-theme-motion="ready"] *::before,
+  html[data-theme-motion="ready"] *::after {
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+}

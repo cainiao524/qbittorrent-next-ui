@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
 import { useListMotion } from "@/hooks/use-list-motion"
 import { Link, useLocation } from "react-router-dom"
@@ -364,11 +364,8 @@ export function TorrentListView({
       .filter((column): column is ColumnConfig & { label: string } => Boolean(column)),
     [visibleColumns, allColumns]
   )
-  const rowAnimationKey = animateSortTransitions
-    ? `${listTransitionKey}-${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
-    : listTransitionKey
-  const [previousRowAnimationKey, setPreviousRowAnimationKey] = useState(rowAnimationKey)
-  const animateRows = enableRowEntrance || previousRowAnimationKey !== rowAnimationKey
+  const rowAnimationKey = listTransitionKey
+  const animateRows = enableRowEntrance
   const tableBodyRef = useRef<HTMLTableSectionElement>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
   const shouldVirtualize = paginatedTorrents.length >= 50
@@ -395,10 +392,6 @@ export function TorrentListView({
     ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - scrollMargin))
     : 0
   const tableColumnCount = orderedVisibleColumns.length + 2
-
-  useEffect(() => {
-    setPreviousRowAnimationKey(rowAnimationKey)
-  }, [rowAnimationKey])
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || !tableBodyRef.current) return
