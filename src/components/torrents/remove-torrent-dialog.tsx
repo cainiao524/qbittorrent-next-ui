@@ -18,6 +18,7 @@ interface RemoveTorrentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (deleteLocalData: boolean) => Promise<void>
+  onCloseComplete?: () => void
   count: number
 }
 
@@ -26,6 +27,7 @@ export function RemoveTorrentDialog({
   onOpenChange,
   onConfirm,
   count,
+  onCloseComplete,
 }: RemoveTorrentDialogProps) {
   const { t } = useI18n()
   const [deleteLocalData, setDeleteLocalData] = React.useState(false)
@@ -40,16 +42,20 @@ export function RemoveTorrentDialog({
   }, [open])
 
   const handleConfirm = async () => {
+    if (isSubmitting) return
     setIsSubmitting(true)
     try {
       await onConfirm(deleteLocalData)
-    } finally {
+    } catch {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!isSubmitting) onOpenChange(next) }} onCloseComplete={() => {
+      setIsSubmitting(false)
+      onCloseComplete?.()
+    }}>
       <DialogContent className="sm:max-w-[460px] rounded-3xl border-none bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="gap-2 shrink-0">
           <DialogTitle className="text-2xl font-medium tracking-tight flex items-center gap-3 text-destructive">

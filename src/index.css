@@ -318,3 +318,12 @@
     transform: rotate(360deg);
   }
 }
+
+/* 仅标记的背景表面参与主题渐变，不让文字、单元格和 SVG 子节点逐个插值。
+   独立声明时长，避免入场动画的 duration 工具类改变主题渐变节奏。 */
+html[data-theme-motion="ready"] [data-theme-surface] {
+  transition-property: background-color;
+  transition-duration: 180ms;
+  transition-delay: 0s;
+  transition-timing-function: ease-out;
+}

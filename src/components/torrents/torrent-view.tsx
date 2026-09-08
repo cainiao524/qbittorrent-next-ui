@@ -54,7 +54,8 @@ import {
   type BatchTorrentAction,
   type SingleTorrentAction,
 } from "@/lib/torrent-actions"
-import { selectTorrentRange, sortTorrents, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { selectTorrentRange, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { useSortedTorrents } from "@/hooks/use-sorted-torrents"
 import type { TorrentId } from "@/lib/rpc-types"
 
 type CardColor = "green" | "blue" | "orange" | "purple"
@@ -148,6 +149,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [showSelectionToolbar, setShowSelectionToolbar] = useState(false)
+  const [toolbarCount, setToolbarCount] = useState(0)
 
   const {
     visibleColumns,
@@ -171,7 +173,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
 
   useEffect(() => {
     const timer = setTimeout(
-      () => setShowSelectionToolbar(selectedIds.length > 0),
+      () => {
+        setShowSelectionToolbar(selectedIds.length > 0)
+        if (selectedIds.length > 0) setToolbarCount(selectedIds.length)
+      },
       selectedIds.length > 0 ? 0 : 200,
     )
     return () => clearTimeout(timer)
@@ -264,10 +269,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
         setSelectedIds(prev => prev.filter(id => !idsToDelete.includes(id)))
       }
       setIsDeleteDialogOpen(false)
-      setIdsToDelete([])
       fetchData()
-    } catch {
+    } catch (error) {
       toast.error(t('common.action_failed', 'Action Failed'))
+      throw error
     }
   }
 
@@ -288,7 +293,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     setSortConfig(direction === null ? null : { key, direction })
   }
 
-  const sortedTorrents = useMemo(() => sortTorrents(filteredTorrents, sortConfig), [filteredTorrents, sortConfig])
+  const sortedTorrents = useSortedTorrents(filteredTorrents, sortConfig)
   const sortedIdsRef = useRef<TorrentId[]>([])
 
   useEffect(() => {
@@ -399,13 +404,13 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           key={stats && !isInitialLoading ? "stats-ready" : "stats-loading"}
           className={cn(
             "p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm mb-2",
-            stats && !isInitialLoading && "animate-in fade-in slide-in-from-top-3 duration-300 motion-reduce:animate-none"
+            stats && !isInitialLoading && "transition-none animate-in fade-in slide-in-from-top-3 duration-300 motion-reduce:animate-none"
           )}
           style={stats && !isInitialLoading ? { animationFillMode: "both" } : undefined}
         >
           {stats && !isInitialLoading ? (
           <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
-            <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
+            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
               <StatCard
                 color="green"
                 icon={<ArrowDown className="h-5 w-5" />}
@@ -417,7 +422,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
                 onClick={() => setClickedCard(clickedCard === "download" ? null : "download")}
               />
             </div>
-            <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "15ms", animationFillMode: "both" }}>
+            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "15ms", animationFillMode: "both" }}>
               <StatCard
                 color="blue"
                 icon={<ArrowUp className="h-5 w-5" />}
@@ -429,7 +434,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
                 onClick={() => setClickedCard(clickedCard === "upload" ? null : "upload")}
               />
             </div>
-            <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "30ms", animationFillMode: "both" }}>
+            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "30ms", animationFillMode: "both" }}>
               <StatCard
                 color="orange"
                 icon={<Activity className="h-5 w-5" />}
@@ -442,7 +447,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
               />
             </div>
             {freeSpace ? (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "45ms", animationFillMode: "both" }}>
+              <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "45ms", animationFillMode: "both" }}>
                 <StatCard
                   color="purple"
                   icon={<Database className="h-5 w-5" />}
@@ -459,7 +464,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             )}
           </div>
         ) : (
-          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4 animate-in fade-in duration-200 motion-reduce:animate-none">
+          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4 transition-none animate-in fade-in duration-200 motion-reduce:animate-none">
             {[0, 1, 2, 3].map((item) => (
               <div key={item} className="skeleton-gradient h-20 rounded-[2rem] bg-muted/30" />
             ))}
@@ -469,7 +474,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       )}
       {showStats && showSpeedChart && (
         stats && !isInitialLoading ? (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none" style={{ animationDelay: "35ms", animationFillMode: "both" }}><SpeedHistoryChart stats={stats} /></div>
+          <div className="transition-none animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none" style={{ animationDelay: "35ms", animationFillMode: "both" }}><SpeedHistoryChart stats={stats} /></div>
         ) : (
           <div className="skeleton-gradient h-72 rounded-3xl border border-muted/30 bg-muted/20" />
         )
@@ -636,16 +641,17 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       {showSelectionToolbar && (
         <div
           data-state={selectedIds.length > 0 ? "open" : "closed"}
+          style={{ animationFillMode: "both" }}
           aria-hidden={selectedIds.length === 0}
           inert={selectedIds.length === 0}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:transition-none animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
         >
           <div className="relative min-w-0 md:min-w-[400px] rounded-[2.5rem] border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)]">
             <div className="selected-toolbar-bg absolute inset-0 rounded-[2.5rem] bg-background/80" />
             <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
             <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
               <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
-                {selectedIds.length}
+                {selectedIds.length || toolbarCount}
               </div>
               <span className="text-sm font-bold tracking-tight hidden lg:inline">{t('common.selected')}</span>
             </div>
@@ -725,6 +731,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
+        onCloseComplete={() => setIdsToDelete([])}
         count={idsToDelete.length}
       />
 

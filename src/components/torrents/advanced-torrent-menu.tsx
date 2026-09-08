@@ -66,7 +66,7 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
     return rpc.setAutoManagement(ids, value)
   }, value ? t("advanced_menu.enabled") : t("advanced_menu.disabled"))
 
-  const BooleanSubmenu = ({ label, action }: { label: string; action: BooleanAction }) => (
+  const renderBooleanSubmenu = (label: string, action: BooleanAction) => (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
@@ -90,7 +90,6 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
       onSuccess?.()
     } catch (error) {
       toast.error(t("advanced_menu.paths_failed"), { description: error instanceof Error ? error.message : undefined })
-    } finally {
       setBusy(false)
     }
   }
@@ -146,11 +145,11 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
             </>
           ) : (
             <>
-              <BooleanSubmenu label={t("advanced_menu.force_start")} action="force" />
+              {renderBooleanSubmenu(t("advanced_menu.force_start"), "force")}
               <DropdownMenuItem onClick={() => void run(() => rpc.toggleSequentialDownload(ids), t("advanced_menu.sequential_changed"))}>{t("advanced_menu.toggle_sequential")}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => void run(() => rpc.toggleFirstLastPiecePriority(ids), t("advanced_menu.first_last_changed"))}>{t("advanced_menu.toggle_first_last")}</DropdownMenuItem>
-              <BooleanSubmenu label={t("advanced_menu.super_seeding")} action="super" />
-              <BooleanSubmenu label={t("advanced_menu.auto_management")} action="auto" />
+              {renderBooleanSubmenu(t("advanced_menu.super_seeding"), "super")}
+              {renderBooleanSubmenu(t("advanced_menu.auto_management"), "auto")}
             </>
           )}
           <DropdownMenuSeparator />
@@ -165,7 +164,7 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={pathOpen} onOpenChange={setPathOpen}>
+      <Dialog open={pathOpen} onOpenChange={(next) => { if (!busy) setPathOpen(next) }} onCloseComplete={() => setBusy(false)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5 text-primary" />{t("advanced_menu.path_title")}</DialogTitle>
@@ -183,7 +182,7 @@ export function AdvancedTorrentMenu({ ids, torrent, onSuccess, onExport, trigger
             {ids.length > 1 && <p className="text-xs text-amber-600 dark:text-amber-400">{t("advanced_menu.batch_path_warning", { count: ids.length })}</p>}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPathOpen(false)}>{t("common.cancel")}</Button>
+            <Button variant="ghost" disabled={busy} onClick={() => setPathOpen(false)}>{t("common.cancel")}</Button>
             <Button disabled={busy} onClick={() => void savePaths()}>{busy ? t("advanced_menu.saving") : t("advanced_menu.save_paths")}</Button>
           </DialogFooter>
         </DialogContent>

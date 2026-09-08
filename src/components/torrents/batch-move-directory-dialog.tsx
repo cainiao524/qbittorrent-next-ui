@@ -35,6 +35,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
   const [newDir, setNewDir] = React.useState("")
   const [isSearching, setIsSearching] = React.useState(false)
   const [isMoving, setIsMoving] = React.useState(false)
+  const [submitted, setSubmitted] = React.useState(false)
   const [matchingTorrents, setMatchingTorrents] = React.useState<MatchingTorrent[]>([])
   const [availableDirs, setAvailableDirs] = React.useState<string[]>([])
   const [step, setStep] = React.useState<"input" | "confirm">("input")
@@ -104,29 +105,26 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
       await rpc.setTorrentLocation(ids, targetNewDir, true)
 
       toast.success(t('common.move_directory_success', { count: matchingTorrents.length }))
+      setSubmitted(true)
       onOpenChange(false)
       onSuccess?.()
-      setStep("input")
-      setOldDir("")
-      setNewDir("")
-      setMatchingTorrents([])
     } catch (error) {
       console.error("Batch move failed:", error)
       toast.error(t('common.action_failed'))
-    } finally {
       setIsMoving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => {
-        if (!isMoving) {
-            onOpenChange(v)
-            if (!v) {
-                setStep("input")
-                setMatchingTorrents([])
-            }
-        }
+    <Dialog open={open} onOpenChange={(value) => { if (!isMoving) onOpenChange(value) }} onCloseComplete={() => {
+      setStep("input")
+      if (submitted) {
+        setOldDir("")
+        setNewDir("")
+      }
+      setSubmitted(false)
+      setMatchingTorrents([])
+      setIsMoving(false)
     }}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl bg-card border border-muted/20 p-0 overflow-hidden flex flex-col max-h-[calc(100svh-2rem)]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-muted/50 bg-muted/20 shrink-0">

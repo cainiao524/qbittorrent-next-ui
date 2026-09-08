@@ -17,20 +17,19 @@ function Dialog({ open, defaultOpen, onOpenChange, onCloseComplete, ...props }: 
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
   const requestedOpen = open ?? uncontrolledOpen
   const [renderedOpen, setRenderedOpen] = React.useState(requestedOpen)
-  const [closing, setClosing] = React.useState(false)
+  // 只有受控状态真正接受关闭后才退场，关闭期间绝不切回入场样式。
+  const closing = !requestedOpen
+  const completeClose = React.useEffectEvent(() => onCloseComplete?.())
 
   React.useEffect(() => {
     let exitTimer: ReturnType<typeof setTimeout> | undefined
     const stateTimer = setTimeout(() => {
       if (requestedOpen) {
         setRenderedOpen(true)
-        setClosing(false)
       } else if (renderedOpen) {
-        setClosing(true)
         exitTimer = setTimeout(() => {
           setRenderedOpen(false)
-          setClosing(false)
-          onCloseComplete?.()
+          completeClose()
         }, 200)
       }
     }, 0)
@@ -39,11 +38,10 @@ function Dialog({ open, defaultOpen, onOpenChange, onCloseComplete, ...props }: 
       clearTimeout(stateTimer)
       if (exitTimer) clearTimeout(exitTimer)
     }
-  }, [onCloseComplete, renderedOpen, requestedOpen])
+  }, [renderedOpen, requestedOpen])
 
   const handleOpenChange = (next: boolean) => {
     if (open === undefined) setUncontrolledOpen(next)
-    setClosing(!next)
     onOpenChange?.(next)
   }
 
@@ -74,6 +72,7 @@ function DialogClose({
 
 function DialogOverlay({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   const closing = React.useContext(DialogMotionContext)
@@ -81,8 +80,9 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       data-closing={closing}
+      style={{ ...style, animationFillMode: "both" }}
       className={cn(
-        "fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 duration-200 motion-reduce:animate-none",
+        "fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 duration-200 [animation-fill-mode:both] motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -93,6 +93,7 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  style,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   const { t } = useI18n()
@@ -103,8 +104,9 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         data-closing={closing}
+        style={{ ...style, animationFillMode: "both" }}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border bg-background p-6 shadow-2xl sm:max-w-[480px] data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=false]:zoom-in-95 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 data-[closing=true]:zoom-out-95 duration-200 motion-reduce:animate-none",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border bg-background p-6 shadow-2xl sm:max-w-[480px] data-[closing=false]:animate-in data-[closing=false]:fade-in-0 data-[closing=false]:zoom-in-95 data-[closing=true]:animate-out data-[closing=true]:fade-out-0 data-[closing=true]:zoom-out-95 duration-200 [animation-fill-mode:both] motion-reduce:animate-none",
           className
         )}
         {...props}

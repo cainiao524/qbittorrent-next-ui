@@ -1,7 +1,8 @@
 "use client"
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
+import { useListMotion } from "@/hooks/use-list-motion"
 import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -250,6 +251,7 @@ const TorrentRow = memo(function TorrentRow({
 
   return (
     <TableRow
+      data-motion-id={torrent.id}
       key={`${rowAnimationKey}-${torrent.id}`}
       className={cn(
         "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row",
@@ -361,11 +363,8 @@ export function TorrentListView({
       .filter((column): column is ColumnConfig & { label: string } => Boolean(column)),
     [visibleColumns, allColumns]
   )
-  const rowAnimationKey = animateSortTransitions
-    ? `${listTransitionKey}-${sortConfig?.key ?? "default"}-${sortConfig?.direction ?? "none"}`
-    : listTransitionKey
-  const [previousRowAnimationKey, setPreviousRowAnimationKey] = useState(rowAnimationKey)
-  const animateRows = enableRowEntrance || previousRowAnimationKey !== rowAnimationKey
+  const rowAnimationKey = listTransitionKey
+  const animateRows = enableRowEntrance
   const tableBodyRef = useRef<HTMLTableSectionElement>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
   const shouldVirtualize = paginatedTorrents.length >= 50
@@ -392,10 +391,7 @@ export function TorrentListView({
     ? Math.max(0, rowVirtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - scrollMargin))
     : 0
   const tableColumnCount = orderedVisibleColumns.length + 2
-
-  useEffect(() => {
-    setPreviousRowAnimationKey(rowAnimationKey)
-  }, [rowAnimationKey])
+  useListMotion(tableRef, animateSortTransitions, JSON.stringify([density, columnWidths, visibleColumns, paddingTop]))
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || !tableBodyRef.current) return

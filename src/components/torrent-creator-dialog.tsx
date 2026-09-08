@@ -46,6 +46,7 @@ export function TorrentCreatorDialog({ children }: { children: React.ReactNode }
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState<TorrentCreatorArgs>(initialForm)
   const [creating, setCreating] = React.useState(false)
+  const [created, setCreated] = React.useState(false)
   const [progress, setProgress] = React.useState(0)
 
   const update = <K extends keyof TorrentCreatorArgs>(key: K, value: TorrentCreatorArgs[K]) => {
@@ -76,19 +77,24 @@ export function TorrentCreatorDialog({ children }: { children: React.ReactNode }
       const result = await rpc.downloadCreatedTorrent(taskID)
       downloadBlob(result.blob, result.filename)
       toast.success(t("creator.create_success", "种子创建完成并已下载"))
+      setCreated(true)
       setOpen(false)
-      setForm(initialForm)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("creator.create_failed", "创建种子失败"))
-    } finally {
-      if (taskID) await rpc.deleteTorrentCreatorTask(taskID).catch(() => undefined)
       setCreating(false)
       setProgress(0)
+    } finally {
+      if (taskID) await rpc.deleteTorrentCreatorTask(taskID).catch(() => undefined)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !creating && setOpen(nextOpen)}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !creating && setOpen(nextOpen)} onCloseComplete={() => {
+      if (created) setForm(initialForm)
+      setCreated(false)
+      setCreating(false)
+      setProgress(0)
+    }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-h-[92svh] overflow-y-auto border-none bg-background/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-2xl">
         <DialogHeader className="border-b border-muted/30 px-6 pb-5 pt-6">

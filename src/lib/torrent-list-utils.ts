@@ -1,4 +1,5 @@
 import { getStatusLabel } from "./formatters.ts"
+import { sortTorrentEntries } from "./torrent-sort"
 import type { Torrent } from "./rpc-types.ts"
 import { getTorrentLabelsSortValue, parseTorrentLabel } from "./torrent-labels.ts"
 
@@ -137,14 +138,10 @@ export function sortTorrents(torrents: Torrent[], sortConfig: SortConfig | null)
 
   const { key, direction } = sortConfig
 
-  return [...torrents].sort((a, b) => {
-    const valueA = getTorrentSortValue(a, key)
-    const valueB = getTorrentSortValue(b, key)
-
-    if (valueA < valueB) return direction === "asc" ? -1 : 1
-    if (valueA > valueB) return direction === "asc" ? 1 : -1
-    return 0
-  })
+  // 每条任务只计算一次派生排序键，避免标签等字段在比较中重复转换。
+  return sortTorrentEntries(torrents.map(torrent => ({
+    id: torrent.id, value: getTorrentSortValue(torrent, key), torrent,
+  })), direction).map(entry => entry.torrent)
 }
 
 export function selectTorrentRange(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useCallback, Suspense } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import { TorrentPieceMap } from "@/components/torrents/torrent-piece-map"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties-panel"
 
+import { useRefreshScheduler } from "@/hooks/use-refresh-scheduler"
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
@@ -95,11 +96,12 @@ function TorrentDetailsContent() {
   const [torrent, setTorrent] = useState<Torrent | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteSucceeded, setDeleteSucceeded] = useState(false)
   const [updatingFileIds, setUpdatingFileIds] = useState<Set<number>>(new Set())
   const [pieceStates, setPieceStates] = useState<TorrentPieceState[]>([])
   const [pieceStatesLoading, setPieceStatesLoading] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  const loadDetails = useCallback(async (signal: AbortSignal) => {
     if (!idValue) return
     try {
       const id = idValue
@@ -108,7 +110,8 @@ function TorrentDetailsContent() {
         ...BASE_TORRENT_FIELDS,
         ...(TAB_TORRENT_FIELDS[activeTab] ?? []),
       ] as string[]
-      const torrentsData = await rpc.getTorrents(fields, [id])
+      const torrentsData = await (rpc.withSignal?.(signal) ?? rpc).getTorrents(fields, [id])
+      if (signal.aborted) return
 
       if (torrentsData.torrents.length > 0) {
         const nextTorrent = torrentsData.torrents[0]
@@ -124,57 +127,28 @@ function TorrentDetailsContent() {
           return merged
         })
       }
-    } catch (err) {
-      console.error("Failed to fetch torrent details:", err)
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [activeTab, idValue])
 
   const { refreshInterval, autoRefresh } = useAppSettings()
 
-  useEffect(() => {
-    fetchData()
-    if (!autoRefresh) return
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const schedule = () => {
-      timer = setTimeout(async () => {
-        await fetchData()
-        if (!cancelled) schedule()
-      }, refreshInterval)
+  const fetchData = useRefreshScheduler(loadDetails,
+    activeTab === "peers" ? Math.max(refreshInterval, 5000) :
+    activeTab === "trackers" ? Math.max(refreshInterval, 10000) : refreshInterval,
+    autoRefresh)
+  const loadPieces = useCallback(async (signal: AbortSignal) => {
+    if (!idValue) return
+    setPieceStatesLoading(true)
+    try {
+      const states = await (rpc.withSignal?.(signal) ?? rpc).getTorrentPieceStates(idValue)
+      if (!signal.aborted) setPieceStates(states)
+    } finally {
+      if (!signal.aborted) setPieceStatesLoading(false)
     }
-    schedule()
-    return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [fetchData, refreshInterval, autoRefresh])
-
-  useEffect(() => {
-    if (activeTab !== "general" || !idValue) return
-    let cancelled = false
-    const loadPieceStates = async () => {
-      setPieceStatesLoading(true)
-      try {
-        const states = await rpc.getTorrentPieceStates(idValue)
-        if (!cancelled) setPieceStates(states)
-      } catch (error) {
-        console.error("Failed to fetch torrent piece states:", error)
-      } finally {
-        if (!cancelled) setPieceStatesLoading(false)
-      }
-    }
-
-    void loadPieceStates()
-    if (!autoRefresh) return () => { cancelled = true }
-    const timer = setInterval(() => void loadPieceStates(), Math.max(refreshInterval, 30_000))
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [activeTab, autoRefresh, idValue, refreshInterval])
+  }, [idValue])
+  useRefreshScheduler(loadPieces, Math.max(refreshInterval, 30000), autoRefresh, activeTab === "general" && !!idValue)
 
   if (loading && !torrent) {
     return (
@@ -226,10 +200,11 @@ function TorrentDetailsContent() {
     if (!tor) return
     try {
       await rpc.removeTorrents([tor.id], deleteLocalData)
+      setDeleteSucceeded(true)
       setIsDeleteDialogOpen(false)
-      navigate("/")
     } catch (err) {
       console.error("Failed to remove torrent:", err)
+      throw err
     }
   }
 
@@ -257,7 +232,7 @@ function TorrentDetailsContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-top-2 duration-300 ease-out">
+    <div className="flex flex-col gap-6 transition-none animate-in fade-in slide-in-from-top-2 duration-300 ease-out">
       {/* Header Section */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 overflow-hidden">
@@ -421,7 +396,7 @@ function TorrentDetailsContent() {
         <Card className={activeTab === "files" ? "gap-0 overflow-visible rounded-2xl border-none bg-transparent py-0 shadow-none ring-0" : "min-h-[400px] overflow-hidden border-none border border-muted/10 bg-card/60 py-0 shadow-2xl backdrop-blur-lg"}>
           <CardContent className={activeTab === "files" ? "overflow-visible p-0" : "overflow-x-auto p-0 no-scrollbar"}>
             {activeTab === "general" && (
-              <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 animate-in fade-in slide-in-from-left-4 duration-500 motion-reduce:animate-none">
+              <div className="p-5 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 transition-none animate-in fade-in slide-in-from-left-4 duration-500 motion-reduce:animate-none">
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-[10px] md:text-xs font-medium uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2 border-b border-muted/10 pb-2">
@@ -504,7 +479,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "files" && (
-              <div className="animate-in fade-in slide-in-from-right-2 duration-300 motion-reduce:animate-none">
+              <div className="transition-none animate-in fade-in slide-in-from-right-2 duration-300 motion-reduce:animate-none">
                 {tor.files === undefined ? (
                   <div className="flex min-h-48 items-center justify-center">
                     <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
@@ -522,7 +497,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "trackers" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-w-[700px] md:min-w-0 motion-reduce:animate-none">
+              <div className="transition-none animate-in fade-in slide-in-from-bottom-4 duration-500 min-w-[700px] md:min-w-0 motion-reduce:animate-none">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
@@ -549,7 +524,7 @@ function TorrentDetailsContent() {
             )}
 
             {activeTab === "peers" && (
-              <div className="animate-in fade-in slide-in-from-top-4 duration-500 min-w-[820px] md:min-w-0 motion-reduce:animate-none">
+              <div className="transition-none animate-in fade-in slide-in-from-top-4 duration-500 min-w-[820px] md:min-w-0 motion-reduce:animate-none">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent border-none">
@@ -588,6 +563,7 @@ function TorrentDetailsContent() {
       <RemoveTorrentDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
+        onCloseComplete={() => { if (deleteSucceeded) navigate("/") }}
         onConfirm={confirmDelete}
         count={1}
       />

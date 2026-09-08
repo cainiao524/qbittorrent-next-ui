@@ -191,12 +191,18 @@ function mapSummary(raw: QbtTorrentInfo): Torrent {
 }
 
 class QBittorrentRPC {
+  private requestSignal?: AbortSignal
+
+  withSignal(signal: AbortSignal): QBittorrentRPC {
+    return Object.assign(Object.create(this) as QBittorrentRPC, { requestSignal: signal })
+  }
   private baseUrl = (import.meta.env.VITE_QBITTORRENT_API_URL || "/api/v2").replace(/\/$/, "")
 
   private async fetch(path: string, init?: RequestInit): Promise<Response> {
     const response = await window.fetch(`${this.baseUrl}${path}`, {
       credentials: "include",
       ...init,
+      signal: this.requestSignal ? AbortSignal.any([this.requestSignal, AbortSignal.timeout(10000)]) : init?.signal,
     })
     if (!response.ok) {
       const detail = await response.text().catch(() => "")
@@ -393,16 +399,16 @@ class QBittorrentRPC {
     return {}
   }
 
-  async getStats() {
+  async getStats(snapshot?: Torrent[]) {
     const [transfer, torrents] = await Promise.all([
       this.get<QbtTransferInfo>("/transfer/info"),
-      this.get<QbtTorrentInfo[]>("/torrents/info"),
+      snapshot ? Promise.resolve(snapshot) : this.getTorrents([]).then(result => result.torrents),
     ])
     const current = { downloadedBytes: transfer.dl_info_data ?? 0, uploadedBytes: transfer.up_info_data ?? 0, filesAdded: torrents.length, sessionCount: 1, secondsActive: 0 }
     return {
-      activeTorrentCount: torrents.filter((item) => item.dlspeed > 0 || item.upspeed > 0).length,
+      activeTorrentCount: torrents.filter((item) => item.rateDownload > 0 || item.rateUpload > 0).length,
       downloadSpeed: transfer.dl_info_speed ?? 0,
-      pausedTorrentCount: torrents.filter((item) => STOPPED_STATES.has(item.state)).length,
+      pausedTorrentCount: torrents.filter((item) => item.status === TorrentStatus.STOPPED).length,
       torrentCount: torrents.length,
       uploadSpeed: transfer.up_info_speed ?? 0,
       "current-stats": current,

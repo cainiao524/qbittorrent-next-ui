@@ -36,6 +36,7 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
   const [newTracker, setNewTracker] = React.useState("")
   const [isSearching, setIsSearching] = React.useState(false)
   const [isReplacing, setIsReplacing] = React.useState(false)
+  const [submitted, setSubmitted] = React.useState(false)
   const [matchingTorrents, setMatchingTorrents] = React.useState<MatchingTorrent[]>([])
   const [availableTrackers, setAvailableTrackers] = React.useState<string[]>([])
   const [step, setStep] = React.useState<"input" | "confirm">("input")
@@ -150,29 +151,26 @@ export function BatchReplaceTrackerDialog({ open, onOpenChange, onSuccess }: Bat
       }
 
       toast.success(t('common.replace_success', { count: successCount }))
+      setSubmitted(true)
       onOpenChange(false)
       onSuccess?.()
-      setStep("input")
-      setOldTracker("")
-      setNewTracker("")
-      setMatchingTorrents([])
     } catch (error) {
       console.error("Batch replace failed:", error)
       toast.error(t('common.action_failed'))
-    } finally {
       setIsReplacing(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => {
-        if (!isReplacing) {
-            onOpenChange(v)
-            if (!v) {
-                setStep("input")
-                setMatchingTorrents([])
-            }
-        }
+    <Dialog open={open} onOpenChange={(value) => { if (!isReplacing) onOpenChange(value) }} onCloseComplete={() => {
+      setStep("input")
+      if (submitted) {
+        setOldTracker("")
+        setNewTracker("")
+      }
+      setSubmitted(false)
+      setMatchingTorrents([])
+      setIsReplacing(false)
     }}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl bg-card border border-muted/20 p-0 overflow-hidden flex flex-col max-h-[calc(100svh-2rem)]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-muted/50 bg-muted/20 shrink-0">

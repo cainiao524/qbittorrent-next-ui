@@ -96,16 +96,15 @@ export function BatchSetLabelsSelectedDialog({
       toast.success(t("common.set_labels_success", { count: successCount }))
       onOpenChange(false)
       onSuccess?.()
-      resetState()
     } catch (error) {
       console.error("Batch set labels failed:", error)
       toast.error(t("common.action_failed"))
-    } finally {
       setIsApplying(false)
     }
   }
 
   const resetState = () => {
+    setIsApplying(false)
     setLabels([])
     setDraftLabel("")
     setMode("overwrite")
@@ -117,11 +116,11 @@ export function BatchSetLabelsSelectedDialog({
 
   return (
     <Dialog
+      onCloseComplete={resetState}
       open={open}
       onOpenChange={(v) => {
         if (!isApplying) {
           onOpenChange(v)
-          if (!v) resetState()
         }
       }}
     >
