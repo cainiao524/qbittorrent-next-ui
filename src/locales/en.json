@@ -254,9 +254,9 @@
       "title": "Page & Refresh Settings",
       "desc": "Manage the interface display and auto-update behavior.",
       "auto_refresh": "Enable Auto Refresh",
-      "auto_refresh_desc": "If enabled, the interface will automatically fetch updates from the server.",
+      "auto_refresh_desc": "Automatically fetch data while visible; pause in the background and refresh on return. When disabled, refresh only on entry or manual actions.",
       "refresh_title": "Refresh Interval (s)",
-      "refresh_desc": "How often the dashboard updates torrent status. Lower values may increase server load.",
+      "refresh_desc": "Set the torrent and statistics interval in seconds, counted after each request completes. Disk space refreshes at least every 30 seconds or 10 times this interval, whichever is longer. Peer and tracker details use minimum intervals of 5 and 10 seconds. Manual actions refresh immediately; failures back off automatically.",
       "refresh_unit": "s"
     },
     "speed": {

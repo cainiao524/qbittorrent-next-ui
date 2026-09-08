@@ -54,7 +54,8 @@ import {
   type BatchTorrentAction,
   type SingleTorrentAction,
 } from "@/lib/torrent-actions"
-import { selectTorrentRange, sortTorrents, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { selectTorrentRange, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { useSortedTorrents } from "@/hooks/use-sorted-torrents"
 import type { TorrentId } from "@/lib/rpc-types"
 
 type CardColor = "green" | "blue" | "orange" | "purple"
@@ -288,7 +289,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     setSortConfig(direction === null ? null : { key, direction })
   }
 
-  const sortedTorrents = useMemo(() => sortTorrents(filteredTorrents, sortConfig), [filteredTorrents, sortConfig])
+  const sortedTorrents = useSortedTorrents(filteredTorrents, sortConfig)
   const sortedIdsRef = useRef<TorrentId[]>([])
 
   useEffect(() => {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
+import { useListMotion } from "@/hooks/use-list-motion"
+import { useAppSettings } from "@/lib/app-settings-context"
 import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,6 +42,8 @@ export function TorrentGridView({
   const closeEdit = useCallback(() => setEditingTorrent(null), [])
   const [columnCount, setColumnCount] = useState(() => getGridColumnCount())
   const gridRef = useRef<HTMLDivElement>(null)
+  const { animateTorrentSorting } = useAppSettings()
+  useListMotion(gridRef, animateTorrentSorting)
   const [scrollMargin, setScrollMargin] = useState(0)
   const torrentRows = useMemo(() => {
     const rows: Array<Array<{ torrent: Torrent; index: number }>> = []
@@ -119,6 +123,7 @@ export function TorrentGridView({
         <Card
           key={torrent.id}
           data-grid-card
+          data-motion-id={torrent.id}
           className={cn(
             "group relative h-full shadow-md border-none overflow-hidden hover:-translate-y-0.5 transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] bg-sidebar/30 flex flex-col py-0",
             index < 12 && "animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none"

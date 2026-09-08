@@ -1,5 +1,6 @@
 "use client"
 import { startTransition, useState, useCallback, useEffect, useRef } from "react"
+import { useRefreshScheduler } from "./use-refresh-scheduler"
 import { rpc } from "@/lib/rpc-client"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { getRequiredRpcFields } from "@/lib/columns"
@@ -31,8 +32,7 @@ export function useTorrentData(
   const commitSnapshot = useCallback((snapshot: TorrentDataSnapshot) => {
     const commit = () => {
       setTorrents((current) => reuseTorrentReferences(current, snapshot.torrents))
-      setStats(snapshot.stats)
-      setFreeSpace(snapshot.freeSpace)
+      setStats(current => JSON.stringify(current) === JSON.stringify(snapshot.stats) ? current : snapshot.stats)
       setIsInitialLoading(false)
     }
 
@@ -48,7 +48,7 @@ export function useTorrentData(
       isScrollingRef.current = false
       const snapshot = pendingSnapshotRef.current
       pendingSnapshotRef.current = null
-      if (snapshot) commitSnapshot(snapshot)
+      if (snapshot && enabled && !document.hidden) commitSnapshot(snapshot)
     }
 
     const handleScroll = () => {
@@ -61,56 +61,40 @@ export function useTorrentData(
     return () => {
       window.removeEventListener("scroll", handleScroll, { capture: true })
       if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      pendingSnapshotRef.current = null
+      isScrollingRef.current = false
     }
-  }, [commitSnapshot])
+  }, [commitSnapshot, enabled])
 
-  const fetchData = useCallback(async () => {
+  const metadata = useRef<{ session: Awaited<ReturnType<typeof rpc.getSession>> | null; free: FreeSpace; at: number }>({ session: null, free: null, at: 0 })
+  const load = useCallback(async (signal: AbortSignal) => {
+    const client = rpc.withSignal?.(signal) ?? rpc
     try {
       const torrentFields = getRequiredRpcFields(visibleColumns, viewMode)
-      const [torrentsData, statsData, sessionData] = await Promise.all([
-        rpc.getTorrents(torrentFields),
-        rpc.getStats(),
-        rpc.getSession()
-      ])
-
-      let freeData: FreeSpace = null
-
-      if (sessionData["download-dir"]) {
-        try {
-          freeData = await rpc.freeSpace(sessionData["download-dir"])
-        } catch (e) {
-          console.error("Failed to fetch free space:", e)
-        }
-      }
-
+      const torrentsData = await client.getTorrents(torrentFields)
+      const statsData = await client.getStats(torrentsData.torrents)
+      if (signal.aborted) return
+      const freeData = metadata.current.free
       const snapshot = { torrents: torrentsData.torrents, stats: statsData, freeSpace: freeData }
       if (isScrollingRef.current && hasLoadedRef.current) pendingSnapshotRef.current = snapshot
       else commitSnapshot(snapshot)
     } catch (err) {
-      console.error("Failed to fetch qBittorrent data:", err)
-      setIsInitialLoading(false)
+      if (!signal.aborted) setIsInitialLoading(false)
+      throw err
     }
   }, [commitSnapshot, viewMode, visibleColumns])
 
-  useEffect(() => {
-    if (!enabled) return
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-
-    const poll = async () => {
-      await fetchData()
-      if (!cancelled && autoRefresh) {
-        timer = setTimeout(poll, refreshInterval)
-      }
-    }
-
-    void poll()
-    return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [fetchData, refreshInterval, autoRefresh, enabled])
+  const refreshCore = useRefreshScheduler(load, refreshInterval, autoRefresh, enabled)
+  const loadMetadata = useCallback(async (signal: AbortSignal, manual: boolean) => {
+    const client = rpc.withSignal?.(signal) ?? rpc
+    const session = manual || !metadata.current.session ? await client.getSession() : metadata.current.session
+    const free = session["download-dir"] ? await client.freeSpace(session["download-dir"]) : null
+    if (signal.aborted) return
+    metadata.current = { session, free, at: Date.now() }
+    setFreeSpace(current => JSON.stringify(current) === JSON.stringify(free) ? current : free)
+  }, [])
+  const refreshMetadata = useRefreshScheduler(loadMetadata, Math.max(30000, refreshInterval * 10), autoRefresh, enabled)
+  const fetchData = useCallback(async () => { await Promise.all([refreshCore(), refreshMetadata()]) }, [refreshCore, refreshMetadata])
 
   return { torrents, stats, freeSpace, isInitialLoading, fetchData }
 }

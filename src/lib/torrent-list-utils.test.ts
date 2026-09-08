@@ -157,6 +157,15 @@ test("sortTorrents sorts by regular and derived fields", () => {
   expect(sortTorrents(torrents, { key: "availability", direction: "desc" }).map(({ id }) => id)).toEqual(["1", "2", "3"])
 })
 
+test("sortTorrents keeps equal values in a deterministic id order", () => {
+  const equal = [
+    { ...torrents[2], id: "z" },
+    { ...torrents[0], id: "a", addedDate: torrents[2].addedDate },
+  ]
+  expect(sortTorrents(equal, { key: "addedDate", direction: "asc" }).map(({ id }) => id)).toEqual(["a", "z"])
+  expect(sortTorrents(equal, { key: "addedDate", direction: "desc" }).map(({ id }) => id)).toEqual(["a", "z"])
+})
+
 test("selectTorrentRange adds the inclusive range while preserving earlier selections", () => {
   expect(selectTorrentRange(["1", "2", "3", "4"], ["1"], "2", "4")).toEqual(["1", "2", "3", "4"])
   expect(selectTorrentRange(["1", "2", "3"], [], null, "2")).toEqual(["2"])

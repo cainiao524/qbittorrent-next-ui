@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { useWindowVirtualizer } from "@tanstack/react-virtual"
+import { useListMotion } from "@/hooks/use-list-motion"
 import { Link, useLocation } from "react-router-dom"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -250,6 +251,7 @@ const TorrentRow = memo(function TorrentRow({
 
   return (
     <TableRow
+      data-motion-id={torrent.id}
       key={`${rowAnimationKey}-${torrent.id}`}
       className={cn(
         "hover:bg-muted/30 transition-colors border-b last:border-0 border-muted/50 group/row",
@@ -353,6 +355,7 @@ export function TorrentListView({
   const isMobile = useIsMobile()
   const location = useLocation()
   const tableRef = useRef<HTMLTableElement>(null)
+  useListMotion(tableRef, animateSortTransitions)
   const compact = density === "compact"
   const [editingTorrent, setEditingTorrent] = useState<Torrent | null>(null)
   const orderedVisibleColumns = useMemo(

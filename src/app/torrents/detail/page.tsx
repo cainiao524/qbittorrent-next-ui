@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense } from "react"
+import { useState, useCallback, Suspense } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import { TorrentPieceMap } from "@/components/torrents/torrent-piece-map"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties-panel"
 
+import { useRefreshScheduler } from "@/hooks/use-refresh-scheduler"
 import { rpc } from "@/lib/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
@@ -99,7 +100,7 @@ function TorrentDetailsContent() {
   const [pieceStates, setPieceStates] = useState<TorrentPieceState[]>([])
   const [pieceStatesLoading, setPieceStatesLoading] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  const loadDetails = useCallback(async (signal: AbortSignal) => {
     if (!idValue) return
     try {
       const id = idValue
@@ -108,7 +109,8 @@ function TorrentDetailsContent() {
         ...BASE_TORRENT_FIELDS,
         ...(TAB_TORRENT_FIELDS[activeTab] ?? []),
       ] as string[]
-      const torrentsData = await rpc.getTorrents(fields, [id])
+      const torrentsData = await (rpc.withSignal?.(signal) ?? rpc).getTorrents(fields, [id])
+      if (signal.aborted) return
 
       if (torrentsData.torrents.length > 0) {
         const nextTorrent = torrentsData.torrents[0]
@@ -124,57 +126,28 @@ function TorrentDetailsContent() {
           return merged
         })
       }
-    } catch (err) {
-      console.error("Failed to fetch torrent details:", err)
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [activeTab, idValue])
 
   const { refreshInterval, autoRefresh } = useAppSettings()
 
-  useEffect(() => {
-    fetchData()
-    if (!autoRefresh) return
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const schedule = () => {
-      timer = setTimeout(async () => {
-        await fetchData()
-        if (!cancelled) schedule()
-      }, refreshInterval)
+  const fetchData = useRefreshScheduler(loadDetails,
+    activeTab === "peers" ? Math.max(refreshInterval, 5000) :
+    activeTab === "trackers" ? Math.max(refreshInterval, 10000) : refreshInterval,
+    autoRefresh)
+  const loadPieces = useCallback(async (signal: AbortSignal) => {
+    if (!idValue) return
+    setPieceStatesLoading(true)
+    try {
+      const states = await (rpc.withSignal?.(signal) ?? rpc).getTorrentPieceStates(idValue)
+      if (!signal.aborted) setPieceStates(states)
+    } finally {
+      if (!signal.aborted) setPieceStatesLoading(false)
     }
-    schedule()
-    return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [fetchData, refreshInterval, autoRefresh])
-
-  useEffect(() => {
-    if (activeTab !== "general" || !idValue) return
-    let cancelled = false
-    const loadPieceStates = async () => {
-      setPieceStatesLoading(true)
-      try {
-        const states = await rpc.getTorrentPieceStates(idValue)
-        if (!cancelled) setPieceStates(states)
-      } catch (error) {
-        console.error("Failed to fetch torrent piece states:", error)
-      } finally {
-        if (!cancelled) setPieceStatesLoading(false)
-      }
-    }
-
-    void loadPieceStates()
-    if (!autoRefresh) return () => { cancelled = true }
-    const timer = setInterval(() => void loadPieceStates(), Math.max(refreshInterval, 30_000))
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [activeTab, autoRefresh, idValue, refreshInterval])
+  }, [idValue])
+  useRefreshScheduler(loadPieces, Math.max(refreshInterval, 30000), autoRefresh, activeTab === "general" && !!idValue)
 
   if (loading && !torrent) {
     return (
