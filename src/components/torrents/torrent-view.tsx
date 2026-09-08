@@ -265,10 +265,10 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
         setSelectedIds(prev => prev.filter(id => !idsToDelete.includes(id)))
       }
       setIsDeleteDialogOpen(false)
-      setIdsToDelete([])
       fetchData()
-    } catch {
+    } catch (error) {
       toast.error(t('common.action_failed', 'Action Failed'))
+      throw error
     }
   }
 
@@ -726,6 +726,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
+        onCloseComplete={() => setIdsToDelete([])}
         count={idsToDelete.length}
       />
 

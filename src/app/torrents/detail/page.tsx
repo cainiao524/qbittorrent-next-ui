@@ -96,6 +96,7 @@ function TorrentDetailsContent() {
   const [torrent, setTorrent] = useState<Torrent | null>(null)
   const [loading, setLoading] = useState(true)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteSucceeded, setDeleteSucceeded] = useState(false)
   const [updatingFileIds, setUpdatingFileIds] = useState<Set<number>>(new Set())
   const [pieceStates, setPieceStates] = useState<TorrentPieceState[]>([])
   const [pieceStatesLoading, setPieceStatesLoading] = useState(false)
@@ -199,10 +200,11 @@ function TorrentDetailsContent() {
     if (!tor) return
     try {
       await rpc.removeTorrents([tor.id], deleteLocalData)
+      setDeleteSucceeded(true)
       setIsDeleteDialogOpen(false)
-      navigate("/")
     } catch (err) {
       console.error("Failed to remove torrent:", err)
+      throw err
     }
   }
 
@@ -561,6 +563,7 @@ function TorrentDetailsContent() {
       <RemoveTorrentDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
+        onCloseComplete={() => { if (deleteSucceeded) navigate("/") }}
         onConfirm={confirmDelete}
         count={1}
       />

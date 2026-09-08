@@ -111,16 +111,15 @@ export function BatchEditLabelsDialog({ open, onOpenChange, onSuccess }: BatchEd
       toast.success(t('common.edit_labels_success', { count: successCount }))
       onOpenChange(false)
       onSuccess?.()
-      resetState()
     } catch (error) {
       console.error("Batch edit labels failed:", error)
       toast.error(t('common.action_failed'))
-    } finally {
       setIsApplying(false)
     }
   }
 
   const resetState = () => {
+    setIsApplying(false)
     setStep("input")
     setOldLabel("")
     setNewLabel("")
@@ -128,10 +127,9 @@ export function BatchEditLabelsDialog({ open, onOpenChange, onSuccess }: BatchEd
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => {
+    <Dialog onCloseComplete={resetState} open={open} onOpenChange={(v) => {
       if (!isApplying) {
         onOpenChange(v)
-        if (!v) resetState()
       }
     }}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl bg-card border border-muted/20 p-0 overflow-hidden flex flex-col max-h-[calc(100svh-2rem)]">

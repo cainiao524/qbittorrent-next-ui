@@ -201,7 +201,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} onCloseComplete={resetTransientState}>
+    <Dialog open={open} onOpenChange={(next) => { if (!isAdding) setOpen(next) }} onCloseComplete={resetTransientState}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="flex max-h-[calc(100svh-2rem)] flex-col gap-5 overflow-hidden border-none bg-background/95 p-6 shadow-2xl backdrop-blur-xl sm:max-w-3xl">
         <DialogHeader className="shrink-0">
@@ -302,7 +302,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
         <DialogFooter className="shrink-0 border-t pt-4 sm:justify-between">
           <Toggle checked={startImmediately} onChange={setStartImmediately} label={t("add_dialog.start_immediately")} />
-          <div className="flex gap-2"><DialogClose asChild><Button variant="ghost">{t("add_dialog.cancel")}</Button></DialogClose><Button disabled={isAdding || !itemCount || files.some((upload) => !upload.metainfo)} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
+          <div className="flex gap-2"><DialogClose asChild><Button variant="ghost" disabled={isAdding}>{t("add_dialog.cancel")}</Button></DialogClose><Button disabled={isAdding || !itemCount || files.some((upload) => !upload.metainfo)} onClick={() => void handleSubmit()}>{isAdding ? t("add_dialog.adding") : <><Plus className="mr-2 h-4 w-4" />{t("add_dialog.add_count", { count: itemCount || "" })}</>}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

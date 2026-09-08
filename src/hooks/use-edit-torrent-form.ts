@@ -25,6 +25,7 @@ export function useEditTorrentForm(
     if (!open) return
 
     let active = true
+    setIsLoading(false)
     setIsFetching(true)
     setForm(createInitialEditTorrentFormState(torrent))
 
@@ -87,7 +88,6 @@ export function useEditTorrentForm(
     } catch (error) {
       console.error("Failed to update torrent:", error)
       toast.error(t("common.edit_failed", "Failed to update torrent"))
-    } finally {
       setIsLoading(false)
     }
   }, [form, onSuccess, t, torrent])
@@ -100,6 +100,7 @@ export function useEditTorrentForm(
     toggleField,
     handleSubmit,
     isLoading,
+    resetSubmission: () => setIsLoading(false),
     isFetching,
   }
 }
