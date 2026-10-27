@@ -4,8 +4,9 @@ import { expect, test, vi } from "vitest"
 import { I18nProvider } from "@/lib/i18n-context"
 import { MOCK_SESSION } from "@/lib/mock-data"
 import SettingsPage from "./page"
+import { APP_CONFIG } from "@/lib/config"
 
-vi.mock("@/lib/rpc-client", () => ({ rpc: { getSession: async () => MOCK_SESSION } }))
+vi.mock("@backend/rpc-client", () => ({ rpc: { getSession: async () => MOCK_SESSION } }))
 vi.mock("@/lib/app-settings-context", () => ({
   useAppSettings: () => ({ refreshInterval: 3000, autoRefresh: true, setRefreshInterval: vi.fn(), setAutoRefresh: vi.fn() }),
 }))
@@ -13,8 +14,7 @@ vi.mock("@/components/settings/interface-settings-panel", () => ({ InterfaceSett
 vi.mock("@/components/settings/all-preferences-panel", () => ({ AllPreferencesPanel: () => null }))
 
 test("自动刷新卡片只有一个开关，鼠标和键盘每次只切换一次且无按钮嵌套", async () => {
-  localStorage.setItem("qbittorrent-next-locale", "zh")
-  localStorage.setItem("transmission-vibemod-locale", "zh")
+  localStorage.setItem(APP_CONFIG.storageKeys.locale, "zh")
   const errors = vi.spyOn(console, "error")
   const user = userEvent.setup()
   render(<I18nProvider><SettingsPage /></I18nProvider>)

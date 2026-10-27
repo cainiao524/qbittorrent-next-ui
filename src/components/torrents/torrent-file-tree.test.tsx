@@ -6,6 +6,7 @@ import { I18nProvider } from "@/lib/i18n-context"
 import type { TorrentFile, TorrentFilePriority } from "@/lib/rpc-types"
 
 import { TorrentFileTree } from "./torrent-file-tree"
+import { APP_CONFIG } from "@/lib/config"
 
 const files: TorrentFile[] = [
   { index: 0, name: "视频/正片.mkv", length: 100, bytesCompleted: 50, priority: 1 },
@@ -23,7 +24,7 @@ function renderTree(onPriorityChange: (fileIds: number[], priority: TorrentFileP
 
 describe("TorrentFileTree", () => {
   beforeAll(() => {
-    localStorage.setItem("qbittorrent-next-locale", "zh")
+    localStorage.setItem(APP_CONFIG.storageKeys.locale, "zh")
     ;(window as unknown as { getBoundingClientRect: () => DOMRect }).getBoundingClientRect = () => ({
       top: 0,
       bottom: 768,
@@ -38,7 +39,7 @@ describe("TorrentFileTree", () => {
   })
 
   beforeEach(() => {
-    localStorage.setItem("qbittorrent-next-locale", "zh")
+    localStorage.setItem(APP_CONFIG.storageKeys.locale, "zh")
   })
 
   test("勾选文件夹后可通过底部菜单批量设置其下文件优先级", async () => {

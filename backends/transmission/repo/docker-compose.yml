@@ -1,0 +1,10 @@
+services:
+  webui:
+    image: nginx:alpine
+    container_name: transmission-next-vibemod
+    ports:
+      - "${WEBUI_PORT:-40984}:80"
+    volumes:
+      - ./webui:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

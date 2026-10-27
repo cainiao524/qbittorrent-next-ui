@@ -1,14 +1,12 @@
 "use client"
 
-import * as React from "react"
 import { Activity, ArrowDown, ArrowUp } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatSpeed } from "@/lib/formatters"
 import { useI18n } from "@/lib/i18n-context"
 import type { SessionStats } from "@/lib/rpc-types"
-
-interface SpeedPoint { time: number; download: number; upload: number }
+import type { SpeedPoint } from "@/hooks/use-speed-history"
 
 function pointsToPath(values: number[], max: number) {
   if (!values.length) return ""
@@ -19,20 +17,8 @@ function pointsToPath(values: number[], max: number) {
   }).join(" ")
 }
 
-export function SpeedHistoryChart({ stats }: { stats: SessionStats }) {
+export function SpeedHistoryChart({ stats, history }: { stats: SessionStats; history: SpeedPoint[] }) {
   const { t } = useI18n()
-  const [history, setHistory] = React.useState<SpeedPoint[]>(() => {
-    try { return JSON.parse(sessionStorage.getItem("speed_history") ?? "[]") as SpeedPoint[] } catch { return [] }
-  })
-
-  React.useEffect(() => {
-    const point = { time: Date.now(), download: stats.downloadSpeed, upload: stats.uploadSpeed }
-    setHistory((current) => {
-      const next = [...current, point].slice(-60)
-      sessionStorage.setItem("speed_history", JSON.stringify(next))
-      return next
-    })
-  }, [stats.downloadSpeed, stats.uploadSpeed])
 
   const max = Math.max(1, ...history.flatMap((point) => [point.download, point.upload]))
   const downloadPath = pointsToPath(history.map((point) => point.download), max)

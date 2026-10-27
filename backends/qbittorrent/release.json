@@ -1,0 +1,9 @@
+{
+  "repository": "cainiao524/qbittorrent-next-ui",
+  "packageName": "qbittorrent-next-ui",
+  "stagingPackage": "qb-release-staging",
+  "candidatePrefix": "qb",
+  "tagSuffix": "funky9",
+  "displaySuffix": "funky⑨",
+  "dockerHubShortDescription": "面向 qBittorrent 的现代化响应式第三方 WebUI"
+}

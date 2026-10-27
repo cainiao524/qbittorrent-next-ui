@@ -3,6 +3,9 @@ name: Build and publish Docker images (transactional)
 on:
   push:
     tags: ["v*"]
+  # auto-release.yml 用 GITHUB_TOKEN 打的标签不会产生 push 事件，由它以 --ref <标签> 调起；
+  # 此时 GITHUB_REF_NAME 即标签名，preflight 的标签格式与 main HEAD 校验照常生效。
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -40,22 +43,22 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          # 1) tag 格式：仅接受 vX.Y.Z-funky9
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-funky9$ ]]; then
-            echo "::error::Invalid release tag '${TAG}' (expected vX.Y.Z-funky9)"
+          # 1) tag 格式：接受 vX.Y.Z-funky9 或 vX.Y.Z-N-funky9
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?-funky9$ ]]; then
+            echo "::error::Invalid release tag '${TAG}' (expected vX.Y.Z[-N]-funky9)"
             exit 1
           fi
           VERSION="${TAG#v}"
           VERSION="${VERSION%-funky9}"
-          # 2) package.json version == X.Y.Z
+          # 2) package.json version == X.Y.Z or X.Y.Z-N
           PKG_VERSION=$(grep -m1 '"version"' package.json | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
           if [ "${PKG_VERSION}" != "${VERSION}" ]; then
             echo "::error::package.json version '${PKG_VERSION}' != tag version '${VERSION}'"
             exit 1
           fi
-          # 3) APP_CONFIG.version == vX.Y.Z-funky⑨
+          # 3) APP_CONFIG.version == vX.Y.Z[-N]-funky⑨
           EXPECTED="v${VERSION}-funky⑨"
-          if ! grep -q "version: \"${EXPECTED}\"" src/lib/config.ts; then
+          if ! grep -q "version: \"${EXPECTED}\"" backends/qbittorrent/config.ts; then
             echo "::error::APP_CONFIG.version != '${EXPECTED}'"
             exit 1
           fi

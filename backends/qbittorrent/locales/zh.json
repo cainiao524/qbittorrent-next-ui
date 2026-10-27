@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "desc": "管理 qBittorrent 服务端会话及全局参数。",
+    "tabs": {
+      "remote": "Web API / 服务器"
+    },
+    "remote": {
+      "title": "Web API 接口",
+      "rpc_version": "Web API 版本"
+    },
+    "all": {
+      "title": "全部 qBittorrent 偏好设置",
+      "desc": "按功能类别逐页展示服务器返回的全部配置项；名称和选项文字以 qBittorrent 官方简体中文本地化为准。",
+      "loading": "正在读取 qBittorrent 全部偏好设置…",
+      "warning": "修改 WebUI 地址、端口、认证、HTTPS、代理或备用界面路径可能立即中断当前连接。保存前请确认仍有其他方式访问 qBittorrent。",
+      "critical_changes": "包含可能中断连接的 WebUI 或代理设置。",
+      "save_failed_desc": "连接可能已被 WebUI 或网络设置更改中断，请检查 qBittorrent。",
+      "categories": {
+        "speed": "速度与计划"
+      },
+      "category_descriptions": {
+        "speed": "全局与备用速度限制、限速计划及传输协议。",
+        "advanced": "磁盘输入输出、缓存、内存、套接字以及版本专属设置。"
+      }
+    }
+  },
+  "creator": {
+    "description": "使用 NAS 上已有的文件或文件夹创建 .torrent 文件。路径必须是 qBittorrent 容器内可访问的路径。",
+    "start_seeding_desc": "创建后加入当前 qBittorrent"
+  },
+  "ui": {
+    "web_api_version": "Web API 版本"
+  },
+  "interface_settings": {
+    "warning": "导入可能修改 WebUI、网络和认证相关配置。请只使用来自同一服务器或确认可信的备份文件。"
+  },
+  "auth": {
+    "connect_desc": "直接连接 qBittorrent Web API，适配桌面与移动设备。",
+    "version_hint": "适用于 qBittorrent 4.4 及以上版本",
+    "login_desc": "使用 qBittorrent 网页界面的账户凭据。",
+    "checking": "正在连接 qBittorrent...",
+    "session_hint": "若此界面由 qBittorrent 直接托管且已有会话，将自动跳过登录。"
+  }
+}

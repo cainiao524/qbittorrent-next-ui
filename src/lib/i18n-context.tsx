@@ -1,8 +1,16 @@
 "use client"
 
 import * as React from "react"
-import en from "@/locales/en.json"
-import zh from "@/locales/zh.json"
+import baseEn from "@/locales/en.json"
+import baseZh from "@/locales/zh.json"
+import backendEn from "@backend/locales/en.json"
+import backendZh from "@backend/locales/zh.json"
+import { APP_CONFIG } from "@/lib/config"
+import { mergeLocale } from "@/lib/merge-locale"
+
+// Backend-specific wording (product names, API terminology) overrides the shared strings.
+const en = mergeLocale(baseEn, backendEn)
+const zh = mergeLocale(baseZh, backendZh)
 
 type Locale = "en" | "zh"
 
@@ -14,7 +22,7 @@ const I18nContext = React.createContext<{
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = React.useState<Locale>(() => {
-    const savedLocale = localStorage.getItem("qbittorrent-next-locale")
+    const savedLocale = localStorage.getItem(APP_CONFIG.storageKeys.locale)
     if (savedLocale === "en" || savedLocale === "zh") return savedLocale
     return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"
   })
@@ -25,7 +33,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = (l: Locale) => {
     setLocaleState(l)
-    localStorage.setItem("qbittorrent-next-locale", l)
+    localStorage.setItem(APP_CONFIG.storageKeys.locale, l)
   }
 
   const t = (path: string, args?: Record<string, unknown> | string, defaultValue?: string): string => {

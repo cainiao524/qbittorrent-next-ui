@@ -183,7 +183,10 @@
     "edit_labels_confirm": "更新 {count} 个种子",
     "removing": "正在移除...",
     "remove_data": "同时移除数据",
-    "remove_data_desc": "同时删除已下载的数据文件。"
+    "remove_data_desc": "同时删除已下载的数据文件。",
+    "clear_filters": "清除筛选",
+    "errors": "错误",
+    "total_items": "共 {count} 项"
   },
   "details": {
     "general": "常规",
@@ -240,13 +243,11 @@
   },
   "settings": {
     "title": "服务器设置",
-    "desc": "管理 qBittorrent 服务端会话及全局参数。",
     "tabs": {
       "speed": "传输速度",
       "transfers": "下载与队列",
       "network": "网络连接",
       "peers": "隐私与安全",
-      "remote": "Web API / 服务器",
       "page": "页面设置",
       "all": "全部偏好"
     },
@@ -311,18 +312,12 @@
       "blocklist_desc": "保护您的会话不受已知恶意 IP 范围的侵害。"
     },
     "remote": {
-      "title": "Web API 接口",
       "client_version": "客户端版本",
-      "rpc_version": "Web API 版本",
       "server_software": "服务器软件",
       "host_whitelist": "主机白名单"
     },
     "all": {
-      "title": "全部 qBittorrent 偏好设置",
-      "desc": "按功能类别逐页展示服务器返回的全部配置项；名称和选项文字以 qBittorrent 官方简体中文本地化为准。",
-      "loading": "正在读取 qBittorrent 全部偏好设置…",
       "reload": "重新读取",
-      "warning": "修改 WebUI 地址、端口、认证、HTTPS、代理或备用界面路径可能立即中断当前连接。保存前请确认仍有其他方式访问 qBittorrent。",
       "search": "搜索配置键、分类或值…",
       "changed_only": "仅显示已更改",
       "total": "服务器返回 {{count}} 项",
@@ -337,34 +332,40 @@
       "no_results": "没有匹配的偏好设置。",
       "no_results_in_category": "此功能类别中没有匹配的偏好设置。",
       "fix_json": "请先修复无效的 JSON 字段。",
-      "critical_changes": "包含可能中断连接的 WebUI 或代理设置。",
       "pending": "待保存 {{count}} 项更改。",
       "save": "保存全部偏好",
       "load_failed": "无法读取全部偏好设置",
       "save_success": "偏好设置已保存",
       "save_success_desc": "服务器已接收 {{count}} 项更改。",
       "save_failed": "保存偏好设置失败",
-      "save_failed_desc": "连接可能已被 WebUI 或网络设置更改中断，请检查 qBittorrent。",
       "categories": {
         "behavior": "行为",
         "downloads": "下载与存储",
-        "speed": "速度与计划",
         "connection": "连接与代理",
         "bittorrent": "BitTorrent",
         "webui": "WebUI 与认证",
         "rss": "RSS",
-        "advanced": "高级与版本专属"
+        "advanced": "高级与版本专属",
+        "torrents": "种子",
+        "peers": "用户",
+        "network": "网络",
+        "automation": "自动化",
+        "information": "服务器信息"
       },
       "category_descriptions": {
         "behavior": "界面语言、确认操作、状态显示、日志文件及常规行为。",
         "downloads": "保存路径、添加 Torrent、文件管理、通知及外部程序。",
         "connection": "监听端口、连接限制、代理服务器、IP 过滤及匿名网络。",
-        "speed": "全局与备用速度限制、限速计划及传输协议。",
         "bittorrent": "用户发现、加密、队列、分享限制及 Tracker。",
         "webui": "访问地址、身份验证、HTTPS、反向代理及安全防护。",
         "rss": "RSS 刷新、文章保留及自动下载处理。",
-        "advanced": "磁盘输入输出、缓存、内存、套接字以及版本专属设置。"
-      }
+        "torrents": "下载目录、未完成文件、添加行为、队列及做种限制。",
+        "peers": "用户数量、加密、用户发现及 IP 黑名单。",
+        "network": "监听端口、端口转发、传输协议及默认公共 Tracker。",
+        "automation": "添加、下载完成及做种完成后运行的脚本。",
+        "information": "Transmission 返回的版本、RPC、目录、单位及状态信息；这些字段不可修改。"
+      },
+      "read_only": "只读"
     },
     "actions": {
       "discard": "放弃更改",
@@ -390,7 +391,9 @@
     "total_tasks": "任务总数",
     "paused_tasks": "暂停数量",
     "free_unit": "剩余",
-    "total_label": "总量"
+    "total_label": "总量",
+    "overview": "传输总览",
+    "ratio": "分享率"
   },
   "status": {
     "stopped": "已停止",
@@ -404,7 +407,6 @@
   },
   "creator": {
     "title": "种子创建器",
-    "description": "使用 NAS 上已有的文件或文件夹创建 .torrent 文件。路径必须是 qBittorrent 容器内可访问的路径。",
     "source_path": "源文件或文件夹路径",
     "source_required": "请选择服务器上的源文件或文件夹",
     "format": "种子格式",
@@ -414,7 +416,6 @@
     "private": "私有种子",
     "private_desc": "不会通过 DHT 网络分发",
     "start_seeding": "立即开始做种",
-    "start_seeding_desc": "创建后加入当前 qBittorrent",
     "trackers": "Tracker 地址",
     "web_seeds": "网络种子地址",
     "one_url_per_line": "每行一个地址，空行分隔层级",
@@ -457,7 +458,6 @@
     "torrent_not_found_desc": "该种子可能已被删除或已不存在。",
     "advanced_control": "高级控制",
     "country_region": "国家／地区",
-    "web_api_version": "Web API 版本",
     "close": "关闭",
     "sidebar": "侧栏",
     "language": "语言",
@@ -691,7 +691,6 @@
     "export": "导出设置",
     "import": "导入设置",
     "restore": "恢复最近一次导入前设置",
-    "warning": "导入可能修改 WebUI、网络和认证相关配置。请只使用来自同一服务器或确认可信的备份文件。",
     "sidebar_all": "全部任务",
     "sidebar_active": "活动任务",
     "sidebar_downloading": "下载中",
@@ -701,21 +700,39 @@
   },
   "auth": {
     "tagline": "更专注、更清晰的下载管理界面。",
-    "connect_desc": "直接连接 qBittorrent Web API，适配桌面与移动设备。",
-    "version_hint": "适用于 qBittorrent 4.4 及以上版本",
     "login_title": "登录",
-    "login_desc": "使用 qBittorrent 网页界面的账户凭据。",
     "username": "用户名",
     "password": "密码",
     "login_error": "登录失败，请检查地址、用户名和密码。",
-    "connect_login": "连接并登录",
-    "checking": "正在连接 qBittorrent...",
-    "session_hint": "若此界面由 qBittorrent 直接托管且已有会话，将自动跳过登录。"
+    "connect_login": "连接并登录"
   },
   "speed_chart": {
     "title": "传输速度历史",
     "aria": "最近六十次刷新的传输速度",
     "waiting": "等待下一次刷新以绘制趋势",
     "samples": "最近 {count}/60 个采样点"
+  },
+  "selection": {
+    "count": "已选 {count} 项",
+    "select_all": "全选 {count} 项",
+    "clear": "清除选择"
+  },
+  "filters": {
+    "categories": "分类",
+    "remove": "移除筛选",
+    "trackers": "Tracker",
+    "dirs": "目录",
+    "labels": "标签",
+    "show_all": "显示全部 {count} 项",
+    "show_less": "收起"
+  },
+  "empty": {
+    "none_title": "还没有种子",
+    "none_desc": "添加磁力链接或 .torrent 文件开始下载，也可以直接把文件拖到页面上。",
+    "no_match_title": "没有匹配的种子",
+    "no_match_desc": "换个关键词，或者去掉一些筛选条件。",
+    "status_title": "这个分类下暂时没有种子",
+    "status_desc": "种子状态变化后会自动出现在这里。",
+    "clear": "清除搜索和筛选"
   }
 }

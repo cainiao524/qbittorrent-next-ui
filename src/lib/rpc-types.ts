@@ -1,8 +1,8 @@
 /**
- * UI domain types used by the qBittorrent Web API adapter.
+ * UI domain types shared by every backend adapter (see backends/*).
  *
  * The property names intentionally stay stable so the view layer remains
- * independent from qBittorrent's wire format.
+ * independent from each client's wire format.
  */
 
 export enum TorrentStatus {

@@ -3,11 +3,11 @@ import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import { I18nProvider } from "@/lib/i18n-context"
 import { useEditTorrentForm } from "./use-edit-torrent-form"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { toast } from "sonner"
 import type { Torrent } from "@/lib/rpc-types"
 
-vi.mock("@/lib/rpc-client", () => ({
+vi.mock("@backend/rpc-client", () => ({
   rpc: {
     getTorrents: vi.fn(),
     renameTorrentPath: vi.fn(),

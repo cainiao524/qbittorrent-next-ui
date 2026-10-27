@@ -1,5 +1,5 @@
 import { downloadBlob } from "./download"
-import { rpc } from "./rpc-client"
+import { rpc } from "@backend/rpc-client"
 import type { TorrentId } from "./rpc-types"
 
 export function torrentExportFilename(name: string, fallback: string) {

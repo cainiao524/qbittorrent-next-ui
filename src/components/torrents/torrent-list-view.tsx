@@ -21,7 +21,7 @@ import {
 import { EditTorrentDialog } from "@/components/torrents/edit-torrent-dialog"
 import { cn } from "@/lib/utils"
 import { formatSpeed, formatDuration, formatSize, getStatusLabel, formatDate } from "@/lib/formatters"
-import type { ColumnConfig } from "@/lib/columns"
+import type { ColumnConfig } from "@backend/columns"
 import type { Torrent, TorrentId } from "@/lib/rpc-types"
 import { useI18n } from "@/lib/i18n-context"
 import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
@@ -231,7 +231,7 @@ const TorrentRow = memo(function TorrentRow({
       case "availability":
         return <TableCell key={column.id} {...cellProps} className="text-numeric text-left"><span data-column-content>{Number.isFinite(torrent.availability) && (torrent.availability ?? -1) >= 0 ? (torrent.availability ?? 0).toFixed(2) : "—"}</span></TableCell>
       case "tracker": {
-        const tracker = torrent.trackers?.[0]?.announce || "—"
+        const tracker = torrent.trackerStats?.[0]?.announce || torrent.trackers?.[0]?.announce || "—"
         return <TableCell key={column.id} {...cellProps} className="truncate text-muted-foreground" title={tracker}><span data-column-content>{tracker}</span></TableCell>
       }
       case "downloadedEver":

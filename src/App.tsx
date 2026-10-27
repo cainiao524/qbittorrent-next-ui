@@ -20,6 +20,7 @@ const TORRENT_ROUTE_CONFIGS: Record<string, TorrentRouteConfig> = {
   "/downloading": { statusFilter: "downloading", showStats: false },
   "/paused": { statusFilter: "Paused", showStats: false },
   "/seeding": { statusFilter: "Seeding", showStats: false },
+  "/errors": { statusFilter: "error", showStats: false },
 }
 
 function AppRoutes() {

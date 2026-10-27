@@ -1,42 +1,17 @@
 "use client"
 
-import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef, type ReactNode } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  ArrowDown,
-  ArrowUp,
-  Activity,
-  Database,
-  Play,
-  Pause,
-  Trash2,
-  X,
-  MoreVertical,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ShieldCheck,
-  Radio,
-  Tag,
-} from "lucide-react"
+import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef } from "react"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { BatchReplaceTrackerDialog } from "@/components/torrents/batch-replace-tracker-dialog"
 import { BatchMoveDirectoryDialog } from "@/components/torrents/batch-move-directory-dialog"
 import { BatchSetLabelsSelectedDialog } from "@/components/torrents/batch-set-labels-selected-dialog"
-import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { RemoveTorrentDialog } from "@/components/torrents/remove-torrent-dialog"
 
 import { useI18n } from "@/lib/i18n-context"
 import { useSearch } from "@/lib/search-context"
-import { rpc } from "@/lib/rpc-client"
-import { formatSize, formatSpeed } from "@/lib/formatters"
+import { rpc } from "@backend/rpc-client"
 import { useTorrentData } from "@/hooks/use-torrent-data"
 import { useTorrentFilters } from "@/hooks/use-torrent-filters"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -45,7 +20,9 @@ import { TorrentListView } from "@/components/torrents/torrent-list-view"
 import { TorrentGridView } from "@/components/torrents/torrent-grid-view"
 import { TorrentToolbar } from "@/components/torrents/torrent-toolbar"
 import { KeyboardShortcutsDialog } from "@/components/torrents/keyboard-shortcuts-dialog"
-import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
+import { TorrentSelectionBar } from "@/components/torrents/torrent-selection-bar"
+import { TorrentStatsBar } from "@/components/torrents/torrent-stats-bar"
+import { TorrentEmptyState } from "@/components/torrents/torrent-empty-state"
 import { SpeedHistoryChart } from "@/components/torrents/speed-history-chart"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { exportTorrentFile } from "@/lib/torrent-export"
@@ -54,71 +31,12 @@ import {
   type BatchTorrentAction,
   type SingleTorrentAction,
 } from "@/lib/torrent-actions"
-import { selectTorrentRange, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
+import { getTorrentOverview, selectTorrentRange, type SortConfig, type SortKey } from "@/lib/torrent-list-utils"
 import { useSortedTorrents } from "@/hooks/use-sorted-torrents"
+import { useSpeedHistory } from "@/hooks/use-speed-history"
+import { useTorrentOverview } from "@/lib/torrent-overview-context"
 import type { TorrentId } from "@/lib/rpc-types"
-
-type CardColor = "green" | "blue" | "orange" | "purple"
-
-const COLOR_CLASSES: Record<CardColor, {
-  iconBg: string; iconText: string; iconHoverBg: string; iconHoverShadow: string
-  titleActive: string; titleHover: string; secondary2Text: string
-}> = {
-  green:  { iconBg: "bg-green-500/10",  iconText: "text-green-500",  iconHoverBg: "group-hover:bg-green-500",  iconHoverShadow: "group-hover:shadow-green-500/20",  titleActive: "text-green-500/80",  titleHover: "group-hover:text-green-500/80",  secondary2Text: "text-green-500/80"  },
-  blue:   { iconBg: "bg-blue-500/10",   iconText: "text-blue-500",   iconHoverBg: "group-hover:bg-blue-500",   iconHoverShadow: "group-hover:shadow-blue-500/20",   titleActive: "text-blue-500/80",   titleHover: "group-hover:text-blue-500/80",   secondary2Text: "text-blue-500/80"   },
-  orange: { iconBg: "bg-orange-500/10", iconText: "text-orange-500", iconHoverBg: "group-hover:bg-orange-500", iconHoverShadow: "group-hover:shadow-orange-500/20", titleActive: "text-orange-500/80", titleHover: "group-hover:text-orange-500/80", secondary2Text: "text-orange-500/80" },
-  purple: { iconBg: "bg-purple-500/10", iconText: "text-purple-500", iconHoverBg: "group-hover:bg-purple-500", iconHoverShadow: "group-hover:shadow-purple-500/20", titleActive: "text-purple-500/80", titleHover: "group-hover:text-purple-500/80", secondary2Text: "text-purple-500/80" },
-}
-
-interface StatCardProps {
-  color: CardColor
-  icon: ReactNode
-  title: string
-  value: ReactNode
-  secondary1: ReactNode
-  secondary2: ReactNode
-  isClicked: boolean
-  onClick: () => void
-}
-
-function StatCard({ color, icon, title, value, secondary1, secondary2, isClicked, onClick }: StatCardProps) {
-  const c = COLOR_CLASSES[color]
-  return (
-    <div
-      className="flex items-center gap-3 p-4 rounded-[2rem] bg-background/40 border border-muted/5 hover:bg-background/60 transition-colors duration-150 ease-[cubic-bezier(0.2,0,0,1)] group shrink-0 overflow-hidden shadow-none cursor-pointer md:cursor-default"
-      onClick={onClick}
-    >
-      <div className={cn(
-        "h-10 w-10 rounded-2xl flex items-center justify-center transition-[color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.2,0,0,1)] shrink-0 shadow-sm group-hover:text-white",
-        c.iconBg, c.iconText, c.iconHoverBg, c.iconHoverShadow
-      )}>
-        {icon}
-      </div>
-      <div className="flex flex-col min-w-0 flex-1">
-        <p className={cn(
-          "text-[11px] uppercase font-bold tracking-widest text-muted-foreground/50 leading-none mb-1.5 transition-colors",
-          isClicked ? c.titleActive : c.titleHover
-        )}>{title}</p>
-        <div className="flex items-center justify-between gap-1 overflow-hidden h-7">
-          <span className="text-lg font-extrabold tracking-tight truncate group-hover:scale-[1.02] transition-transform origin-left">{value}</span>
-          <div className="block lg:hidden xl:block relative h-4 overflow-hidden flex-1 text-right">
-            <div className={cn(
-              "flex flex-col transition-transform duration-500 ease-out group-hover:-translate-y-4",
-              isClicked && "-translate-y-4"
-            )}>
-              <span className="text-[11px] text-muted-foreground/60 font-medium whitespace-nowrap h-4 flex items-center justify-end gap-1">
-                {secondary1}
-              </span>
-              <span className={cn("text-[11px] font-bold whitespace-nowrap h-4 flex items-center justify-end gap-1", c.secondary2Text)}>
-                {secondary2}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { APP_CONFIG } from "@/lib/config"
 
 interface TorrentViewProps {
   title?: string
@@ -130,26 +48,18 @@ interface TorrentViewProps {
 export function TorrentView({ statusFilter, showStats = true, isActive = true }: TorrentViewProps) {
   const isMobile = useIsMobile()
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
-  const { showSpeedChart, animateTorrentSorting, torrentListDensity } = useAppSettings()
+  const { showSpeedChart, setShowSpeedChart, animateTorrentSorting, torrentListDensity } = useAppSettings()
   const [selectedIds, setSelectedIds] = useState<TorrentId[]>([])
   const [selectionAnchorId, setSelectionAnchorId] = useState<TorrentId | null>(null)
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: "addedDate", direction: "desc" })
   const { t, locale } = useI18n()
-  const { searchQuery } = useSearch()
+  const { searchQuery, setSearchQuery } = useSearch()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isBatchReplaceOpen, setIsBatchReplaceOpen] = useState(false)
   const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false)
   const [isBatchSetLabelsOpen, setIsBatchSetLabelsOpen] = useState(false)
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false)
   const [idsToDelete, setIdsToDelete] = useState<TorrentId[]>([])
-  const [clickedCard, setClickedCard] = useState<string | null>(null)
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const saved = localStorage.getItem('torrent-page-size')
-    return saved ? parseInt(saved, 10) : 100
-  })
-  const [currentPage, setCurrentPage] = useState(1)
-  const [showSelectionToolbar, setShowSelectionToolbar] = useState(false)
-  const [toolbarCount, setToolbarCount] = useState(0)
 
   const {
     visibleColumns,
@@ -167,28 +77,20 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     setActionsColumnPinned,
   } = useColumnManager()
 
-  useEffect(() => {
-    localStorage.setItem('torrent-page-size', pageSize.toString())
-  }, [pageSize])
-
-  useEffect(() => {
-    const timer = setTimeout(
-      () => {
-        setShowSelectionToolbar(selectedIds.length > 0)
-        if (selectedIds.length > 0) setToolbarCount(selectedIds.length)
-      },
-      selectedIds.length > 0 ? 0 : 200,
-    )
-    return () => clearTimeout(timer)
-  }, [selectedIds.length])
-
   const { torrents, stats, freeSpace, isInitialLoading, fetchData } = useTorrentData(viewMode, visibleColumns, isActive)
+  const speedHistory = useSpeedHistory(showStats ? stats : null)
+  const { setOverview, toggleFacet } = useTorrentOverview()
+
+  useEffect(() => {
+    if (isActive && !isInitialLoading) setOverview(getTorrentOverview(torrents))
+  }, [isActive, isInitialLoading, setOverview, torrents])
   const deferredStatusFilter = useDeferredValue(statusFilter)
 
   const {
     trackerFilter,
     dirFilter,
     labelFilter,
+    categoryFilter,
     toggleTracker,
     toggleDir,
     toggleLabel,
@@ -198,6 +100,13 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     availableLabels,
     filteredTorrents,
   } = useTorrentFilters(torrents, deferredStatusFilter, searchQuery)
+
+  const activeFilters = useMemo(() => [
+    ...categoryFilter.map((value) => ({ kind: "category" as const, value })),
+    ...trackerFilter.map((value) => ({ kind: "tracker" as const, value })),
+    ...dirFilter.map((value) => ({ kind: "dir" as const, value })),
+    ...labelFilter.map((value) => ({ kind: "label" as const, value })),
+  ], [categoryFilter, dirFilter, labelFilter, trackerFilter])
 
   const totalDownloadSpeed = useMemo(() =>
     torrents.reduce((acc, tor) => acc + (tor.rateDownload || 0), 0)
@@ -300,14 +209,6 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     sortedIdsRef.current = sortedTorrents.map((torrent) => torrent.id)
   }, [sortedTorrents])
 
-  const pageSizeOptions = [50, 100, 200, 500, 9999]
-  const totalPages = Math.ceil(sortedTorrents.length / pageSize)
-  const paginatedTorrents = useMemo(() => {
-    if (totalPages <= 1) return sortedTorrents
-    const start = (currentPage - 1) * pageSize
-    return sortedTorrents.slice(start, start + pageSize)
-  }, [sortedTorrents, currentPage, pageSize, totalPages])
-
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredTorrents.length) {
       setSelectedIds([])
@@ -370,7 +271,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
         setSelectionAnchorId(null)
       } else if (!event.ctrlKey && !event.metaKey && !event.altKey && key === "a") {
         event.preventDefault()
-        window.dispatchEvent(new Event("qbittorrent:add-torrent"))
+        window.dispatchEvent(new Event(APP_CONFIG.events.addTorrent))
       } else if (event.key === "Escape") {
         setSelectedIds([])
         setSelectionAnchorId(null)
@@ -396,120 +297,94 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  const hasSelection = selectedIds.length > 0
 
   return (
     <div key={statusFilter ?? "all"} className="flex flex-col gap-4 md:gap-6">
       {showStats && (
-        <div
-          key={stats && !isInitialLoading ? "stats-ready" : "stats-loading"}
-          className={cn(
-            "p-2 md:p-2.5 bg-muted/20 backdrop-blur-xl rounded-[2.5rem] border border-muted/30 shadow-sm mb-2",
-            stats && !isInitialLoading && "transition-none animate-in fade-in slide-in-from-top-3 duration-300 motion-reduce:animate-none"
-          )}
-          style={stats && !isInitialLoading ? { animationFillMode: "both" } : undefined}
-        >
-          {stats && !isInitialLoading ? (
-          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
-            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
-              <StatCard
-                color="green"
-                icon={<ArrowDown className="h-5 w-5" />}
-                title={t('stats.download_speed')}
-                value={formatSpeed(totalDownloadSpeed)}
-                secondary1={<>{t('stats.session_badge')}: {formatSize(stats["current-stats"].downloadedBytes)}</>}
-                secondary2={<>{t('stats.history_badge')}: {formatSize(stats["cumulative-stats"].downloadedBytes)}</>}
-                isClicked={clickedCard === "download"}
-                onClick={() => setClickedCard(clickedCard === "download" ? null : "download")}
-              />
-            </div>
-            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "15ms", animationFillMode: "both" }}>
-              <StatCard
-                color="blue"
-                icon={<ArrowUp className="h-5 w-5" />}
-                title={t('stats.upload_speed')}
-                value={formatSpeed(totalUploadSpeed)}
-                secondary1={<>{t('stats.session_badge')}: {formatSize(stats["current-stats"].uploadedBytes)}</>}
-                secondary2={<>{t('stats.history_badge')}: {formatSize(stats["cumulative-stats"].uploadedBytes)}</>}
-                isClicked={clickedCard === "upload"}
-                onClick={() => setClickedCard(clickedCard === "upload" ? null : "upload")}
-              />
-            </div>
-            <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "30ms", animationFillMode: "both" }}>
-              <StatCard
-                color="orange"
-                icon={<Activity className="h-5 w-5" />}
-                title={t('stats.active_torrents')}
-                value={stats.activeTorrentCount}
-                secondary1={<>{t('stats.total_tasks')}: {stats.torrentCount}</>}
-                secondary2={<>{t('stats.paused_tasks')}: {stats.pausedTorrentCount}</>}
-                isClicked={clickedCard === "activity"}
-                onClick={() => setClickedCard(clickedCard === "activity" ? null : "activity")}
-              />
-            </div>
-            {freeSpace ? (
-              <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationDelay: "45ms", animationFillMode: "both" }}>
-                <StatCard
-                  color="purple"
-                  icon={<Database className="h-5 w-5" />}
-                  title={t('stats.free_space')}
-                  value={formatSize(freeSpace["size-bytes"])}
-                  secondary1={freeSpace.total_size > 0 ? <>{((freeSpace["size-bytes"] / freeSpace.total_size) * 100).toFixed(0)}% {t('stats.free_unit')}</> : <span className="truncate">{freeSpace.path}</span>}
-                  secondary2={freeSpace.total_size ? <>{t('stats.total_label')}: {formatSize(freeSpace.total_size)}</> : null}
-                  isClicked={clickedCard === "space"}
-                  onClick={() => setClickedCard(clickedCard === "space" ? null : "space")}
-                />
-              </div>
-            ) : (
-              <div className="skeleton-gradient h-[72px] rounded-[2rem] bg-muted/30" />
-            )}
-          </div>
-        ) : (
-          <div className="grid auto-cols-[minmax(250px,85vw)] grid-flow-col gap-3 overflow-x-auto pb-1 no-scrollbar md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4 transition-none animate-in fade-in duration-200 motion-reduce:animate-none">
-            {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="skeleton-gradient h-20 rounded-[2rem] bg-muted/30" />
-            ))}
-          </div>
-        )}
-        </div>
-      )}
-      {showStats && showSpeedChart && (
         stats && !isInitialLoading ? (
-          <div className="transition-none animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none" style={{ animationDelay: "35ms", animationFillMode: "both" }}><SpeedHistoryChart stats={stats} /></div>
+          <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none">
+            <TorrentStatsBar
+              stats={stats}
+              freeSpace={freeSpace}
+              downloadSpeed={totalDownloadSpeed}
+              uploadSpeed={totalUploadSpeed}
+              history={speedHistory}
+              chartExpanded={showSpeedChart}
+              onToggleChart={() => setShowSpeedChart(!showSpeedChart)}
+            />
+            {showSpeedChart && <SpeedHistoryChart stats={stats} history={speedHistory} />}
+          </div>
         ) : (
-          <div className="skeleton-gradient h-72 rounded-3xl border border-muted/30 bg-muted/20" />
+          <div className="skeleton-gradient h-[84px] rounded-2xl border border-muted/30 bg-muted/20" />
         )
       )}
 
       <div className="flex flex-col gap-4">
-        <TorrentToolbar
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          trackers={trackers}
-          downloadDirs={downloadDirs}
-          availableLabels={availableLabels}
-          trackerFilter={trackerFilter}
-          dirFilter={dirFilter}
-          labelFilter={labelFilter}
-          toggleTracker={toggleTracker}
-          toggleDir={toggleDir}
-          toggleLabel={toggleLabel}
-          clearFilters={clearFilters}
-          orderedVisibleColumnConfigs={orderedVisibleColumnConfigs}
-          visibleColumns={visibleColumns}
-          hiddenColumns={hiddenColumns}
-          isMobile={isMobile}
-          columnDnDSensors={columnDnDSensors}
-          toggleColumn={toggleColumn}
-          resetVisibleColumns={resetVisibleColumns}
-          handleColumnDragEnd={handleColumnDragEnd}
-          actionsColumnPinned={actionsColumnPinned}
-          onActionsColumnPinnedChange={setActionsColumnPinned}
-          onBatchReplaceOpen={() => setIsBatchReplaceOpen(true)}
-          onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
-          onShortcutsOpen={() => setIsShortcutsOpen(true)}
-          fetchData={fetchData}
-          onGlobalAction={handleGlobalAction}
-        />
+        <div className={cn("relative", hasSelection && "sticky top-16 z-30 rounded-xl bg-background")}>
+          <TorrentToolbar
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            trackers={trackers}
+            downloadDirs={downloadDirs}
+            availableLabels={availableLabels}
+            trackerFilter={trackerFilter}
+            dirFilter={dirFilter}
+            labelFilter={labelFilter}
+            toggleTracker={toggleTracker}
+            toggleDir={toggleDir}
+            toggleLabel={toggleLabel}
+            clearFilters={clearFilters}
+            orderedVisibleColumnConfigs={orderedVisibleColumnConfigs}
+            visibleColumns={visibleColumns}
+            hiddenColumns={hiddenColumns}
+            isMobile={isMobile}
+            columnDnDSensors={columnDnDSensors}
+            toggleColumn={toggleColumn}
+            resetVisibleColumns={resetVisibleColumns}
+            handleColumnDragEnd={handleColumnDragEnd}
+            actionsColumnPinned={actionsColumnPinned}
+            onActionsColumnPinnedChange={setActionsColumnPinned}
+            onBatchReplaceOpen={() => setIsBatchReplaceOpen(true)}
+            onBatchMoveOpen={() => setIsBatchMoveOpen(true)}
+            onShortcutsOpen={() => setIsShortcutsOpen(true)}
+            fetchData={fetchData}
+            onGlobalAction={handleGlobalAction}
+          />
+          {selectedIds.length > 0 && (
+            <TorrentSelectionBar
+              className="absolute inset-0"
+              selectedIds={selectedIds}
+              totalCount={sortedTorrents.length}
+              onBatchAction={handleBatchAction}
+              onSelectAll={() => { setSelectedIds(sortedTorrents.map((torrent) => torrent.id)); setSelectionAnchorId(null) }}
+              onClear={() => { setSelectedIds([]); setSelectionAnchorId(null) }}
+              onSetLabels={() => setIsBatchSetLabelsOpen(true)}
+              onExport={exportSelectedTorrents}
+              onAdvancedSuccess={fetchData}
+            />
+          )}
+        </div>
+
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {activeFilters.map(({ kind, value }) => (
+              <button
+                key={`${kind}:${value}`}
+                type="button"
+                onClick={() => toggleFacet(kind, value)}
+                className="flex max-w-60 items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                <span className="truncate">{value}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="sr-only">{t("filters.remove", "移除筛选")}</span>
+              </button>
+            ))}
+            <button type="button" onClick={clearFilters} className="px-1 text-xs text-muted-foreground hover:text-foreground">
+              {t("common.clear_filters", "清除筛选")}
+            </button>
+          </div>
+        )}
 
         {isInitialLoading ? (
           <div className="overflow-hidden rounded-2xl bg-card/40">
@@ -518,13 +393,20 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
               <div key={item} className="skeleton-gradient h-14 border-t border-muted/30 bg-muted/15" />
             ))}
           </div>
+        ) : sortedTorrents.length === 0 ? (
+          <TorrentEmptyState
+            hasTorrents={torrents.length > 0}
+            isFiltered={activeFilters.length > 0 || searchQuery.trim().length > 0}
+            onAdd={() => window.dispatchEvent(new Event(APP_CONFIG.events.addTorrent))}
+            onClearFilters={() => { clearFilters(); setSearchQuery("") }}
+          />
         ) : (
           <div>
             {viewMode === "list" ? (
               <TorrentListView
                 enableRowEntrance
                 listTransitionKey={deferredStatusFilter ?? "all"}
-                paginatedTorrents={paginatedTorrents}
+                paginatedTorrents={sortedTorrents}
                 visibleColumns={visibleColumns}
                 allColumns={allColumns}
                 selectedIds={selectedIds}
@@ -546,186 +428,20 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
               />
             ) : (
               <TorrentGridView
-                paginatedTorrents={paginatedTorrents}
+                paginatedTorrents={sortedTorrents}
                 onSingleAction={handleSingleAction}
                 onAdvancedSuccess={fetchData}
               />
             )}
           </div>
         )}
-      </div>
 
-        {sortedTorrents.length >= 50 && (
-          <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 pb-10">
-            <div className="flex flex-col sm:flex-row items-center gap-4 order-2 sm:order-1">
-              <div className="text-sm font-medium text-muted-foreground">
-                {t('common.showing', 'Showing')} <span className="text-foreground">{(currentPage - 1) * pageSize + 1}</span> - <span className="text-foreground">{Math.min(currentPage * pageSize, sortedTorrents.length)}</span> {t('common.of', 'of')} <span className="text-foreground">{sortedTorrents.length}</span> {t('common.torrents_total', 'torrents')}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{t('common.page_size', 'Size')}:</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-bold bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                      {pageSize >= 9999 ? t('common.all', 'All') : pageSize}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="rounded-xl border border-muted/50 bg-card/95 backdrop-blur-xl p-1 min-w-[70px]">
-                    {pageSizeOptions.map((size) => (
-                      <DropdownMenuItem
-                        key={size}
-                        className={cn(
-                          "rounded-lg text-xs font-bold py-1.5 px-3 cursor-pointer",
-                          pageSize === size && "bg-primary text-primary-foreground"
-                        )}
-                        onClick={() => setPageSize(size)}
-                      >
-                        {size >= 9999 ? t('common.all', 'All') : size}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5 order-1 sm:order-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border-muted/20 hover:bg-muted/50 hidden sm:flex"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border-muted/20 hover:bg-muted/50"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-
-                <div className="flex items-center gap-1 px-4">
-                  <span className="text-sm font-bold text-primary">{currentPage}</span>
-                  <span className="text-sm font-medium text-muted-foreground">/</span>
-                  <span className="text-sm font-bold text-muted-foreground">{totalPages}</span>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border-muted/20 hover:bg-muted/50"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border-muted/20 hover:bg-muted/50 hidden sm:flex"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+        {!isInitialLoading && sortedTorrents.length > 0 && (
+          <p className="text-numeric py-4 text-center text-xs text-muted-foreground">
+            {t("common.total_items", { count: sortedTorrents.length })}
+          </p>
         )}
-
-      {showSelectionToolbar && (
-        <div
-          data-state={selectedIds.length > 0 ? "open" : "closed"}
-          style={{ animationFillMode: "both" }}
-          aria-hidden={selectedIds.length === 0}
-          inert={selectedIds.length === 0}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:transition-none animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
-        >
-          <div className="relative min-w-0 md:min-w-[400px] rounded-[2.5rem] border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)]">
-            <div className="selected-toolbar-bg absolute inset-0 rounded-[2.5rem] bg-background/80" />
-            <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
-            <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
-              <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
-                {selectedIds.length || toolbarCount}
-              </div>
-              <span className="text-sm font-bold tracking-tight hidden lg:inline">{t('common.selected')}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 xl:gap-3 flex-1 min-w-0 overflow-x-auto no-scrollbar justify-center md:justify-start">
-              <Button size="sm" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4" onClick={() => handleBatchAction("start")}>
-                <Play className="h-4 w-4" />
-                <span className="hidden xl:inline">{t('common.resume')}</span>
-              </Button>
-              <Button size="sm" variant="secondary" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4" onClick={() => handleBatchAction("stop")}>
-                <Pause className="h-4 w-4" />
-                <span className="hidden xl:inline">{t('common.pause')}</span>
-              </Button>
-              <Button size="sm" variant="ghost" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleBatchAction("remove")}>
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden xl:inline">{t('common.remove')}</span>
-              </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4 bg-muted/50 hover:bg-muted/70">
-                    <MoreVertical className="h-4 w-4" />
-                    <span className="hidden xl:inline">{t('common.more', 'More')}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={12} className="w-[200px] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-1">
-                  <DropdownMenuItem
-                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
-                    onClick={() => handleBatchAction("verify")}
-                  >
-                    <ShieldCheck className="h-4 w-4 opacity-60" />
-                    {t('common.verify', 'Verify')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
-                    onClick={() => handleBatchAction("reannounce")}
-                  >
-                    <Radio className="h-4 w-4 opacity-60" />
-                    {t('common.reannounce', 'Reannounce')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
-                    onClick={() => setIsBatchSetLabelsOpen(true)}
-                  >
-                    <Tag className="h-4 w-4 opacity-60" />
-                    {t('common.set_torrent_labels')}
-                  </DropdownMenuItem>
-                  <AdvancedTorrentMenu
-                    ids={selectedIds}
-                    onSuccess={fetchData}
-                    onExport={exportSelectedTorrents}
-                    trigger={
-                      <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted">
-                        <MoreVertical className="h-4 w-4 opacity-60" />
-                        高级任务操作
-                      </DropdownMenuItem>
-                    }
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 md:h-9 md:w-9 rounded-full shrink-0 hover:bg-muted/50"
-              onClick={() => { setSelectedIds([]); setSelectionAnchorId(null) }}
-            >
-              <X className="h-4 w-4 opacity-50" />
-            </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       <RemoveTorrentDialog
         open={isDeleteDialogOpen}

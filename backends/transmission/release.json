@@ -1,0 +1,9 @@
+{
+  "repository": "cainiao524/transmission-next-vibemod",
+  "packageName": "transmission-next-vibemod",
+  "stagingPackage": "trm-release-staging",
+  "candidatePrefix": "trm",
+  "tagSuffix": "baka9",
+  "displaySuffix": "baka⑨",
+  "dockerHubShortDescription": "面向 Transmission 4.x 的现代化响应式第三方 WebUI"
+}

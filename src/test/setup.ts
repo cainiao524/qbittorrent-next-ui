@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest"
 import { cleanup } from "@testing-library/react"
 import { afterEach, beforeEach, vi } from "vitest"
+import { APP_CONFIG } from "@/lib/config"
 
 afterEach(() => {
   cleanup()
@@ -9,7 +10,7 @@ afterEach(() => {
 
 beforeEach(() => {
   localStorage.clear()
-  localStorage.setItem("qbittorrent-next-locale", "en")
+  localStorage.setItem(APP_CONFIG.storageKeys.locale, "en")
 })
 
 Object.defineProperty(window, "matchMedia", {

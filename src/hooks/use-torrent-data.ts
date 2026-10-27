@@ -1,9 +1,9 @@
 "use client"
 import { startTransition, useState, useCallback, useEffect, useRef } from "react"
 import { useRefreshScheduler } from "./use-refresh-scheduler"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { useAppSettings } from "@/lib/app-settings-context"
-import { getRequiredRpcFields } from "@/lib/columns"
+import { getRequiredRpcFields } from "@backend/columns"
 import { reuseTorrentReferences } from "@/lib/torrent-reference"
 import type { Torrent, SessionStats } from "@/lib/rpc-types"
 

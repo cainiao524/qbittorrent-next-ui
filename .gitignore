@@ -27,3 +27,6 @@ dist-demo
 
 # Deploy bundles
 *.tar
+
+# Generated backend repository trees (scripts/release.mjs)
+release-out

@@ -6,17 +6,22 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n-context"
 import { DEFAULT_SIDEBAR_ITEMS, useAppSettings, type SidebarItemId } from "@/lib/app-settings-context"
 import type { ApplicationPreferences } from "@/lib/rpc-types"
+import { APP_CONFIG } from "@/lib/config"
+
+// The format name and preferences key stay per-backend so existing backup files keep importing.
+const BACKUP_FORMAT = APP_CONFIG.settingsBackup.format
+const BACKUP_PREFERENCES_KEY = APP_CONFIG.settingsBackup.key
 
 interface SettingsBackup {
-  format: "qbittorrent-next-ui-settings"
+  format: string
   version: 1
   createdAt: string
-  qbittorrent: ApplicationPreferences
+  [preferencesKey: string]: unknown
   interface: {
     refreshInterval: number
     autoRefresh: boolean
@@ -44,10 +49,10 @@ export function InterfaceSettingsPanel() {
   const [hasRestorePoint, setHasRestorePoint] = React.useState(() => Boolean(localStorage.getItem("settings_restore_point")))
 
   const createBackup = async (): Promise<SettingsBackup> => ({
-    format: "qbittorrent-next-ui-settings",
+    format: BACKUP_FORMAT,
     version: 1,
     createdAt: new Date().toISOString(),
-    qbittorrent: await rpc.getApplicationPreferences(),
+    [BACKUP_PREFERENCES_KEY]: await rpc.getApplicationPreferences(),
     interface: {
       refreshInterval: settings.refreshInterval,
       autoRefresh: settings.autoRefresh,
@@ -59,8 +64,8 @@ export function InterfaceSettingsPanel() {
   })
 
   const applyBackup = async (backup: SettingsBackup) => {
-    if (backup.format !== "qbittorrent-next-ui-settings" || backup.version !== 1) throw new Error(t("interface_settings.unsupported_backup"))
-    await rpc.setApplicationPreferences(backup.qbittorrent)
+    if (backup.format !== BACKUP_FORMAT || backup.version !== 1) throw new Error(t("interface_settings.unsupported_backup"))
+    await rpc.setApplicationPreferences(backup[BACKUP_PREFERENCES_KEY] as ApplicationPreferences)
     settings.setRefreshInterval(backup.interface.refreshInterval)
     settings.setAutoRefresh(backup.interface.autoRefresh)
     settings.setSidebarItems(backup.interface.sidebarItems)
@@ -77,7 +82,7 @@ export function InterfaceSettingsPanel() {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement("a")
       anchor.href = url
-      anchor.download = `qbittorrent-next-ui-settings-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.download = `${BACKUP_FORMAT}-${new Date().toISOString().slice(0, 10)}.json`
       anchor.click()
       URL.revokeObjectURL(url)
       toast.success(t("interface_settings.exported"))
