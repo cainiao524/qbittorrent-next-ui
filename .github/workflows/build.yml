@@ -45,3 +45,4 @@ jobs:
 
       - name: 构建
         run: pnpm build
+# sync token check 40525329691
