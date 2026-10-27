@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { useTorrentData } from "./use-torrent-data"
 
 const settings = { refreshInterval: 500, autoRefresh: true }
@@ -10,7 +10,7 @@ vi.mock("@/lib/app-settings-context", () => ({
   useAppSettings: () => settings,
 }))
 
-vi.mock("@/lib/rpc-client", () => ({
+vi.mock("@backend/rpc-client", () => ({
   rpc: {
     getTorrents: vi.fn(),
     getStats: vi.fn(),

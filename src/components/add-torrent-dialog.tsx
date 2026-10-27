@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { LocationInput } from "@/components/location-input"
 import { TorrentFileSelector } from "@/components/torrents/torrent-file-selector"
 import { formatSize } from "@/lib/formatters"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
+import { APP_CONFIG } from "@/lib/config"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentAddArgs } from "@/lib/rpc-types"
 import { parseTorrentMetainfoAsync } from "@/lib/torrent-metainfo-async"
@@ -35,6 +36,8 @@ interface TorrentUpload {
 }
 
 let nextUploadId = 0
+
+const { capabilities } = APP_CONFIG
 
 const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader()
@@ -147,28 +150,28 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
   const commonArgs = (): TorrentAddArgs => ({
     "download-dir": location.trim() || undefined,
     paused: !startImmediately,
-    category: category.trim() || undefined,
+    category: capabilities.categories ? category.trim() || undefined : undefined,
     tags,
-    autoTMM,
+    autoTMM: capabilities.autoManagement ? autoTMM : undefined,
     addToTopOfQueue: addToTop,
-    skipChecking,
-    sequentialDownload: sequential,
-    firstLastPiecePrio: firstLast,
+    skipChecking: capabilities.advancedAddOptions ? skipChecking : undefined,
+    sequentialDownload: capabilities.piecePriorityToggles ? sequential : undefined,
+    firstLastPiecePrio: capabilities.piecePriorityToggles ? firstLast : undefined,
     forced: startImmediately && forced,
-    contentLayout,
-    rename: itemCount === 1 ? rename.trim() || undefined : undefined,
-    useDownloadPath: autoTMM ? undefined : useDownloadPath,
-    downloadPath: !autoTMM && useDownloadPath ? downloadPath.trim() : undefined,
+    contentLayout: capabilities.advancedAddOptions ? contentLayout : undefined,
+    rename: capabilities.advancedAddOptions && itemCount === 1 ? rename.trim() || undefined : undefined,
+    useDownloadPath: !capabilities.separateDownloadPath || autoTMM ? undefined : useDownloadPath,
+    downloadPath: capabilities.separateDownloadPath && !autoTMM && useDownloadPath ? downloadPath.trim() : undefined,
     upLimit: numeric(upLimit, 1024),
     dlLimit: numeric(dlLimit, 1024),
     ratioLimit: numeric(ratioLimit),
-    seedingTimeLimit: numeric(seedingTime),
+    seedingTimeLimit: capabilities.advancedAddOptions ? numeric(seedingTime) : undefined,
     inactiveSeedingTimeLimit: numeric(inactiveTime),
-    shareLimitAction: shareAction,
-    stopCondition,
-    sslCertificate: sslCertificate.trim() || undefined,
-    sslPrivateKey: sslPrivateKey.trim() || undefined,
-    sslDhParams: sslDhParams.trim() || undefined,
+    shareLimitAction: capabilities.advancedAddOptions ? shareAction : undefined,
+    stopCondition: capabilities.advancedAddOptions ? stopCondition : undefined,
+    sslCertificate: capabilities.advancedAddOptions ? sslCertificate.trim() || undefined : undefined,
+    sslPrivateKey: capabilities.advancedAddOptions ? sslPrivateKey.trim() || undefined : undefined,
+    sslDhParams: capabilities.advancedAddOptions ? sslDhParams.trim() || undefined : undefined,
   })
 
   const handleSubmit = async () => {
@@ -231,7 +234,7 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2"><label className="flex items-center gap-2 text-sm font-medium"><FolderOpen className="h-4 w-4" />{t("add_dialog.save_path")}</label><LocationInput value={location} onChange={setLocation} /></div>
-            <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.category")}</label><Input list="torrent-category-list" value={category} onChange={(event) => setCategory(event.target.value)} placeholder={t("add_dialog.category_placeholder")} /><datalist id="torrent-category-list">{availableCategories.map((item) => <option key={item} value={item} />)}</datalist></div>
+            {capabilities.categories && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.category")}</label><Input list="torrent-category-list" value={category} onChange={(event) => setCategory(event.target.value)} placeholder={t("add_dialog.category_placeholder")} /><datalist id="torrent-category-list">{availableCategories.map((item) => <option key={item} value={item} />)}</datalist></div>}
             <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.tags")}</label><Input value={tags.join(", ")} onChange={(event) => setTags(event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} placeholder={t("add_dialog.tags_placeholder")} /></div>
           </div>
           {availableTags.length > 0 && <div className="flex flex-wrap gap-2">{availableTags.map((tag) => <Button key={tag} type="button" size="sm" variant={tags.includes(tag) ? "default" : "outline"} className="h-7 rounded-full text-xs" onClick={() => setTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])}>{tag}</Button>)}</div>}
@@ -268,34 +271,36 @@ export function AddTorrentDialog({ children, onSuccess, open: controlledOpen, on
             <summary className="flex cursor-pointer list-none items-center gap-2 font-medium"><Settings2 className="h-4 w-4 text-green-500" />{t("add_dialog.advanced")}<span className="ml-auto text-xs text-muted-foreground group-open:hidden">{t("add_dialog.expand")}</span><span className="ml-auto hidden text-xs text-muted-foreground group-open:inline">{t("add_dialog.collapse")}</span></summary>
             <div className="mt-5 space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Toggle checked={autoTMM} onChange={setAutoTMM} label={t("add_dialog.auto_management")} description={t("add_dialog.auto_management_desc")} />
+                {capabilities.autoManagement && <Toggle checked={autoTMM} onChange={setAutoTMM} label={t("add_dialog.auto_management")} description={t("add_dialog.auto_management_desc")} />}
                 <Toggle checked={addToTop} onChange={setAddToTop} label={t("add_dialog.queue_top")} />
-                <Toggle checked={skipChecking} onChange={setSkipChecking} label={t("add_dialog.skip_checking")} />
-                <Toggle checked={sequential} onChange={setSequential} label={t("add_dialog.sequential")} />
-                <Toggle checked={firstLast} onChange={setFirstLast} label={t("add_dialog.first_last")} />
+                {capabilities.advancedAddOptions && <Toggle checked={skipChecking} onChange={setSkipChecking} label={t("add_dialog.skip_checking")} />}
+                {capabilities.piecePriorityToggles && <Toggle checked={sequential} onChange={setSequential} label={t("add_dialog.sequential")} />}
+                {capabilities.piecePriorityToggles && <Toggle checked={firstLast} onChange={setFirstLast} label={t("add_dialog.first_last")} />}
                 <Toggle checked={forced} onChange={setForced} label={t("add_dialog.force_start")} description={!startImmediately ? t("add_dialog.force_requires_start") : undefined} />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.content_layout")}</label><select value={contentLayout} onChange={(event) => setContentLayout(event.target.value as TorrentAddArgs["contentLayout"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Original">{t("add_dialog.layout_original")}</option><option value="Subfolder">{t("add_dialog.layout_subfolder")}</option><option value="NoSubfolder">{t("add_dialog.layout_no_subfolder")}</option></select></div>
-                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.rename")}</label><Input value={rename} onChange={(event) => setRename(event.target.value)} disabled={itemCount > 1} placeholder={itemCount > 1 ? t("add_dialog.rename_batch_disabled") : t("add_dialog.rename_placeholder")} /></div>
-                <div className="space-y-2 sm:col-span-2"><Toggle checked={useDownloadPath} onChange={setUseDownloadPath} label={t("add_dialog.temporary_path")} description={t("add_dialog.temporary_path_desc")} />{useDownloadPath && <LocationInput value={downloadPath} onChange={setDownloadPath} disabled={autoTMM} placeholder={autoTMM ? t("add_dialog.auto_path_placeholder") : t("add_dialog.incomplete_path")} />}</div>
+                {capabilities.advancedAddOptions && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.content_layout")}</label><select value={contentLayout} onChange={(event) => setContentLayout(event.target.value as TorrentAddArgs["contentLayout"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Original">{t("add_dialog.layout_original")}</option><option value="Subfolder">{t("add_dialog.layout_subfolder")}</option><option value="NoSubfolder">{t("add_dialog.layout_no_subfolder")}</option></select></div>}
+                {capabilities.advancedAddOptions && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.rename")}</label><Input value={rename} onChange={(event) => setRename(event.target.value)} disabled={itemCount > 1} placeholder={itemCount > 1 ? t("add_dialog.rename_batch_disabled") : t("add_dialog.rename_placeholder")} /></div>}
+                {capabilities.separateDownloadPath && <div className="space-y-2 sm:col-span-2"><Toggle checked={useDownloadPath} onChange={setUseDownloadPath} label={t("add_dialog.temporary_path")} description={t("add_dialog.temporary_path_desc")} />{useDownloadPath && <LocationInput value={downloadPath} onChange={setDownloadPath} disabled={autoTMM} placeholder={autoTMM ? t("add_dialog.auto_path_placeholder") : t("add_dialog.incomplete_path")} />}</div>}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.download_limit")}</label><Input type="number" min="0" value={dlLimit} onChange={(event) => setDlLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.upload_limit")}</label><Input type="number" min="0" value={upLimit} onChange={(event) => setUpLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.ratio_limit")}</label><Input type="number" min="0" step="0.1" value={ratioLimit} onChange={(event) => setRatioLimit(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.seeding_time")}</label><Input type="number" min="0" value={seedingTime} onChange={(event) => setSeedingTime(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
+                {capabilities.advancedAddOptions && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.seeding_time")}</label><Input type="number" min="0" value={seedingTime} onChange={(event) => setSeedingTime(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>}
                 <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.inactive_time")}</label><Input type="number" min="0" value={inactiveTime} onChange={(event) => setInactiveTime(event.target.value)} placeholder={t("add_dialog.global_placeholder")} /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.share_action")}</label><select value={shareAction} onChange={(event) => setShareAction(event.target.value as TorrentAddArgs["shareLimitAction"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Default">{t("add_dialog.global_setting")}</option><option value="Stop">{t("add_dialog.stop_task")}</option><option value="Remove">{t("add_dialog.remove_task")}</option><option value="RemoveWithContent">{t("add_dialog.remove_with_files")}</option><option value="EnableSuperSeeding">{t("add_dialog.enable_super_seeding")}</option></select></div>
-                <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.stop_condition")}</label><select value={stopCondition} onChange={(event) => setStopCondition(event.target.value as TorrentAddArgs["stopCondition"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="None">{t("add_dialog.none")}</option><option value="MetadataReceived">{t("add_dialog.metadata_received")}</option><option value="FilesChecked">{t("add_dialog.files_checked")}</option></select></div>
+                {capabilities.advancedAddOptions && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.share_action")}</label><select value={shareAction} onChange={(event) => setShareAction(event.target.value as TorrentAddArgs["shareLimitAction"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="Default">{t("add_dialog.global_setting")}</option><option value="Stop">{t("add_dialog.stop_task")}</option><option value="Remove">{t("add_dialog.remove_task")}</option><option value="RemoveWithContent">{t("add_dialog.remove_with_files")}</option><option value="EnableSuperSeeding">{t("add_dialog.enable_super_seeding")}</option></select></div>}
+                {capabilities.advancedAddOptions && <div className="space-y-2"><label className="text-sm font-medium">{t("add_dialog.stop_condition")}</label><select value={stopCondition} onChange={(event) => setStopCondition(event.target.value as TorrentAddArgs["stopCondition"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="None">{t("add_dialog.none")}</option><option value="MetadataReceived">{t("add_dialog.metadata_received")}</option><option value="FilesChecked">{t("add_dialog.files_checked")}</option></select></div>}
               </div>
 
-              <details className="rounded-xl border border-border/50 p-3">
-                <summary className="cursor-pointer text-sm font-medium">{t("add_dialog.ssl_parameters")}</summary>
-                <div className="mt-3 grid gap-3"><Textarea value={sslCertificate} onChange={(event) => setSslCertificate(event.target.value)} placeholder={t("add_dialog.ssl_certificate")} /><Textarea value={sslPrivateKey} onChange={(event) => setSslPrivateKey(event.target.value)} placeholder={t("add_dialog.ssl_private_key")} /><Textarea value={sslDhParams} onChange={(event) => setSslDhParams(event.target.value)} placeholder={t("add_dialog.ssl_dh_parameters")} /></div>
-              </details>
+              {capabilities.advancedAddOptions && (
+                <details className="rounded-xl border border-border/50 p-3">
+                  <summary className="cursor-pointer text-sm font-medium">{t("add_dialog.ssl_parameters")}</summary>
+                  <div className="mt-3 grid gap-3"><Textarea value={sslCertificate} onChange={(event) => setSslCertificate(event.target.value)} placeholder={t("add_dialog.ssl_certificate")} /><Textarea value={sslPrivateKey} onChange={(event) => setSslPrivateKey(event.target.value)} placeholder={t("add_dialog.ssl_private_key")} /><Textarea value={sslDhParams} onChange={(event) => setSslDhParams(event.target.value)} placeholder={t("add_dialog.ssl_dh_parameters")} /></div>
+                </details>
+              )}
             </div>
           </details>
         </div>

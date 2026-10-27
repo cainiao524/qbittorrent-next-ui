@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 import { useI18n } from "@/lib/i18n-context"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { type Session } from "@/lib/rpc-types"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { APP_CONFIG } from "@/lib/config"
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                          </div>
                          <div className="flex justify-between items-center text-xs md:text-sm">
                             <span className="font-semibold text-muted-foreground tracking-tight">{t('settings.remote.server_software')}</span>
-                            <span className="font-bold tracking-tight">qBittorrent {session?.version}</span>
+                            <span className="font-bold tracking-tight">{APP_CONFIG.backendName} {session?.version}</span>
                          </div>
                       </div>
                   </CardContent>

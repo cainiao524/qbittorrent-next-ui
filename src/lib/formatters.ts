@@ -62,7 +62,7 @@ export function splitSpeed(speedStr: string): { value: string, unit: string } {
   return { value: speedStr, unit: "" }
 }
 export function formatDate(timestamp: number, locale?: string): string {
-  if (!timestamp || timestamp <= 0) return "-"
+  if (!timestamp || timestamp <= 0) return "—"
   const date = new Date(timestamp * 1000)
 
   if (locale === 'zh') {

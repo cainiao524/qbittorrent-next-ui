@@ -35,7 +35,7 @@ import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu
 import { TorrentPropertiesPanel } from "@/components/torrents/torrent-properties-panel"
 
 import { useRefreshScheduler } from "@/hooks/use-refresh-scheduler"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import { useAppSettings } from "@/lib/app-settings-context"
 import { type Torrent, type TorrentFile, type TorrentFilePriority, type TorrentPieceState, type TrackerStat, type Peer, TorrentStatus } from "@/lib/rpc-types"

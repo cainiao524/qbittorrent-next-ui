@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import { I18nProvider } from "@/lib/i18n-context"
 
 import { AddTorrentDialog } from "./add-torrent-dialog"
+import { APP_CONFIG } from "@/lib/config"
 
 const rpcMock = vi.hoisted(() => ({
   addTorrent: vi.fn(),
@@ -18,7 +19,7 @@ const dialogMock = vi.hoisted(() => ({
   onOpenChange: null as ((open: boolean) => void) | null,
 }))
 
-vi.mock("@/lib/rpc-client", () => ({ rpc: rpcMock }))
+vi.mock("@backend/rpc-client", () => ({ rpc: rpcMock }))
 vi.mock("@/lib/torrent-metainfo-async", () => ({
   parseTorrentMetainfoAsync: async () => ({
     name: "示例",
@@ -54,8 +55,7 @@ describe("AddTorrentDialog file selection", () => {
     vi.clearAllMocks()
     dialogMock.onCloseComplete = null
     dialogMock.onOpenChange = null
-    localStorage.setItem("qbittorrent-next-locale", "zh")
-    localStorage.setItem("transmission-vibemod-locale", "zh")
+    localStorage.setItem(APP_CONFIG.storageKeys.locale, "zh")
     rpcMock.addTorrent.mockResolvedValue({})
   })
 

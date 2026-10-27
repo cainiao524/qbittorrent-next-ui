@@ -4,6 +4,7 @@ import {
   getAvailableDownloadDirs,
   getAvailableLabels,
   getAvailableTrackers,
+  getTorrentOverview,
   getTorrentSortValue,
   selectTorrentRange,
   sortTorrents,
@@ -169,4 +170,25 @@ test("sortTorrents keeps equal values in a deterministic id order", () => {
 test("selectTorrentRange adds the inclusive range while preserving earlier selections", () => {
   expect(selectTorrentRange(["1", "2", "3", "4"], ["1"], "2", "4")).toEqual(["1", "2", "3", "4"])
   expect(selectTorrentRange(["1", "2", "3"], [], null, "2")).toEqual(["2"])
+})
+
+test("getTorrentOverview counts statuses and facets over the unfiltered list", () => {
+  const overview = getTorrentOverview(torrents)
+  expect(overview.statusCounts.all).toBe(torrents.length)
+  expect(overview.statusCounts.seeding).toBe(filterTorrents(torrents, { statusFilter: "seeding", translateStatus: (key) => key }).length)
+  expect(overview.statusCounts.downloading).toBe(filterTorrents(torrents, { statusFilter: "downloading", translateStatus: (key) => key }).length)
+  expect(overview.trackers.map((facet) => facet.value).sort()).toEqual(getAvailableTrackers(torrents))
+  expect(overview.downloadDirs.reduce((total, facet) => total + facet.count, 0)).toBe(torrents.filter((torrent) => torrent.downloadDir).length)
+  expect(overview.labels.map((facet) => facet.value).sort()).toEqual(getAvailableLabels(torrents))
+})
+
+test("error status filter matches torrents with an error code or message", () => {
+  const broken = [
+    { ...torrents[0], id: "e1", error: 2, errorString: "" },
+    { ...torrents[0], id: "e2", error: 0, errorString: "Tracker gave HTTP 404" },
+    torrents[0],
+  ]
+  const translate = (key: string) => key
+  expect(filterTorrents(broken, { statusFilter: "error", translateStatus: translate }).map((torrent) => torrent.id)).toEqual(["e1", "e2"])
+  expect(getTorrentOverview(broken).statusCounts.error).toBe(2)
 })

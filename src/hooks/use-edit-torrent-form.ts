@@ -1,6 +1,6 @@
 import * as React from "react"
 import { toast } from "sonner"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 import {
   buildEditTorrentSetArgs,

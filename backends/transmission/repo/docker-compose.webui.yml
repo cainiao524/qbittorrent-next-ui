@@ -1,0 +1,9 @@
+services:
+  transmission-next-vibemod:
+    image: lowsabishi/transmission-next-vibemod:latest
+    container_name: transmission-next-vibemod
+    environment:
+      TRANSMISSION_URL: http://192.168.1.10:9091
+    ports:
+      - "40984:80"
+    restart: unless-stopped

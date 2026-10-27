@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import { I18nProvider } from "@/lib/i18n-context"
 
 import { TorrentFileSelector } from "./torrent-file-selector"
+import { APP_CONFIG } from "@/lib/config"
 
 const files = [
   { index: 0, path: "示例/视频/正片.mkv", length: 1024 },
@@ -19,8 +20,7 @@ const manyFiles = Array.from({ length: 250 }, (_, index) => ({
 
 describe("TorrentFileSelector", () => {
   beforeEach(() => {
-    localStorage.setItem("qbittorrent-next-locale", "zh")
-    localStorage.setItem("transmission-vibemod-locale", "zh")
+    localStorage.setItem(APP_CONFIG.storageKeys.locale, "zh")
   })
 
   test("可切换单个文件并保留后端文件编号", async () => {

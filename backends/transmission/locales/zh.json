@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "desc": "管理 Transmission 服务端会话及全局参数。",
+    "tabs": {
+      "remote": "RPC / 服务器"
+    },
+    "remote": {
+      "title": "RPC 接口",
+      "rpc_version": "RPC 版本"
+    },
+    "all": {
+      "title": "全部 Transmission 会话设置",
+      "desc": "按功能类别展示服务器返回的全部会话配置项。",
+      "loading": "正在读取 Transmission 会话设置…",
+      "warning": "修改 RPC、网络或认证设置可能立即中断当前连接。保存前请确认仍有其他方式访问 Transmission。",
+      "critical_changes": "包含可能中断连接的 RPC 或网络设置。",
+      "save_failed_desc": "连接可能已被 RPC 或网络设置更改中断，请检查 Transmission。",
+      "categories": {
+        "speed": "速度"
+      },
+      "category_descriptions": {
+        "speed": "全局与备用速度限制，以及备用限速计划。",
+        "advanced": "缓存、请求队列、RPC 防护及版本专属设置。"
+      }
+    }
+  },
+  "ui": {
+    "web_api_version": "RPC 版本"
+  },
+  "interface_settings": {
+    "warning": "导入可能修改 RPC、网络和认证相关配置。请只使用来自同一服务器或确认可信的备份文件。"
+  },
+  "auth": {
+    "connect_desc": "直接连接 Transmission RPC，适配桌面与移动设备。",
+    "version_hint": "适用于 Transmission 4.0 及以上版本",
+    "login_desc": "使用 Transmission RPC 的账户凭据。",
+    "checking": "正在连接 Transmission...",
+    "session_hint": ""
+  }
+}

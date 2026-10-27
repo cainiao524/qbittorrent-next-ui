@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "desc": "Manage qBittorrent session and global parameters.",
+    "tabs": {
+      "remote": "Web API / Server"
+    },
+    "remote": {
+      "title": "Web API Interface",
+      "rpc_version": "Web API Version"
+    },
+    "all": {
+      "title": "All qBittorrent Preferences",
+      "desc": "Shows every server setting on a dedicated functional category page. Names and choices follow qBittorrent's official localization.",
+      "loading": "Loading all qBittorrent preferences…",
+      "warning": "Changing the WebUI address, port, authentication, HTTPS, proxy, or alternative UI path may immediately interrupt this connection. Keep another recovery path available before saving.",
+      "critical_changes": "Includes WebUI or proxy settings that may interrupt the connection.",
+      "save_failed_desc": "A WebUI or network change may have interrupted the connection. Check qBittorrent.",
+      "categories": {
+        "speed": "Speed & Schedule"
+      },
+      "category_descriptions": {
+        "speed": "Global and alternative rate limits, schedules, and transport protocols.",
+        "advanced": "Disk I/O, cache, memory, sockets, and version-specific settings."
+      }
+    }
+  },
+  "creator": {
+    "description": "Create a .torrent file from a file or folder already available to the qBittorrent server.",
+    "start_seeding_desc": "Add the result to the current qBittorrent instance"
+  },
+  "ui": {
+    "web_api_version": "Web API Version"
+  },
+  "interface_settings": {
+    "warning": "Importing may change WebUI, network, or authentication settings. Only use a trusted backup from the same server."
+  },
+  "auth": {
+    "connect_desc": "Connects directly to the qBittorrent Web API on desktop and mobile.",
+    "version_hint": "For qBittorrent 4.4 and later",
+    "login_desc": "Use your qBittorrent WebUI credentials.",
+    "checking": "Connecting to qBittorrent...",
+    "session_hint": "Existing qBittorrent sessions are detected automatically."
+  }
+}

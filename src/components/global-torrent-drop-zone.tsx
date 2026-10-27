@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { AddTorrentDialog } from "@/components/add-torrent-dialog"
 import { useI18n } from "@/lib/i18n-context"
+import { APP_CONFIG } from "@/lib/config"
 
 function containsFiles(event: DragEvent) {
   return Array.from(event.dataTransfer?.types ?? []).includes("Files")
@@ -58,13 +59,13 @@ export function GlobalTorrentDropZone() {
     window.addEventListener("dragover", onDragOver)
     window.addEventListener("dragleave", onDragLeave)
     window.addEventListener("drop", onDrop)
-    window.addEventListener("qbittorrent:add-torrent", onOpenDialog)
+    window.addEventListener(APP_CONFIG.events.addTorrent, onOpenDialog)
     return () => {
       window.removeEventListener("dragenter", onDragEnter)
       window.removeEventListener("dragover", onDragOver)
       window.removeEventListener("dragleave", onDragLeave)
       window.removeEventListener("drop", onDrop)
-      window.removeEventListener("qbittorrent:add-torrent", onOpenDialog)
+      window.removeEventListener(APP_CONFIG.events.addTorrent, onOpenDialog)
     }
   }, [t])
 

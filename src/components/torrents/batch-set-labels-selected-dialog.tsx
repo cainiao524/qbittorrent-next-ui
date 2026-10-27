@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { parseTorrentLabels, serializeTorrentLabels } from "@/lib/torrent-labels"
 import { useI18n } from "@/lib/i18n-context"
 import type { TorrentId } from "@/lib/rpc-types"

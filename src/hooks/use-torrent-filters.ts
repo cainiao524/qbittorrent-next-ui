@@ -1,6 +1,7 @@
 "use client"
-import { useState, useMemo } from "react"
+import { useMemo } from "react"
 import { useI18n } from "@/lib/i18n-context"
+import { useTorrentOverview } from "@/lib/torrent-overview-context"
 import type { Torrent } from "@/lib/rpc-types"
 import {
   filterTorrents,
@@ -15,9 +16,7 @@ export function useTorrentFilters(
   searchQuery: string
 ) {
   const { t } = useI18n()
-  const [trackerFilter, setTrackerFilter] = useState<string[]>([])
-  const [dirFilter, setDirFilter] = useState<string[]>([])
-  const [labelFilter, setLabelFilter] = useState<string[]>([])
+  const { trackerFilter, dirFilter, labelFilter, categoryFilter, toggleFacet, clearFilters } = useTorrentOverview()
 
   const trackers = useMemo(() => getAvailableTrackers(torrents), [torrents])
 
@@ -31,43 +30,19 @@ export function useTorrentFilters(
     trackerFilter,
     dirFilter,
     labelFilter,
+    categoryFilter,
     translateStatus: (statusKey) => t(statusKey),
-  }), [torrents, statusFilter, trackerFilter, dirFilter, labelFilter, searchQuery, t])
+  }), [torrents, statusFilter, trackerFilter, dirFilter, labelFilter, categoryFilter, searchQuery, t])
 
-  const toggleTracker = (host: string) => {
-    setTrackerFilter(prev =>
-      prev.includes(host)
-        ? prev.filter(h => h !== host)
-        : [...prev, host]
-    )
-  }
-
-  const toggleDir = (path: string) => {
-    setDirFilter(prev =>
-      prev.includes(path)
-        ? prev.filter(p => p !== path)
-        : [...prev, path]
-    )
-  }
-
-  const toggleLabel = (label: string) => {
-    setLabelFilter(prev =>
-      prev.includes(label)
-        ? prev.filter(l => l !== label)
-        : [...prev, label]
-    )
-  }
-
-  const clearFilters = () => {
-    setTrackerFilter([])
-    setDirFilter([])
-    setLabelFilter([])
-  }
+  const toggleTracker = (host: string) => toggleFacet("tracker", host)
+  const toggleDir = (path: string) => toggleFacet("dir", path)
+  const toggleLabel = (label: string) => toggleFacet("label", label)
 
   return {
     trackerFilter,
     dirFilter,
     labelFilter,
+    categoryFilter,
     toggleTracker,
     toggleDir,
     toggleLabel,

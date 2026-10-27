@@ -183,7 +183,10 @@
     "edit_labels_confirm": "Update {count} Torrents",
     "removing": "Removing...",
     "remove_data": "Also remove data",
-    "remove_data_desc": "Also delete the downloaded data files."
+    "remove_data_desc": "Also delete the downloaded data files.",
+    "clear_filters": "Clear filters",
+    "errors": "Errors",
+    "total_items": "{count} torrents"
   },
   "details": {
     "general": "General",
@@ -221,8 +224,6 @@
     "priority_updated": "Download priority updated",
     "priority_update_failed": "Failed to update download priority",
     "file_count": "files",
-    "view_details": "View details",
-    "select_all": "Select all",
     "selected_files": "{count} files selected",
     "batch_priority": "Set priority for selected",
     "clear_selection": "Clear selection",
@@ -236,17 +237,17 @@
     "address": "Address",
     "client": "Client",
     "country": "Country",
-    "sort_by": "Sort by"
+    "sort_by": "Sort by",
+    "select_all": "Select all",
+    "view_details": "View details"
   },
   "settings": {
     "title": "Server Settings",
-    "desc": "Manage qBittorrent session and global parameters.",
     "tabs": {
       "speed": "Speed",
       "transfers": "Transfers",
       "network": "Network",
       "peers": "Peers & Shield",
-      "remote": "Web API / Server",
       "page": "Page Settings",
       "all": "All Preferences"
     },
@@ -311,18 +312,12 @@
       "blocklist_desc": "Protect your session from known malicious IP ranges."
     },
     "remote": {
-      "title": "Web API Interface",
       "client_version": "Client Version",
-      "rpc_version": "Web API Version",
       "server_software": "Server Software",
       "host_whitelist": "Host Whitelist"
     },
     "all": {
-      "title": "All qBittorrent Preferences",
-      "desc": "Shows every server setting on a dedicated functional category page. Names and choices follow qBittorrent's official localization.",
-      "loading": "Loading all qBittorrent preferences…",
       "reload": "Reload",
-      "warning": "Changing the WebUI address, port, authentication, HTTPS, proxy, or alternative UI path may immediately interrupt this connection. Keep another recovery path available before saving.",
       "search": "Search keys, categories, or values…",
       "changed_only": "Changed only",
       "total": "{{count}} settings returned",
@@ -337,34 +332,40 @@
       "no_results": "No matching preferences.",
       "no_results_in_category": "No matching preferences in this category.",
       "fix_json": "Fix invalid JSON fields before saving.",
-      "critical_changes": "Includes WebUI or proxy settings that may interrupt the connection.",
       "pending": "{{count}} changes pending.",
       "save": "Save Preferences",
       "load_failed": "Unable to load all preferences",
       "save_success": "Preferences saved",
       "save_success_desc": "The server accepted {{count}} changes.",
       "save_failed": "Unable to save preferences",
-      "save_failed_desc": "A WebUI or network change may have interrupted the connection. Check qBittorrent.",
       "categories": {
         "behavior": "Behavior",
         "downloads": "Downloads & Storage",
-        "speed": "Speed & Schedule",
         "connection": "Connection & Proxy",
         "bittorrent": "BitTorrent",
         "webui": "WebUI & Authentication",
         "rss": "RSS",
-        "advanced": "Advanced & Version-specific"
+        "advanced": "Advanced & Version-specific",
+        "torrents": "Torrents",
+        "peers": "Peers",
+        "network": "Network",
+        "automation": "Automation",
+        "information": "Server Information"
       },
       "category_descriptions": {
         "behavior": "Language, confirmations, status display, log files, and general behavior.",
         "downloads": "Save paths, adding torrents, file handling, notifications, and external programs.",
         "connection": "Listening ports, connection limits, proxies, IP filtering, and anonymous networking.",
-        "speed": "Global and alternative rate limits, schedules, and transport protocols.",
         "bittorrent": "Peer discovery, encryption, queueing, share limits, and trackers.",
         "webui": "Addresses, authentication, HTTPS, reverse proxies, and security protections.",
         "rss": "RSS refresh, article retention, and automatic download processing.",
-        "advanced": "Disk I/O, cache, memory, sockets, and version-specific settings."
-      }
+        "torrents": "Download folders, incomplete files, add behavior, queues, and seeding limits.",
+        "peers": "Peer limits, encryption, peer discovery, and the IP blocklist.",
+        "network": "Listening ports, port forwarding, transports, and default public trackers.",
+        "automation": "Scripts run after adding, downloading, or seeding completes.",
+        "information": "Version, RPC, directory, unit, and status values returned by Transmission; these fields are read only."
+      },
+      "read_only": "Read only"
     },
     "actions": {
       "discard": "Discard",
@@ -390,7 +391,9 @@
     "total_tasks": "Tasks",
     "paused_tasks": "Paused",
     "free_unit": "free",
-    "total_label": "Total"
+    "total_label": "Total",
+    "overview": "Transfer overview",
+    "ratio": "Ratio"
   },
   "status": {
     "stopped": "Stopped",
@@ -404,7 +407,6 @@
   },
   "creator": {
     "title": "Torrent Creator",
-    "description": "Create a .torrent file from a file or folder already available to the qBittorrent server.",
     "source_path": "Source file or folder path",
     "source_required": "Select a source file or folder on the server",
     "format": "Torrent format",
@@ -414,7 +416,6 @@
     "private": "Private torrent",
     "private_desc": "Do not distribute on the DHT network",
     "start_seeding": "Start seeding immediately",
-    "start_seeding_desc": "Add the result to the current qBittorrent instance",
     "trackers": "Tracker URLs",
     "web_seeds": "Web seed URLs",
     "one_url_per_line": "One URL per line; use a blank line between tiers",
@@ -457,7 +458,6 @@
     "torrent_not_found_desc": "The torrent may have been removed or no longer exists.",
     "advanced_control": "Advanced Controls",
     "country_region": "Country / Region",
-    "web_api_version": "Web API Version",
     "close": "Close",
     "sidebar": "Sidebar",
     "language": "Language",
@@ -691,7 +691,6 @@
     "export": "Export Settings",
     "import": "Import Settings",
     "restore": "Restore Settings Before Latest Import",
-    "warning": "Importing may change WebUI, network, or authentication settings. Only use a trusted backup from the same server.",
     "sidebar_all": "All Torrents",
     "sidebar_active": "Active Torrents",
     "sidebar_downloading": "Downloading",
@@ -701,21 +700,39 @@
   },
   "auth": {
     "tagline": "A more focused and clearer download manager.",
-    "connect_desc": "Connects directly to the qBittorrent Web API on desktop and mobile.",
-    "version_hint": "For qBittorrent 4.4 and later",
     "login_title": "Sign In",
-    "login_desc": "Use your qBittorrent WebUI credentials.",
     "username": "Username",
     "password": "Password",
     "login_error": "Sign-in failed. Check the server address, username, and password.",
-    "connect_login": "Connect and Sign In",
-    "checking": "Connecting to qBittorrent...",
-    "session_hint": "Existing qBittorrent sessions are detected automatically."
+    "connect_login": "Connect and Sign In"
   },
   "speed_chart": {
     "title": "Transfer Speed History",
     "aria": "Transfer speeds from the latest sixty refreshes",
     "waiting": "Waiting for the next refresh to draw the trend",
     "samples": "Latest {count}/60 samples"
+  },
+  "selection": {
+    "count": "{count} selected",
+    "select_all": "Select all {count}",
+    "clear": "Clear selection"
+  },
+  "filters": {
+    "categories": "Categories",
+    "remove": "Remove filter",
+    "trackers": "Trackers",
+    "dirs": "Folders",
+    "labels": "Labels",
+    "show_all": "Show all {count}",
+    "show_less": "Show less"
+  },
+  "empty": {
+    "none_title": "No torrents yet",
+    "none_desc": "Add a magnet link or a .torrent file to start, or drop files anywhere on the page.",
+    "no_match_title": "No matching torrents",
+    "no_match_desc": "Try a different search or remove some filters.",
+    "status_title": "Nothing here right now",
+    "status_desc": "Torrents show up here automatically when their state changes.",
+    "clear": "Clear search and filters"
   }
 }

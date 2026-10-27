@@ -1,0 +1,59 @@
+name: 自动发布（同步合并后打标签）
+
+# btui 的同步 PR 合并到 main 后（会更新 .github/SYNCED_FROM），按 package.json 的版本
+# 打标签 v<版本>-funky9，再调起 docker-image.yml 发布 Docker Hub 与 GHCR。
+# 标签已存在时什么都不做，因此重复运行或不改版本号的同步都是安全的。
+on:
+  push:
+    branches: [main]
+    paths: [".github/SYNCED_FROM"]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  tag-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: 计算标签
+        id: tag
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}-funky9"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?-funky9$ ]]; then
+            echo "::error::package.json 版本 ${VERSION} 生成的标签 ${TAG} 格式无效"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null; then
+            echo "标签 ${TAG} 已存在，跳过发布"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: 打标签
+        if: steps.tag.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.tag.outputs.tag }}" -m "${{ steps.tag.outputs.tag }}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${{ steps.tag.outputs.tag }}"
+
+      - name: 调起 Docker 发布
+        if: steps.tag.outputs.skip == 'false'
+        run: gh workflow run docker-image.yml --ref "${{ steps.tag.outputs.tag }}"

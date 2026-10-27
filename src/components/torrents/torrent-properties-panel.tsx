@@ -2,7 +2,10 @@ import { Boxes, Clock3, Network, RadioTower } from "lucide-react"
 
 import { formatDuration, formatSize, formatSpeed } from "@/lib/formatters"
 import { useI18n } from "@/lib/i18n-context"
+import { APP_CONFIG } from "@/lib/config"
 import type { Torrent } from "@/lib/rpc-types"
+
+const { capabilities } = APP_CONFIG
 
 function Property({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="flex items-center justify-between gap-3 border-b border-muted/20 py-2.5 last:border-0"><span className="text-xs text-muted-foreground">{label}</span><span className="break-all text-right text-xs font-medium tabular-nums">{value}</span></div>
@@ -20,10 +23,10 @@ export function TorrentPropertiesPanel({ torrent: tor }: { torrent: Torrent }) {
     <div className="col-span-full grid gap-4 border-t border-muted/20 pt-6 md:grid-cols-2 xl:grid-cols-4">
       <Group title={t("torrent_properties.runtime")} icon={<RadioTower className="h-4 w-4" />}>
         <Property label={t("torrent_properties.force_start")} value={state(tor.forceStart)} />
-        <Property label={t("torrent_properties.super_seeding")} value={state(tor.superSeeding)} />
-        <Property label={t("torrent_properties.auto_management")} value={state(tor.autoManagement)} />
-        <Property label={t("torrent_properties.sequential")} value={state(tor.sequentialDownload)} />
-        <Property label={t("torrent_properties.first_last")} value={state(tor.firstLastPiecePriority)} />
+        {capabilities.superSeeding && <Property label={t("torrent_properties.super_seeding")} value={state(tor.superSeeding)} />}
+        {capabilities.autoManagement && <Property label={t("torrent_properties.auto_management")} value={state(tor.autoManagement)} />}
+        {capabilities.piecePriorityToggles && <Property label={t("torrent_properties.sequential")} value={state(tor.sequentialDownload)} />}
+        {capabilities.piecePriorityToggles && <Property label={t("torrent_properties.first_last")} value={state(tor.firstLastPiecePriority)} />}
         <Property label={t("torrent_properties.ratio_limit")} value={limit(tor.seedRatioMode, tor.seedRatioLimit)} />
         <Property label={t("torrent_properties.seeding_limit")} value={limit(tor.seedingTimeMode, tor.seedingTimeLimit, t("torrent_properties.minutes"))} />
         <Property label={t("torrent_properties.inactive_limit")} value={limit(tor.inactiveSeedingTimeMode, tor.inactiveSeedingTimeLimit, t("torrent_properties.minutes"))} />

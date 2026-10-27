@@ -50,7 +50,7 @@ jobs:
 
           with open("package.json", encoding="utf-8") as package_file:
               version = json.load(package_file)["version"]
-          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?", version):
               raise SystemExit(f"invalid package version: {version}")
 
           tag = f"v{version}-{suffix}"
@@ -68,7 +68,7 @@ jobs:
           template = open("DOCKERHUB.md", encoding="utf-8").read()
           if template.count(placeholder) != 1:
               raise SystemExit(f"DOCKERHUB.md must contain exactly one {placeholder}")
-          concrete_tag_pattern = rf"v[0-9]+\.[0-9]+\.[0-9]+-{re.escape(suffix)}"
+          concrete_tag_pattern = rf"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9]+)?-{re.escape(suffix)}"
           if re.search(concrete_tag_pattern, template):
               raise SystemExit("DOCKERHUB.md contains a hard-coded release tag")
           full_desc = template.replace(placeholder, tag)

@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { rpc } from "@/lib/rpc-client"
+import { rpc } from "@backend/rpc-client"
 import { useI18n } from "@/lib/i18n-context"
 
 interface BatchMoveDirectoryDialogProps {
@@ -100,7 +100,7 @@ export function BatchMoveDirectoryDialog({ open, onOpenChange, onSuccess }: Batc
       const ids = matchingTorrents.map(t => t.id)
       const targetNewDir = newDir.trim()
 
-      // qBittorrent Web API: torrents/setLocation
+      // qBittorrent: torrents/setLocation; Transmission: torrent-set-location
       // { "ids": [...], "location": "...", "move": true }
       await rpc.setTorrentLocation(ids, targetNewDir, true)
 

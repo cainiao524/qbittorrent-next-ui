@@ -8,6 +8,7 @@ import {
   ArrowUpCircle,
   PauseCircle,
   Settings,
+  AlertTriangle,
 } from "lucide-react"
 
 const Github = (props: React.SVGProps<SVGSVGElement>) => (
@@ -39,6 +40,9 @@ import { useLocation } from "react-router-dom"
 import { useI18n } from "@/lib/i18n-context"
 import { APP_CONFIG } from "@/lib/config"
 import { useAppSettings, type SidebarItemId } from "@/lib/app-settings-context"
+import { useTorrentOverview } from "@/lib/torrent-overview-context"
+import type { StatusFilterId } from "@/lib/torrent-list-utils"
+import { SidebarFacetGroups } from "@/components/sidebar-facet-groups"
 
 const data = {
   navMain: [
@@ -73,6 +77,12 @@ const data = {
       id: "paused" as SidebarItemId,
     },
   ],
+  // Only listed while at least one torrent reports an error.
+  errorItem: {
+    title: "Errors",
+    url: "/errors",
+    icon: AlertTriangle,
+  },
   secondary: [
     {
       title: "Settings",
@@ -115,12 +125,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       "Downloading": "common.downloading",
       "Seeding": "common.seeding",
       "Paused": "common.paused",
+      "Errors": "common.errors",
       "Settings": "common.settings"
     }
     return t(keyMap[title] || title)
   }
 
-  const visibleMain = data.navMain.filter((item) => sidebarItems.includes(item.id))
+  const { overview } = useTorrentOverview()
+  const statusCounts = overview?.statusCounts
+  const visibleMain: { title: string; url: string; icon: React.ComponentType; id: StatusFilterId }[] = [
+    ...data.navMain.filter((item) => sidebarItems.includes(item.id)).map((item) => ({ ...item, id: item.id as StatusFilterId })),
+    ...(statusCounts?.error ? [{ ...data.errorItem, id: "error" as const }] : []),
+  ]
   const activeMainIndex = visibleMain.findIndex((item) => pathname === item.url)
   const visibleSecondary = data.secondary.filter((item) => sidebarItems.includes(item.id))
   const activeSecondaryIndex = visibleSecondary.findIndex((item) => pathname === item.url)
@@ -162,6 +178,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           <item.icon />
                         </span>
                         <span className="font-semibold">{getTitle(item.title)}</span>
+                        {statusCounts && (
+                          <span
+                            className={cn(
+                              "text-numeric ml-auto pr-3 text-xs font-medium group-data-[collapsible=icon]:hidden",
+                              isActive ? "text-primary-foreground/80" : item.id === "error" ? "text-destructive" : "text-muted-foreground"
+                            )}
+                          >
+                            {statusCounts[item.id]}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -170,6 +196,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <SidebarFacetGroups />
         <SidebarGroup className="mt-auto border-t border-muted/30 pt-4">
           <SidebarGroupContent>
             <SidebarMenu className="relative gap-1 px-2 transition-[padding] duration-[var(--sidebar-motion-duration)] ease-[var(--sidebar-motion-ease)] group-data-[collapsible=icon]:px-0">

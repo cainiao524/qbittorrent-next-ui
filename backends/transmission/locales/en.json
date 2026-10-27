@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "desc": "Manage the Transmission session and global parameters.",
+    "tabs": {
+      "remote": "RPC / Server"
+    },
+    "remote": {
+      "title": "RPC Interface",
+      "rpc_version": "RPC Version"
+    },
+    "all": {
+      "title": "All Transmission Session Settings",
+      "desc": "Shows the session settings returned by the server by functional category.",
+      "loading": "Loading Transmission session settings…",
+      "warning": "Changing RPC, network, or authentication settings may immediately interrupt this connection. Keep another way to access Transmission available before saving.",
+      "critical_changes": "Includes RPC or network settings that may interrupt the connection.",
+      "save_failed_desc": "An RPC or network change may have interrupted the connection. Check Transmission.",
+      "categories": {
+        "speed": "Speed"
+      },
+      "category_descriptions": {
+        "speed": "Global and alternative speed limits and the alternative speed schedule.",
+        "advanced": "Cache, request queue, RPC protection, and version-specific settings."
+      }
+    }
+  },
+  "ui": {
+    "web_api_version": "RPC Version"
+  },
+  "interface_settings": {
+    "warning": "Importing may change RPC, network, or authentication settings. Only use a trusted backup from the same server."
+  },
+  "auth": {
+    "connect_desc": "Connects directly to Transmission RPC on desktop and mobile.",
+    "version_hint": "For Transmission 4.0 and later",
+    "login_desc": "Use your Transmission RPC credentials.",
+    "checking": "Connecting to Transmission...",
+    "session_hint": ""
+  }
+}

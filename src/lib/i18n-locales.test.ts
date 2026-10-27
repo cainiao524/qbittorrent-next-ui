@@ -40,3 +40,31 @@ describe("locale resources", () => {
     }
   })
 })
+
+describe("backend locale overlays", () => {
+  const overlays = import.meta.glob<Record<string, unknown>>("../../backends/*/locales/*.json", { eager: true, import: "default" })
+  const sharedKeys = new Set(Object.keys(flattenLocale(en)))
+  // Strings for backend-only features may live in a single backend's overlay.
+  const backendOnlyPrefixes = ["creator."]
+
+  it("provide every backend-specific string that is missing from the shared locale", () => {
+    const overlayKeys = Object.values(overlays).flatMap((overlay) => Object.keys(flattenLocale(overlay)))
+    const required = new Set(overlayKeys.filter((key) => !sharedKeys.has(key) && !backendOnlyPrefixes.some((prefix) => key.startsWith(prefix))))
+    for (const [file, overlay] of Object.entries(overlays)) {
+      const keys = new Set(Object.keys(flattenLocale(overlay)))
+      for (const key of required) expect(keys.has(key), `${file}: ${key}`).toBe(true)
+    }
+  })
+
+  it("keeps each backend's English and Chinese overlays aligned", () => {
+    const byBackend = new Map<string, Record<string, Record<string, string>>>()
+    for (const [file, overlay] of Object.entries(overlays)) {
+      const [, backend, locale] = file.match(/backends\/([^/]+)\/locales\/(\w+)\.json$/) ?? []
+      byBackend.set(backend, { ...byBackend.get(backend), [locale]: flattenLocale(overlay) })
+    }
+    expect(byBackend.size).toBeGreaterThanOrEqual(2)
+    for (const [backend, locales] of byBackend) {
+      expect(Object.keys(locales.zh).sort(), backend).toEqual(Object.keys(locales.en).sort())
+    }
+  })
+})

@@ -40,6 +40,7 @@ export interface TorrentFilterOptions {
   trackerFilter?: string[]
   dirFilter?: string[]
   labelFilter?: string[]
+  categoryFilter?: string[]
   translateStatus: (statusKey: string) => string
 }
 
@@ -78,6 +79,64 @@ export function getAvailableLabels(torrents: Torrent[]): string[] {
   return Array.from(labels).sort()
 }
 
+export function hasTorrentError(torrent: Torrent): boolean {
+  return torrent.error > 0 || Boolean(torrent.errorString)
+}
+
+export type StatusFilterId = "all" | "active" | "downloading" | "seeding" | "paused" | "error"
+
+export interface FacetCount {
+  value: string
+  count: number
+}
+
+export interface TorrentOverview {
+  statusCounts: Record<StatusFilterId, number>
+  trackers: FacetCount[]
+  downloadDirs: FacetCount[]
+  labels: FacetCount[]
+  categories: FacetCount[]
+}
+
+function toFacetCounts(counts: Map<string, number>): FacetCount[] {
+  return Array.from(counts, ([value, count]) => ({ value, count }))
+    .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value))
+}
+
+function increment(counts: Map<string, number>, key: string) {
+  counts.set(key, (counts.get(key) ?? 0) + 1)
+}
+
+/** Counts per sidebar status and per tracker / directory / label, over the unfiltered list. */
+export function getTorrentOverview(torrents: Torrent[]): TorrentOverview {
+  const statusCounts: Record<StatusFilterId, number> = { all: torrents.length, active: 0, downloading: 0, seeding: 0, paused: 0, error: 0 }
+  const trackers = new Map<string, number>()
+  const downloadDirs = new Map<string, number>()
+  const labels = new Map<string, number>()
+  const categories = new Map<string, number>()
+
+  for (const torrent of torrents) {
+    if (torrent.rateDownload > 0 || torrent.rateUpload > 0) statusCounts.active += 1
+    if ([4, 3, 2, 1].includes(torrent.status)) statusCounts.downloading += 1
+    if ([6, 5].includes(torrent.status)) statusCounts.seeding += 1
+    if (torrent.status === 0) statusCounts.paused += 1
+    if (hasTorrentError(torrent)) statusCounts.error += 1
+
+    new Set(torrent.trackerStats?.map((stat) => stat.host).filter(Boolean)).forEach((host) => increment(trackers, host))
+    if (torrent.downloadDir) increment(downloadDirs, torrent.downloadDir)
+    if (torrent.category) increment(categories, torrent.category)
+    new Set(torrent.labels?.map(parseTorrentLabel).filter(Boolean)).forEach((label) => increment(labels, label))
+  }
+
+  return {
+    statusCounts,
+    trackers: toFacetCounts(trackers),
+    downloadDirs: toFacetCounts(downloadDirs),
+    labels: toFacetCounts(labels),
+    categories: toFacetCounts(categories),
+  }
+}
+
 export function filterTorrents(torrents: Torrent[], options: TorrentFilterOptions): Torrent[] {
   const {
     statusFilter,
@@ -85,6 +144,7 @@ export function filterTorrents(torrents: Torrent[], options: TorrentFilterOption
     trackerFilter = [],
     dirFilter = [],
     labelFilter = [],
+    categoryFilter = [],
     translateStatus,
   } = options
   const statusLower = statusFilter?.toLowerCase()
@@ -100,6 +160,8 @@ export function filterTorrents(torrents: Torrent[], options: TorrentFilterOption
         if (![6, 5].includes(torrent.status)) return false
       } else if (statusLower === "stopped" || statusLower === "paused") {
         if (torrent.status !== 0) return false
+      } else if (statusLower === "error") {
+        if (!hasTorrentError(torrent)) return false
       } else if (!translateStatus(getStatusLabel(torrent.status)).toLowerCase().includes(statusLower)) {
         return false
       }
@@ -107,6 +169,7 @@ export function filterTorrents(torrents: Torrent[], options: TorrentFilterOption
 
     if (trackerFilter.length > 0 && !torrent.trackerStats?.some((stat) => trackerFilter.includes(stat.host))) return false
     if (dirFilter.length > 0 && !dirFilter.includes(torrent.downloadDir)) return false
+    if (categoryFilter.length > 0 && !categoryFilter.includes(torrent.category ?? "")) return false
     if (labelFilter.length > 0 && !torrent.labels?.some((label) => labelFilter.includes(parseTorrentLabel(label)))) return false
     if (searchLower && !torrent.name.toLowerCase().includes(searchLower)) return false
 
@@ -125,7 +188,7 @@ export function getTorrentSortValue(torrent: Torrent, key: SortKey): number | st
     case "peers":
       return torrent.peersGettingFromUs
     case "tracker":
-      return torrent.trackers?.[0]?.announce ?? ""
+      return torrent.trackerStats?.[0]?.announce ?? torrent.trackers?.[0]?.announce ?? ""
     default: {
       const value = torrent[key as keyof Torrent]
       return (typeof value === "number" || typeof value === "string") ? value : 0
