@@ -712,11 +712,6 @@
     "waiting": "等待下一次刷新以绘制趋势",
     "samples": "最近 {count}/60 个采样点"
   },
-  "selection": {
-    "count": "已选 {count} 项",
-    "select_all": "全选 {count} 项",
-    "clear": "清除选择"
-  },
   "filters": {
     "categories": "分类",
     "remove": "移除筛选",

@@ -1,8 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo, useRef } from "react"
-import { X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { MoreVertical, Pause, Play, Radio, ShieldCheck, Tag, Trash2, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { BatchReplaceTrackerDialog } from "@/components/torrents/batch-replace-tracker-dialog"
 import { BatchMoveDirectoryDialog } from "@/components/torrents/batch-move-directory-dialog"
 import { BatchSetLabelsSelectedDialog } from "@/components/torrents/batch-set-labels-selected-dialog"
@@ -20,7 +26,7 @@ import { TorrentListView } from "@/components/torrents/torrent-list-view"
 import { TorrentGridView } from "@/components/torrents/torrent-grid-view"
 import { TorrentToolbar } from "@/components/torrents/torrent-toolbar"
 import { KeyboardShortcutsDialog } from "@/components/torrents/keyboard-shortcuts-dialog"
-import { TorrentSelectionBar } from "@/components/torrents/torrent-selection-bar"
+import { AdvancedTorrentMenu } from "@/components/torrents/advanced-torrent-menu"
 import { TorrentStatsBar } from "@/components/torrents/torrent-stats-bar"
 import { TorrentEmptyState } from "@/components/torrents/torrent-empty-state"
 import { SpeedHistoryChart } from "@/components/torrents/speed-history-chart"
@@ -60,6 +66,8 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   const [isBatchSetLabelsOpen, setIsBatchSetLabelsOpen] = useState(false)
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false)
   const [idsToDelete, setIdsToDelete] = useState<TorrentId[]>([])
+  const [showSelectionToolbar, setShowSelectionToolbar] = useState(false)
+  const [toolbarCount, setToolbarCount] = useState(0)
 
   const {
     visibleColumns,
@@ -76,6 +84,17 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
     actionsColumnPinned,
     setActionsColumnPinned,
   } = useColumnManager()
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () => {
+        setShowSelectionToolbar(selectedIds.length > 0)
+        if (selectedIds.length > 0) setToolbarCount(selectedIds.length)
+      },
+      selectedIds.length > 0 ? 0 : 200,
+    )
+    return () => clearTimeout(timer)
+  }, [selectedIds.length])
 
   const { torrents, stats, freeSpace, isInitialLoading, fetchData } = useTorrentData(viewMode, visibleColumns, isActive)
   const speedHistory = useSpeedHistory(showStats ? stats : null)
@@ -297,15 +316,6 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
   }, [fetchData, handleBatchAction, selectedIds.length, sortedTorrents])
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
-  const hasSelection = selectedIds.length > 0
-  // Keep the last selection on screen for the bar's 150ms exit animation after it is cleared.
-  const [selectionBarIds, setSelectionBarIds] = useState<TorrentId[]>([])
-  if (hasSelection && selectionBarIds !== selectedIds) setSelectionBarIds(selectedIds)
-  useEffect(() => {
-    if (hasSelection || selectionBarIds.length === 0) return
-    const timer = setTimeout(() => setSelectionBarIds([]), 150)
-    return () => clearTimeout(timer)
-  }, [hasSelection, selectionBarIds.length])
 
   return (
     <div key={statusFilter ?? "all"} className="flex flex-col gap-4 md:gap-6">
@@ -333,7 +343,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       )}
 
       <div className="flex flex-col gap-4">
-        <div className={cn("relative", selectionBarIds.length > 0 && "sticky top-16 z-30 rounded-xl bg-background")}>
+        <div>
           <TorrentToolbar
             viewMode={viewMode}
             onViewModeChange={setViewMode}
@@ -363,20 +373,6 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             fetchData={fetchData}
             onGlobalAction={handleGlobalAction}
           />
-          {selectionBarIds.length > 0 && (
-            <TorrentSelectionBar
-              className="absolute inset-0"
-              open={hasSelection}
-              selectedIds={selectionBarIds}
-              totalCount={sortedTorrents.length}
-              onBatchAction={handleBatchAction}
-              onSelectAll={() => { setSelectedIds(sortedTorrents.map((torrent) => torrent.id)); setSelectionAnchorId(null) }}
-              onClear={() => { setSelectedIds([]); setSelectionAnchorId(null) }}
-              onSetLabels={() => setIsBatchSetLabelsOpen(true)}
-              onExport={exportSelectedTorrents}
-              onAdvancedSuccess={fetchData}
-            />
-          )}
         </div>
 
         {activeFilters.length > 0 && (
@@ -455,6 +451,95 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
           </p>
         )}
       </div>
+
+      {showSelectionToolbar && (
+        <div
+          data-state={selectedIds.length > 0 ? "open" : "closed"}
+          style={{ animationFillMode: "both" }}
+          aria-hidden={selectedIds.length === 0}
+          inert={selectedIds.length === 0}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[calc(100%-2rem)] md:max-w-fit px-2 sm:px-0 data-[state=open]:transition-none animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:pointer-events-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-8 duration-200 motion-reduce:animate-none"
+        >
+          <div className="relative min-w-0 md:min-w-[400px] rounded-[2.5rem] border border-primary/20 shadow-[0_8px_40px_rgba(var(--primary),0.15)]">
+            <div className="selected-toolbar-bg absolute inset-0 rounded-[2.5rem] bg-background/80" />
+            <div className="relative flex items-center gap-2 md:gap-6 px-3 py-2.5 md:px-6 md:py-4 justify-between md:justify-start">
+            <div className="flex items-center gap-2 border-r pr-3 md:pr-6 mr-1 md:mr-2 shrink-0">
+              <div className="bg-primary text-primary-foreground text-[10px] md:text-xs font-bold h-5 w-5 md:h-6 md:w-6 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
+                {selectedIds.length || toolbarCount}
+              </div>
+              <span className="text-sm font-bold tracking-tight hidden lg:inline">{t('common.selected')}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 xl:gap-3 flex-1 min-w-0 overflow-x-auto no-scrollbar justify-center md:justify-start">
+              <Button size="sm" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4" onClick={() => handleBatchAction("start")}>
+                <Play className="h-4 w-4" />
+                <span className="hidden xl:inline">{t('common.resume')}</span>
+              </Button>
+              <Button size="sm" variant="secondary" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4" onClick={() => handleBatchAction("stop")}>
+                <Pause className="h-4 w-4" />
+                <span className="hidden xl:inline">{t('common.pause')}</span>
+              </Button>
+              <Button size="sm" variant="ghost" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleBatchAction("remove")}>
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden xl:inline">{t('common.remove')}</span>
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-9 md:h-10 rounded-2xl md:rounded-xl font-bold gap-1.5 md:gap-2 px-2.5 md:px-4 bg-muted/50 hover:bg-muted/70">
+                    <MoreVertical className="h-4 w-4" />
+                    <span className="hidden xl:inline">{t('common.more', 'More')}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={12} className="w-[200px] rounded-2xl border border-muted/50 bg-card/95 backdrop-blur-xl shadow-2xl p-1">
+                  <DropdownMenuItem
+                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
+                    onClick={() => handleBatchAction("verify")}
+                  >
+                    <ShieldCheck className="h-4 w-4 opacity-60" />
+                    {t('common.verify', 'Verify')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
+                    onClick={() => handleBatchAction("reannounce")}
+                  >
+                    <Radio className="h-4 w-4 opacity-60" />
+                    {t('common.reannounce', 'Reannounce')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted"
+                    onClick={() => setIsBatchSetLabelsOpen(true)}
+                  >
+                    <Tag className="h-4 w-4 opacity-60" />
+                    {t('common.set_torrent_labels')}
+                  </DropdownMenuItem>
+                  <AdvancedTorrentMenu
+                    ids={selectedIds}
+                    onSuccess={fetchData}
+                    onExport={exportSelectedTorrents}
+                    trigger={
+                      <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="rounded-xl py-2.5 px-3 cursor-pointer gap-3 font-medium focus:bg-muted">
+                        <MoreVertical className="h-4 w-4 opacity-60" />
+                        高级任务操作
+                      </DropdownMenuItem>
+                    }
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 md:h-9 md:w-9 rounded-full shrink-0 hover:bg-muted/50"
+              onClick={() => { setSelectedIds([]); setSelectionAnchorId(null) }}
+            >
+              <X className="h-4 w-4 opacity-50" />
+            </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RemoveTorrentDialog
         open={isDeleteDialogOpen}
