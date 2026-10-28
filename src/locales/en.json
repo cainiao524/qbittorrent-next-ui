@@ -712,11 +712,6 @@
     "waiting": "Waiting for the next refresh to draw the trend",
     "samples": "Latest {count}/60 samples"
   },
-  "selection": {
-    "count": "{count} selected",
-    "select_all": "Select all {count}",
-    "clear": "Clear selection"
-  },
   "filters": {
     "categories": "Categories",
     "remove": "Remove filter",
