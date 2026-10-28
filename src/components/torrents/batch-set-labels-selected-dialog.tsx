@@ -182,7 +182,7 @@ export function BatchSetLabelsSelectedDialog({
               {labels.map((label, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-1.5 p-1 px-2.5 bg-primary/10 text-primary rounded-xl text-xs font-medium animate-in zoom-in-95 duration-200"
+                  className="flex items-center gap-1.5 p-1 px-2.5 bg-primary/10 text-primary rounded-xl text-xs font-medium transition-none animate-in zoom-in-95 duration-200"
                 >
                   <Tag className="h-3 w-3 opacity-60" />
                   {label}

@@ -20,7 +20,7 @@ export function TorrentEmptyState({ hasTorrents, isFiltered, onAdd, onClearFilte
   const Icon = variant === "no_match" ? SearchX : Inbox
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-muted/50 px-6 py-16 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-muted/50 px-6 py-16 text-center transition-none animate-in fade-in duration-200 motion-reduce:animate-none">
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground">
         <Icon className="h-6 w-6" aria-hidden />
       </span>

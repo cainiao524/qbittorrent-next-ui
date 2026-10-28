@@ -1,7 +1,7 @@
 import type { BackendConfig } from "@/lib/backend-config"
 
 export const APP_CONFIG = {
-  version: "v1.20.0-funky⑨",
+  version: "v1.20.1-funky⑨",
   githubUrl: "https://github.com/cainiao524/qbittorrent-next-ui",
   name: "qBittorrent Next",
   backendName: "qBittorrent",

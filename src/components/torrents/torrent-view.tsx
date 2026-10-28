@@ -298,12 +298,20 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const hasSelection = selectedIds.length > 0
+  // Keep the last selection on screen for the bar's 150ms exit animation after it is cleared.
+  const [selectionBarIds, setSelectionBarIds] = useState<TorrentId[]>([])
+  if (hasSelection && selectionBarIds !== selectedIds) setSelectionBarIds(selectedIds)
+  useEffect(() => {
+    if (hasSelection || selectionBarIds.length === 0) return
+    const timer = setTimeout(() => setSelectionBarIds([]), 150)
+    return () => clearTimeout(timer)
+  }, [hasSelection, selectionBarIds.length])
 
   return (
     <div key={statusFilter ?? "all"} className="flex flex-col gap-4 md:gap-6">
       {showStats && (
         stats && !isInitialLoading ? (
-          <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none">
+          <div className="flex flex-col gap-3 transition-none animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none" style={{ animationFillMode: "both" }}>
             <TorrentStatsBar
               stats={stats}
               freeSpace={freeSpace}
@@ -313,7 +321,11 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
               chartExpanded={showSpeedChart}
               onToggleChart={() => setShowSpeedChart(!showSpeedChart)}
             />
-            {showSpeedChart && <SpeedHistoryChart stats={stats} history={speedHistory} />}
+            {showSpeedChart && (
+              <div className="transition-none animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none" style={{ animationFillMode: "both" }}>
+                <SpeedHistoryChart stats={stats} history={speedHistory} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="skeleton-gradient h-[84px] rounded-2xl border border-muted/30 bg-muted/20" />
@@ -321,7 +333,7 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
       )}
 
       <div className="flex flex-col gap-4">
-        <div className={cn("relative", hasSelection && "sticky top-16 z-30 rounded-xl bg-background")}>
+        <div className={cn("relative", selectionBarIds.length > 0 && "sticky top-16 z-30 rounded-xl bg-background")}>
           <TorrentToolbar
             viewMode={viewMode}
             onViewModeChange={setViewMode}
@@ -351,10 +363,11 @@ export function TorrentView({ statusFilter, showStats = true, isActive = true }:
             fetchData={fetchData}
             onGlobalAction={handleGlobalAction}
           />
-          {selectedIds.length > 0 && (
+          {selectionBarIds.length > 0 && (
             <TorrentSelectionBar
               className="absolute inset-0"
-              selectedIds={selectedIds}
+              open={hasSelection}
+              selectedIds={selectionBarIds}
               totalCount={sortedTorrents.length}
               onBatchAction={handleBatchAction}
               onSelectAll={() => { setSelectedIds(sortedTorrents.map((torrent) => torrent.id)); setSelectionAnchorId(null) }}

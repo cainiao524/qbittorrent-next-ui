@@ -19,6 +19,8 @@ interface TorrentSelectionBarProps {
   onSetLabels: () => void
   onExport: () => Promise<void>
   onAdvancedSuccess: () => void
+  /** false while the bar plays its exit animation after the selection was cleared. */
+  open?: boolean
   className?: string
 }
 
@@ -36,6 +38,7 @@ export function TorrentSelectionBar({
   onSetLabels,
   onExport,
   onAdvancedSuccess,
+  open = true,
   className,
 }: TorrentSelectionBarProps) {
   const { t } = useI18n()
@@ -46,7 +49,15 @@ export function TorrentSelectionBar({
     <div
       role="toolbar"
       aria-label={t("common.selected")}
-      className={cn("flex items-center gap-1 rounded-xl border border-primary/20 bg-background px-2 py-1.5 shadow-sm animate-in fade-in duration-150 motion-reduce:animate-none sm:gap-2 sm:px-3", className)}
+      data-state={open ? "open" : "closed"}
+      aria-hidden={!open}
+      inert={!open}
+      style={{ animationFillMode: "both" }}
+      className={cn(
+        "flex items-center gap-1 rounded-xl border border-primary/20 bg-background px-2 py-1.5 shadow-sm transition-none duration-150 motion-reduce:animate-none sm:gap-2 sm:px-3",
+        "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:pointer-events-none",
+        className,
+      )}
     >
       <span className="flex shrink-0 items-center gap-1.5 pr-1 text-xs font-semibold text-primary sm:pr-2">
         <CheckSquare className="h-4 w-4" />

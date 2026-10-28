@@ -132,7 +132,7 @@ export function EditTorrentDialog({ torrent, onClose, onSuccess }: EditTorrentDi
 
             {/* Advanced Options */}
             {advancedOpen && (
-              <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-top-4 duration-300 w-full overflow-hidden">
+              <div className="space-y-6 pt-4 transition-none animate-in fade-in slide-in-from-top-4 duration-300 w-full overflow-hidden">
                 {/* Tabs for advanced options */}
                 <div className="flex gap-1 p-1 bg-muted/30 rounded-2xl border border-muted/30 overflow-x-auto no-scrollbar">
                   {EDIT_TORRENT_ADVANCED_TABS.map((tab) => (
