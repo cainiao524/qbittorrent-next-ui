@@ -63,7 +63,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none">
+    <div className="min-h-screen bg-background text-foreground grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] overflow-hidden transition-none animate-in fade-in slide-in-from-top-2 duration-300 motion-reduce:animate-none">
       <div className="hidden lg:flex min-w-0 relative overflow-hidden bg-primary text-primary-foreground p-10 xl:p-12 flex-col justify-between">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_20%_10%,white_0,transparent_38%),radial-gradient(circle_at_85%_80%,white_0,transparent_32%)]" />
         <div className="relative flex items-center gap-3 text-xl font-semibold">

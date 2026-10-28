@@ -17,7 +17,7 @@ interface TabProps {
 
 export function EditTorrentSpeedTab({ form, updateField, toggleField, t }: TabProps) {
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
+    <div className="space-y-4 transition-none animate-in fade-in duration-300">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">{t("common.download_limit")}</label>
@@ -133,7 +133,7 @@ function LimitModeButtons({ mode, onChange, t }: { mode: number; onChange: (valu
 
 export function EditTorrentRatioTab({ form, updateField, t }: Omit<TabProps, "toggleField">) {
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <div className="space-y-5 transition-none animate-in fade-in duration-300">
       <div className="space-y-3">
         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1 flex items-center justify-between">
           <span>{t("common.seed_ratio_limit")}</span>
@@ -193,7 +193,7 @@ export function EditTorrentRatioTab({ form, updateField, t }: Omit<TabProps, "to
 
 export function EditTorrentTrackersTab({ form, updateField, t }: Omit<TabProps, "toggleField">) {
   return (
-    <div className="space-y-3 animate-in fade-in duration-300">
+    <div className="space-y-3 transition-none animate-in fade-in duration-300">
       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-2">
         <Globe className="h-3 w-3" /> {t("common.trackers_list")}
       </label>
@@ -222,12 +222,12 @@ export function EditTorrentLabelsTab({ form, updateField, t }: Omit<TabProps, "t
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
+    <div className="space-y-4 transition-none animate-in fade-in duration-300">
       <div className="space-y-2">
         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">{t("common.labels")}</label>
         <div className="flex flex-wrap gap-2 p-3 rounded-2xl bg-muted/20 border border-muted/10 min-h-[44px]">
           {form.labels.map((label: string, i: number) => (
-            <div key={i} className="flex items-center gap-1.5 p-1 px-2 bg-muted rounded-lg w-fit text-xs md:text-sm font-medium group animate-in zoom-in-95 duration-200">
+            <div key={i} className="flex items-center gap-1.5 p-1 px-2 bg-muted rounded-lg w-fit text-xs md:text-sm font-medium group transition-none animate-in zoom-in-95 duration-200">
               {label}
               <button
                 type="button"

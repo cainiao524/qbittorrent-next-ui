@@ -61,7 +61,7 @@ function FacetGroup({ kind, title, items, selected, open, onOpenChange, onToggle
         {selected.length > 0 && <span className="ml-auto rounded bg-primary/10 px-1.5 text-[10px] text-primary">{selected.length}</span>}
       </button>
       {open && (
-        <ul className="mt-0.5 flex flex-col gap-0.5">
+        <ul className="mt-0.5 flex flex-col gap-0.5 transition-none animate-in fade-in slide-in-from-top-1 duration-150 motion-reduce:animate-none">
           {visible.map(({ value, count }) => {
             const active = selected.includes(value)
             return (

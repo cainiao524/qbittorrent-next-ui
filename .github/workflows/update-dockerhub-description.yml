@@ -58,10 +58,16 @@ jobs:
           ref = os.environ.get("GITHUB_REF", "")
           ref_type = os.environ.get("GITHUB_REF_TYPE", "")
           ref_name = os.environ.get("GITHUB_REF_NAME", "")
-          if event_name == "workflow_dispatch":
+          # A release run is identified by its ref, not its event: auto-release.yml starts
+          # docker-image.yml with workflow_dispatch on the release tag, and this workflow
+          # inherits that event as a reusable workflow.
+          if ref_type == "tag":
+              if ref_name != tag:
+                  raise SystemExit(f"release sync ref mismatch: expected {tag}, got {ref}")
+          elif event_name == "workflow_dispatch":
               if ref != "refs/heads/main":
                   raise SystemExit("manual Docker Hub description sync must run from main")
-          elif ref_type != "tag" or ref_name != tag:
+          else:
               raise SystemExit(f"release sync ref mismatch: expected {tag}, got {ref}")
 
           placeholder = "{{DOCKER_VERSION_TAG}}"
